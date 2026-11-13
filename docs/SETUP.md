@@ -24,11 +24,9 @@ No ambiente original npm não estava no PATH. Foi usado temporariamente o npm 11
 1. Usar somente Workers Free e Zero Trust/Access gratuito compatível com um usuário. Não contratar upgrades, serviços pagos ou billing por uso adicional. Conferir o plano real antes de publicar.
 2. Fazer `npx wrangler login` no seu ambiente ou disponibilizar credenciais pelo mecanismo de segredos do CI. Nunca colar tokens no chat, código ou arquivos públicos.
 3. Configurar uma aplicação Access para `posts.marioserafim.com.br`, com política Allow restrita à sua identidade e demais usuários negados. Verificar autenticação em sessão anônima e sessão autorizada. Não usar política bypass pública.
-4. Somente após Access configurado, adicionar ao wrangler.jsonc:
-   `"routes": [{ "pattern": "posts.marioserafim.com.br", "custom_domain": true }]`.
-   O domínio precisa estar na conta Cloudflare; conferir conflito com registros ou aplicação já existentes antes de alterá-lo.
+4. A rota `posts.marioserafim.com.br` já está no wrangler.jsonc. Antes de novos deploys, confirmar que o Access continua protegendo o hostname e seus arquivos estáticos.
 5. Manter `workers_dev: false` e `preview_urls: false`. Se habilitar qualquer URL alternativa para testes, proteger essa URL com Access antes de disponibilizar dados.
-6. Executar `npm run deploy` no plano Free. O arquivo atual não ativa rota alguma por segurança: é uma configuração preparada, não evidência de publicação.
+6. Para deploy local, executar `npm run deploy` com Wrangler autenticado e plano Free. Para deploy automatizado, configurar o ambiente abaixo.
 7. Verificar: sessão anônima recebe desafio/negação Access; sessão autorizada abre o app; refresh/link direto funciona; assets carregam; cabeçalhos de segurança chegam; URLs alternativas não contornam Access.
 
 O comando dry-run valida empacotamento; NÃO comprova deploy, DNS, Access ou gratuidade da configuração da conta.
