@@ -28,6 +28,8 @@ Pasta de trabalho inicialmente vazia. Repositório público clonado de `MarioSer
 
 Correções realizadas: TypeScript 7 incompatível com typescript-eslint → fixado 6.0.3; minimatch vulnerável transitivo → override 11.0.8 e lint revalidado; diálogo não devolvia foco após Escape → restauração explícita e teste aprovado; foco inicial indevido em StrictMode → foco somente em troca de página. Removida adaptação mobile após instrução do proprietário. Corrigida opção de consulta de teste incompatível com tipos da Testing Library.
 
+Fundação publicada na branch main, commit `6136947`, confirmado por `git ls-remote`. Na consulta após o push, a API de Actions retornou zero execuções; portanto os resultados acima são locais, não aprovação de CI remoto. Workflow está versionado, mas seu disparo remoto ainda precisa ser verificado (pode ser executado manualmente na aba Actions).
+
 ## Pendências reais
 
 **Fase 0 não está integralmente encerrada: falta deploy de teste protegido.** `wrangler whoami` confirmou ausência de autenticação Cloudflare neste ambiente. Nenhum deploy, configuração DNS ou política Access foi executado. Dry-run não prova publicação.
