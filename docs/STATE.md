@@ -1,5 +1,13 @@
 # Estado real — 13/11/2026
 
+## Fase 1 — Radar
+
+- Coleta inicial real em 13/11/2026 às 15:47 (Brasília): **161 notícias únicas, nove fontes sem falha, 20 itens associados ao Google Trends e 128 com resumo**. O snapshot v1 está em `public/radar.json`. Fontes e classificação configuráveis em `radar/sources.json`.
+- Radar desktop com cards, busca, filtros por nicho, fonte, idioma, publicação e Trends, favoritos no IndexedDB, paginação e diagnóstico por fonte. Falhas de coleta preservam o histórico e a última data de sucesso.
+- Lint, build, dry-run do Wrangler, 13 testes Vitest e 10 Playwright aprovados localmente. Playwright verificou navegação, console, layout desktop, links, busca e persistência após recarregar.
+- Primeira edição publicada pelo Wrangler no Workers Static Assets, versão `8857c7f2-8bb2-429a-b36a-b3e7e396fa27`. A atualização automatizada no mesmo workflow está configurada para 06:17, 12:17 e 18:17 (Brasília).
+- **Pendente:** cadastrar os dois segredos Cloudflare e a variável do ambiente `production` conforme SETUP.md, executar o workflow e comparar o timestamp do artefato com o JSON em sessão Access autorizada. Ainda não há comprovação do deploy agendado nem do timestamp obtido em sessão autorizada.
+
 ## Auditoria inicial
 
 Pasta de trabalho inicialmente vazia. Repositório público clonado de `MarioSerafimCoder/post-machine`; continha somente README e o commit inicial. Nenhuma funcionalidade anterior foi substituída. Trabalho exclusivamente em `main`.
@@ -33,14 +41,14 @@ O CI Linux inicialmente falhou no `npm ci` por entradas transitivas `@emnapi` au
 
 Build servido pelo Wrangler local: HTTP 200 com CSP, rota direta, navegação por teclado, sem overflow horizontal nem erros de console em 1024, 1280 e 1440 px. Em produção, HTML, JS e CSS retornaram HTTP 302 para o Access sem sessão; o hostname alternativo workers.dev respondeu 404. O DNS público da Cloudflare já resolve o domínio; o resolvedor local ainda não resolvia na primeira tentativa de acesso no Chrome.
 
-## Pendências reais
+## Registro da Fase 0
 
 **Fase 0: deploy protegido publicado; falta validar a sessão autorizada no navegador.** A autenticação do painel/Wrangler foi concluída pelo proprietário; o Access do site usa uma sessão distinta. Abrir o domínio no desktop após o DNS resolver, autenticar com a identidade permitida e verificar abertura, navegação, refresh e carregamento de assets.
 
 O primeiro deploy foi pelo Wrangler autenticado localmente. Para publicação pelo GitHub Actions, provisionar `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` e `CLOUDFLARE_ACCESS_READY` no environment `production`, conforme SETUP.md. Isso é necessário para automatizar o deploy do Radar na Fase 1.
 
-Coletor, RSS, Google Trends, favoritos, importação, Fabric, templates editáveis, IndexedDB, uploads, auditoria de artes e exportação não estão implementados. A arte ilustrativa da tela inicial não é um template funcional.
+Importação, Fabric, templates editáveis, uploads, auditoria de artes e exportação permanecem fora do escopo atual.
 
 ## Próxima etapa
 
-Fase 1 preparada em ROADMAP.md: contratos, fontes reais, coleta robusta, busca/filtros/favoritos e atualização da produção no mesmo workflow. Não depender de commits GITHUB_TOKEN para acionar deploy. Antes de declarar Fase 1 concluída, validar snapshot real em produção protegida.
+Validar o deploy agendado e o snapshot em sessão autorizada antes de encerrar a Fase 1. A Fase 2 ainda não foi iniciada.

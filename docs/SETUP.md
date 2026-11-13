@@ -33,7 +33,7 @@ O comando dry-run valida empacotamento; NÃO comprova deploy, DNS, Access ou gra
 
 ## GitHub Actions
 
-`ci.yml` valida main e pull requests; usa runners Linux públicos padrão. Não usar runners pagos/maiores. `deploy.yml` é manual e roda somente em main; repete lint/test/build e publica usando environment `production`.
+`ci.yml` valida main e pull requests em runners Linux públicos padrão. `deploy.yml` roda em main manualmente e às 06:17, 12:17 e 18:17 (Brasília). O job de coleta independe de credenciais Cloudflare. Ele restaura o último artefato de coleta válido (ou usa a edição inicial de `public/radar.json`), coleta, valida e gera o build. O job seguinte publica exatamente esse build, sem outro push ou workflow.
 
 Configurar no environment `production`:
 
@@ -41,9 +41,9 @@ Configurar no environment `production`:
 - Secret `CLOUDFLARE_ACCOUNT_ID`.
 - Variable `CLOUDFLARE_ACCESS_READY=true` somente depois de confirmar a política Access e a rota no wrangler.jsonc. É uma trava operacional, não autenticação e não prova automática da política.
 
-Sem esses valores, deploy falha com mensagem explícita. CI não depende de credenciais Cloudflare. Autenticação para publicar não foi inventada ou embutida no app.
+Sem esses valores, apenas a publicação falha com mensagem explícita. Configure em **Settings → Environments → production** no GitHub. Depois execute **Actions → Radar e deploy protegido → Run workflow → main**. Compare `collectedAt` no artefato `radar-snapshot` com [radar.json](https://posts.marioserafim.com.br/radar.json) em sessão autorizada. O workflow verifica redirecionamento anônimo antes e depois da publicação.
 
-Para Fase 1, integrar coleta e deploy no mesmo workflow conforme ARCHITECTURE.md. Não criar agendamento sem fontes verificadas e configuração de produção válida.
+Para reproduzir localmente, use `npm run radar:collect`, `npm run build` e `npm run preview`. Edite `radar/sources.json` para ajustar fontes, nichos, destinos de redirecionamento e palavras-chave. Os favoritos ficam no IndexedDB do navegador e não são enviados ao servidor.
 
 ## Dados e segredos
 

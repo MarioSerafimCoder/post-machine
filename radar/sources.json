@@ -1,0 +1,23 @@
+{
+  "sources": [
+    {"id":"designboom","name":"designboom","url":"https://www.designboom.com/feed/","kind":"rss","category":"Design e criatividade","language":"en"},
+    {"id":"archdaily","name":"ArchDaily Brasil","url":"https://www.archdaily.com.br/br/rss","redirectHosts":["feeds.feedburner.com"],"kind":"rss","category":"Arquitetura","language":"pt","country":"BR"},
+    {"id":"adweek","name":"Adweek","url":"https://www.adweek.com/feed/","kind":"rss","category":"Marketing e publicidade","language":"en","country":"US"},
+    {"id":"verge","name":"The Verge","url":"https://www.theverge.com/rss/index.xml","kind":"rss","category":"Tecnologia e inteligência artificial","language":"en","country":"US"},
+    {"id":"guardian","name":"The Guardian — Film","url":"https://www.theguardian.com/uk/film/rss","kind":"rss","category":"Cinema e cultura","language":"en","country":"GB"},
+    {"id":"ebc","name":"Agência Brasil","url":"https://agenciabrasil.ebc.com.br/rss/economia/feed.xml","kind":"rss","category":"Economia","language":"pt","country":"BR"},
+    {"id":"saude","name":"Ministério da Saúde","url":"https://www.gov.br/saude/pt-br/assuntos/noticias/RSS","kind":"rss","category":"Saúde e bem-estar","language":"pt","country":"BR"},
+    {"id":"psychology","name":"Psychology Today","url":"https://www.psychologytoday.com/us/front/feed","kind":"rss","category":"Psicologia","language":"en","country":"US"},
+    {"id":"trends-br","name":"Google Trends — Brasil","url":"https://trends.google.com/trending/rss?geo=BR","kind":"trends","category":"Em alta","country":"BR"}
+  ],
+  "keywords": {
+    "Economia": ["inflação", "ibovespa", "selic", "bolsa de valores"],
+    "Cinema e cultura": ["cinema", "filme", "festival de cinema"],
+    "Tecnologia e inteligência artificial": ["inteligência artificial", "chatgpt", "openai", "tecnologia"],
+    "Saúde e bem-estar": ["saúde", "vacinação", "dengue"],
+    "Arquitetura": ["arquitetura", "urbanismo"],
+    "Marketing e publicidade": ["publicidade", "marketing"],
+    "Design e criatividade": ["design", "tipografia"],
+    "Psicologia": ["psicologia", "psicoterapia"]
+  }
+}

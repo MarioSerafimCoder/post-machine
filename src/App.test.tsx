@@ -16,7 +16,7 @@ describe('fundação', () => {
     render(<App />); navigate('#/radar')
     expect(document.title).toBe('Radar — Post Machine')
     expect(screen.getByRole('heading', { name: 'Radar' })).toHaveFocus()
-    expect(screen.getByText(/Nenhuma notícia foi coletada/)).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Notícias do Radar' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Virais e formatos' }))
     expect(screen.getByText(/Nenhuma referência cadastrada/)).toBeVisible()
     expect(screen.getByRole('button', { name: 'Virais e formatos' })).toHaveAttribute('aria-pressed', 'true')

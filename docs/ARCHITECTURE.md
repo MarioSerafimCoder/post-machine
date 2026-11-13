@@ -31,7 +31,8 @@ Versões e licenças verificadas no registro npm oficial (`https://registry.npmj
 | Playwright | 1.65.0 | Apache-2.0 | Testes desktop/laptop |
 | Wrangler | 4.162.0 | MIT OR Apache-2.0 | Deploy de Static Assets |
 | Fabric.js | 7.4.0 | MIT | Adiar instalação para Fase 3 |
-| Zod | 4.6.7 | MIT | Adiar para contratos e coleta |
+| Zod | 4.6.7 | MIT | Validação do Radar na coleta e no navegador |
+| Saxes | 6.0.0 | ISC | Parser XML sem DTD e sem entidades externas |
 | JSZip | 3.10.2 | MIT OR GPL-3.0-or-later | Adiar para exportação; usar opção MIT |
 
 Node 24 LTS, mínimo 24.15, atende requisitos atuais do Vite, Vitest e jsdom. Versão usada localmente: 24.22.1. Dependências de desenvolvimento não são incluídas automaticamente no bundle do usuário.
@@ -56,6 +57,8 @@ Um coletor Node lê configuração de fontes, normaliza/deduplica e valida um sn
 
 Agendar três execuções/dia no GitHub Actions (proposta: `17 9,15,21 * * *` UTC = 06:17, 12:17, 18:17 em São Paulo). Horários não são SLA e execuções podem atrasar. O mesmo workflow deverá coletar, validar, executar testes, compilar e publicar o snapshot. Não depender de um push feito pelo GITHUB_TOKEN para iniciar outro deploy: [GitHub documenta a ausência desse disparo](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 
-Preservar último snapshot válido ao falhar, expor erro por fonte e data real; falhas totais não devem apagar histórico. Definir armazenamento/versionamento do snapshot público na Fase 1. Não enviar favoritos e projetos pessoais ao repositório.
+O snapshot v1 inicial é versionado; as atualizações ficam em artefatos do GitHub Actions por 14 dias. Até 600 itens são retidos, com janela de 14 dias desde a coleta de cada item. Uma falha total preserva as notícias e a última data de sucesso e atualiza o estado das fontes. Links originais são preservados; a deduplicação usa URL canônica e similaridade conservadora de títulos.
 
-Aceite end-to-end obrigatório: gerar snapshot com `collectedAt` real, publicar no mesmo workflow e conferir, após autenticação Access, o mesmo timestamp em produção. Este circuito NÃO está implementado nem testado na Fase 0.
+As fontes RSS recebem o nicho do arquivo de configuração. Os artigos relacionados no [RSS oficial do Google Trends](https://support.google.com/trends/answer/3076011?hl=pt-BR) recebem o nicho por palavras-chave, com fallback “Em alta”. A associação ao Trends é um destaque editorial; não representa audiência do artigo. O coletor não usa a data da tendência como data de publicação.
+
+Aceite end-to-end: conferir, após autenticação Access, o mesmo `collectedAt` do artefato da execução no JSON de produção.

@@ -1,3 +1,4 @@
+import { News } from './features/radar/News'
 import { useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { Roadmap } from './components/Roadmap'
@@ -57,14 +58,14 @@ function Overview({ onRoadmap }: { onRoadmap: () => void }) {
 }
 
 const radarSections = [
-  { title: 'Notícias e pautas', heading: 'Uma boa pauta começa com uma fonte.', description: 'A coleta de RSS e tendências será implementada na Fase 1. Nenhuma notícia foi coletada ainda.', note: 'Última atualização: ainda não houve coleta.' },
+  { title: 'Notícias e pautas' },
   { title: 'Pautas e prompts', heading: 'Da referência ao briefing.', description: 'Na Fase 2, transforme fontes verificáveis em pautas e prompts para trabalhar com sua IA de preferência.', note: 'Geração e importação de conteúdo ainda indisponíveis.' },
   { title: 'Virais e formatos', heading: 'Referências que ampliam o repertório.', description: 'A curadoria manual de formatos e referências criativas será implementada na Fase 5.', note: 'Nenhuma referência cadastrada. Métricas nunca serão inventadas.' },
 ]
 function Radar() {
   const [section, setSection] = useState(0)
   const current = radarSections[section]
-  return <><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><section className="empty-state" aria-live="polite"><span className="empty-icon"><Icon name="radar" /></span><span className="badge">Em desenvolvimento</span><h2>{current.heading}</h2><p>{current.description}</p><span className="small muted">{current.note}</span></section><div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
+  return <><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div>{section === 0 ? <News /> : <section className="empty-state" aria-live="polite"><span className="empty-icon"><Icon name="radar" /></span><span className="badge">Em desenvolvimento</span><h2>{current.heading}</h2><p>{current.description}</p><span className="small muted">{current.note}</span></section>}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
 }
 function Studio() {
   return <><p className="page-description">Ideias com forma, ritmo e identidade.</p><section className="empty-state"><span className="empty-icon"><Icon name="studio" /></span><span className="badge">Planejado · Fase 3</span><h2>Seu próximo carrossel começa aqui.</h2><p>O editor visual ainda não está disponível. A próxima etapa do Studio trará templates editáveis, projetos locais e exportação.</p><a className="button button-dark" href="#/radar">Conhecer o Radar <Icon name="arrow" /></a></section><div className="format-panel"><h2>Formatos previstos</h2><div className="format-grid">{[['portrait', 'Retrato', '1080 × 1350'], ['square', 'Quadrado', '1080 × 1080'], ['story', 'Story', '1080 × 1920']].map(([shape, title, size]) => <div className="format-item" key={shape}><div className="format-preview"><span className={`format-shape ${shape}`} /></div><div><strong>{title}</strong><p>{size} px</p></div><span className="badge">Planejado</span></div>)}</div></div></>

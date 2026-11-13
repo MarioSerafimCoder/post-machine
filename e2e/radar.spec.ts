@@ -1,0 +1,24 @@
+import { test, expect } from '@playwright/test'
+
+test('Radar carrega notícias reais, filtra e mantém favorito após recarregar', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
+  await page.goto('/#/radar')
+  const cards = page.getByRole('article')
+  await expect(cards.first()).toBeVisible()
+  const title = await cards.first().getByRole('heading').innerText()
+  await page.getByRole('searchbox', { name: 'Buscar notícias' }).fill(title)
+  await expect(cards.first().getByRole('link',{ name:title, exact:true })).toHaveAttribute('href', /^https?:\/\//)
+  const favorite = page.getByRole('button', { name: `Favoritar: ${title}`, exact:true })
+  await favorite.click()
+  await expect(favorite).toHaveAttribute('aria-pressed','true')
+  await page.reload()
+  await page.getByRole('checkbox', { name:'Só favoritos' }).check()
+  await expect(cards).toHaveCount(1)
+  await expect(favorite).toHaveAttribute('aria-pressed','true')
+  await page.getByRole('searchbox').fill('zzzzzzzzzzzz')
+  await expect(page.getByText('Nenhuma notícia encontrada')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  expect(errors).toEqual([])
+})
