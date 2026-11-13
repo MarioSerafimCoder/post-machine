@@ -4,7 +4,7 @@ Plataforma pessoal de criação de conteúdo: **Radar**, **Studio** e **Auditori
 
 ## Estado
 
-Fundação da interface disponível: navegação exclusivamente desktop (1024 px+), links diretos, estados vazios reais, roteiro do produto e design system editorial. **Desktop first, sempre; sem versão mobile.** Coletor, editor, persistência e auditoria ainda não implementados. Publicação protegida no Cloudflare depende da configuração da conta; não considerar produção ativa.
+Fundação da interface disponível: navegação exclusivamente desktop (1024 px+), links diretos, estados vazios reais, roteiro do produto e design system editorial. **Desktop first, sempre; sem versão mobile.** Coletor, editor, persistência e auditoria ainda não implementados. O deploy de teste está protegido pelo Cloudflare Access.
 
 ## Executar
 
@@ -32,4 +32,4 @@ npm run test:e2e
 - [Configuração local, Cloudflare Access e deploy](docs/SETUP.md)
 - [Instruções para agentes](AGENTS.md)
 
-Domínio planejado: `posts.marioserafim.com.br`. Custo operacional adicional obrigatório: **R$ 0**. Sem APIs comerciais de IA, banco remoto ou assinatura. Projetos e uploads serão locais, sem sincronização entre dispositivos. Não enviar segredos ou conteúdo pessoal para este repositório público.
+Domínio: [posts.marioserafim.com.br](https://posts.marioserafim.com.br). Custo operacional adicional obrigatório: **R$ 0**. Sem APIs comerciais de IA, banco remoto ou assinatura. Projetos e uploads serão locais, sem sincronização entre dispositivos. Não enviar segredos ou conteúdo pessoal para este repositório público.
