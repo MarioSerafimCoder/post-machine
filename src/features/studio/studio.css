@@ -28,3 +28,8 @@
 .slide-mini { display: flex; flex-direction: column; justify-content: space-between; height: 114px; padding: 10px; font-size: 10px; color: #163f35; margin-bottom: 8px; overflow: hidden; }
 .slide-mini small { font-size: 8px; }
 .slide-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.slide-thumbnail { width: 92px; height: 114px; object-fit: contain; margin-bottom: 8px; }
+.export-warnings { background: #fff3d8; border: 1px solid #e4b963; padding: 20px; margin: 12px 0; }
+.project-library { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 16px; }
+.project-library article { padding: 16px; border: 1px solid #d8dcd2; border-radius: 8px; }

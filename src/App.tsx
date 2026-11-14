@@ -21,6 +21,8 @@ const modules: { id: Page; number: string; title: string; description: string; i
 
 export function App() {
   const page = usePage()
+  const [studioVisited, setStudioVisited] = useState(false)
+  useEffect(() => { if (page === 'studio') { const timer = setTimeout(() => setStudioVisited(true), 0); return () => clearTimeout(timer) } }, [page])
   const [designRequest, setDesignRequest] = useState<Draft | null>(null)
   const [roadmap, setRoadmap] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
@@ -45,7 +47,7 @@ export function App() {
         <div className="page-heading"><div><p className="eyebrow">SEU PROCESSO CRIATIVO, EM UM SÓ LUGAR</p><h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'Ideias boas merecem espaço.' : label}</h1></div><span className="badge badge-outline"><span className="status-dot" /> Fase 3 · Studio</span></div>
         {page === 'inicio' && <Overview onRoadmap={() => setRoadmap(true)} />}
         <div hidden={page !== 'radar'}><Radar active={page === 'radar'} onDesign={draft => { setDesignRequest(draft); window.location.hash = '/studio' }} /></div>
-        {page === 'studio' && <Suspense fallback={<p>Carregando Studio…</p>}><Studio request={designRequest} /></Suspense>}
+        {(page === 'studio' || studioVisited) && <div hidden={page !== 'studio'}><Suspense fallback={<p>Carregando Studio…</p>}><Studio request={designRequest} /></Suspense></div>}
         {page === 'auditoria' && <Audit />}
         {page === 'not-found' && <section className="empty-state"><Icon name="home" /><h2>Este caminho ainda não existe.</h2><p>Volte à visão geral para explorar seu espaço.</p><a className="button button-dark" href="#/inicio">Voltar ao início</a></section>}
         <footer className="footer"><span>DIRETO <span className="footer-divider">/</span> Da referência à publicação.</span><span>Feito para o seu processo.</span></footer>

@@ -113,3 +113,11 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - Slides com duplicação, exclusão confirmada e reordenação. Minha marca com nome, arroba, cores, fontes do sistema, margens e logotipo. Troca de template/aplicação global exige confirmação.
 - Build e lint aprovados; quatro Playwright do Studio aprovados (desktop/laptop), incluindo campanha de três slides, edição, troca de template preservando título, reordenação e exclusão.
 - Próxima entrega 3.3: persistência, backup, histórico e exportação. As miniaturas ainda são resumos semânticos; QA final substituirá por prévias reais.
+
+## Entrega 3.3 — 14/11/2026
+
+- IndexedDB Studio v2: projetos, imagens Blob deduplicadas por SHA-256, marca e última versão anterior confirmada. Migração cria recovery preservando v1. Autosave ordenado, salvamento explícito, retentativa, biblioteca, duplicação e exclusão confirmada. Histórico de 30 operações por sessão e recuperação da última versão anterior persistida.
+- Backup ZIP completo do estado atual com imagens únicas e hashes verificados; restauração cria novo ID. Importação rejeita versões desconhecidas, URLs externas e dimensões abusivas.
+- PNG real e ZIP numerado; exportador isolado do zoom. Aguarda fontes e imagens; avisos de overflow, margens, ausência de imagem e baixa resolução antes do download. Prévias rasterizadas reais para os slides.
+- Lint, 20 Vitest e build aprovados. Dez Playwright do Studio passaram. Arquivos baixados conferidos: PNG 1080×1350 e ZIP com 01/02/03 nas mesmas dimensões; backup de três slides guarda uma única cópia da imagem e restaura após recarga. Teste de falha real simulada no IndexedDB passou; exceção global durante a simulação foi tratada e cenário revalidado.
+- Próxima entrega 3.4: QA final, documentação e publicação. Fontes disponíveis nesta versão são fontes do sistema; nenhuma fonte remota é carregada. Undo/redo completo não atravessa recargas, mas há recuperação do checkpoint anterior.
