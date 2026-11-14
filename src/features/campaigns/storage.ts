@@ -1,11 +1,21 @@
-import { backupSchema, type Backup, type Draft, type Preferences } from './contract'
+import { backupSchema, draftSchema, type Backup, type Draft, type Preferences } from './contract'
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('post-machine-campaigns', 1)
+    const request = indexedDB.open('post-machine-campaigns', 2)
     request.onupgradeneeded = () => {
-      request.result.createObjectStore('campaigns', { keyPath: 'id' })
-      request.result.createObjectStore('settings')
+      const db = request.result
+      if (!db.objectStoreNames.contains('campaigns')) db.createObjectStore('campaigns', { keyPath: 'id' })
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings')
+      const cursor = request.transaction!.objectStore('campaigns').openCursor()
+      cursor.onsuccess = () => {
+        const item = cursor.result
+        if (!item) return
+        const migrated = draftSchema.safeParse(item.value)
+        if (!migrated.success) { request.transaction!.abort(); return }
+        item.update(migrated.data)
+        item.continue()
+      }
     }
     request.onerror = () => reject(request.error)
     request.onsuccess = () => resolve(request.result)
@@ -31,7 +41,7 @@ export function readCampaigns() {
     const campaigns = transaction.objectStore('campaigns').getAll()
     const preferences = transaction.objectStore('settings').get('preferences')
     return () => backupSchema.parse({
-      schemaVersion: 1, campaigns: campaigns.result,
+      schemaVersion: 2, campaigns: campaigns.result,
       preferences: preferences.result ?? { audience: '', tone: 'Profissional' },
     })
   })

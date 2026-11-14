@@ -92,3 +92,10 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - As alterações de pautas e campanhas já estavam na main remota (872dad8). A cópia em F:\postmachine foi sincronizada após conferir que os arquivos eram idênticos.
 - ESLint, 17 testes Vitest, 14 testes Playwright e build aprovados. A comparação do prompt copiado agora aceita a quebra de linha nativa do Windows sem ignorar diferenças de conteúdo.
 - A Fase 2 foi publicada via Wrangler no domínio de produção, versão `caee93ea-86b8-4192-aa9f-dd4df8fd0058`. A página inicial, o snapshot e os arquivos estáticos verificados continuaram redirecionando visitantes anônimos ao Cloudflare Access. A verificação do fluxo de campanhas em sessão autorizada e o deploy agendado continuam pendentes.
+
+## Entrega 3.0 — 14/11/2026
+
+- Campanhas independentes com título próprio e origem opcional. Entrada no Radar e Studio; importador editorial existente preservado. Marca pública Direto, infraestrutura e bancos preservados.
+- IndexedDB v2 migra documentos v1 em transação; backups antigos são aceitos sem sobrescrever colisões. SaveQueue com debounce, serialização, retenção de pendências, retentativa e flush na troca/navegação.
+- Lint aprovado, 19 testes Vitest, build aprovado. Playwright: 12 cenários anteriores passaram inicialmente; dois revelaram conflito entre feedback de preferências e autosave, corrigido aguardando flush. Os quatro cenários de campanhas passaram no reteste; quatro novos cenários cobrem criação independente e migração/restauração v1 nos dois perfis desktop.
+- Próxima entrega: 3.1, editor Fabric. Não publicado ainda. Produção segue na Fase 2; Access e pendências do agendamento preservados.

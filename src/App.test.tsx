@@ -14,7 +14,7 @@ describe('fundação', () => {
   })
   it('atualiza página, título e foco; alterna seções do Radar', () => {
     render(<App />); navigate('#/radar')
-    expect(document.title).toBe('Radar — Post Machine')
+    expect(document.title).toBe('Radar — Direto')
     expect(screen.getByRole('heading', { name: 'Radar' })).toHaveFocus()
     expect(screen.getByRole('region', { name: 'Notícias do Radar' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Virais e formatos' }))

@@ -12,13 +12,14 @@ Fonte de requisitos: PRODUCT_SPEC.md. Evidências e estado corrente: STATE.md.
 | 5 — Inteligência adicional | Openverse, headlines, referências manuais | Atribuição/licenças preservadas; métricas somente reais; heurísticas explícitas; modelos locais opcionais, sem APIs pagas ou scraping não autorizado. |
 | 6 — Refinamento | Testes integrados, performance, acessibilidade e revisão visual | Fluxo Radar → conteúdo importado → Studio → auditoria → exportação/backup verificado e documentação atualizada. |
 
-## Próximo agente: Fase 1
+## Etapa atual: Fase 3 — Studio
 
-1. Ler STATE, ARCHITECTURE e SETUP. Resolver o deploy protegido antes de afirmar entrega end-to-end.
-2. Definir contrato Zod para fonte, notícia, snapshot e erros por fonte; datas ISO, IDs estáveis e URLs http/https canônicas.
-3. Verificar RSS reais nas categorias da especificação e Google Trends; registrar termos, disponibilidade, idioma e país apenas quando conhecidos. Não usar dados inventados no produto.
-4. Implementar coletor com timeout, limite de resposta, redirects limitados, deduplicação e proteção contra URLs locais/privadas. Evitar SSRF no coletor; configuração de fontes versionada e revisada.
-5. Testar feeds malformados, falhas parciais/totais, datas inválidas, títulos similares e URLs equivalentes. Fixtures de teste identificadas como fixtures.
-6. Construir busca/filtros, favoritos IndexedDB, estados loading/empty/error/success e indicação de último sucesso; não instalar Fabric antes da fase correspondente.
-7. Publicar no MESMO workflow da coleta. Conferir timestamp do JSON em produção e documentar o resultado real.
-8. Atualizar STATE com testes e pendências; não avançar para Fase 2 nesta entrega.
+Fases 1 e 2 implementadas e publicadas. Validação em sessão Access autorizada e publicação agendada continuam pendentes (ver STATE).
+
+- 3.0: campanhas independentes, migração v2, salvamento ordenado e marca Direto.
+- 3.1: editor Fabric, formatos, texto, imagens e ferramentas.
+- 3.2: seis templates, carrosséis, marca e integração editorial.
+- 3.3: persistência, histórico, backups, PNG e ZIP.
+- 3.4: testes integrados, revisão visual e publicação protegida.
+
+Validar e registrar cada entrega antes de avançar. Sem Radar de Virais ou serviços externos de IA nesta fase.

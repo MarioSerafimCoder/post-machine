@@ -34,3 +34,5 @@
 .campaign-sources { padding-left: 20px; }
 .campaign-slide { border: 1px solid #d8d9ce; border-radius: 10px; margin: 0; padding: 12px; min-width: 0; }
 .campaign-slide legend { padding: 0 6px; font-weight: 700; }
+
+.campaign-workspace > .campaign-actions { grid-column: 1 / -1; }

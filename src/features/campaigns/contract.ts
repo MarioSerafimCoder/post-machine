@@ -28,13 +28,16 @@ export const contentSchema = z.object({
   sources: z.array(sourceSchema).max(50),
   slides: z.array(slideSchema).min(1).max(maxSlides),
 }).refine(({ slides }) => slides.every((slide, index) => slide.order === index + 1), { path: ['slides'], message: 'Use posições consecutivas a partir de 1.' })
-export const draftSchema = z.object({
+const legacyDraftSchema = z.object({
   schemaVersion: z.literal(1), id: z.uuid(), article: articleSchema,
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
   briefing: briefingSchema, prompt: z.string().max(maxImport), promptBriefing: briefingSchema.nullable().default(null), content: contentSchema.nullable(),
 })
+export const draftSchema = z.union([legacyDraftSchema.extend({
+  schemaVersion: z.literal(2), article: articleSchema.nullable(), title: short,
+}), legacyDraftSchema.transform(value => ({ ...value, schemaVersion: 2 as const, title: value.article.title }))])
 export const backupSchema = z.object({
-  schemaVersion: z.literal(1), campaigns: z.array(draftSchema), preferences: preferencesSchema,
+  schemaVersion: z.union([z.literal(1), z.literal(2)]).transform(() => 2 as const), campaigns: z.array(draftSchema), preferences: preferencesSchema,
 }).refine(({ campaigns }) => new Set(campaigns.map(item => item.id)).size === campaigns.length, 'O backup contém IDs duplicados.')
 
 export type Preferences = z.infer<typeof preferencesSchema>
@@ -46,10 +49,10 @@ export type Backup = z.infer<typeof backupSchema>
 export const defaultPreferences: Preferences = { audience: '', tone: tones[0] }
 export const slideCount = (briefing: Briefing) => briefing.format === 'carousel' ? briefing.slideCount : 1
 
-export function newDraft(article: Article, preferences: Preferences): Draft {
+export function newDraft(article: Article | null, preferences: Preferences): Draft {
   const now = new Date().toISOString()
   return {
-    schemaVersion: 1, id: crypto.randomUUID(), article, createdAt: now, updatedAt: now, prompt: '', promptBriefing: null, content: null,
+    schemaVersion: 2, id: crypto.randomUUID(), article, title: article?.title ?? 'Nova campanha', createdAt: now, updatedAt: now, prompt: '', promptBriefing: null, content: null,
     briefing: { ...preferences, objective: objectives[0], format: 'carousel', slideCount: 6, approach: approaches[0], notes: '' },
   }
 }
@@ -58,7 +61,7 @@ export function originalSource(article: Article) {
   return { title: article.title, url: article.url, publishedAt: article.publishedAt }
 }
 
-export function createPrompt({ article, briefing }: Draft) {
+export function createPrompt({ article, briefing, title }: Draft) {
   const count = slideCount(briefing)
   const example: Content = {
     schemaVersion: 1,
@@ -66,16 +69,16 @@ export function createPrompt({ article, briefing }: Draft) {
       title: '', objective: briefing.objective, audience: briefing.audience.trim(), tone: briefing.tone,
       format: briefing.format, caption: '', cta: '',
     },
-    sources: [originalSource(article)],
+    sources: article ? [originalSource(article)] : [],
     slides: Array.from({ length: count }, (_, index) => ({
       order: index + 1, role: index === 0 ? (count === 1 ? 'content' : 'cover') : index === count - 1 ? 'cta' : 'content',
       title: '', body: '', imageBrief: '', layoutType: 'editorial',
     })),
   }
-  const context = {
+  const context = article ? {
     título: article.title, fonte: article.source, link: article.url, nicho: article.category,
     publicação: article.publishedAt ?? undefined, resumo: article.summary, idiomaOriginal: article.language,
-  }
+  } : { título: title, origem: "Briefing independente; não invente fontes." }
 
   return [
     'Produza uma campanha editorial em português brasileiro a partir do briefing abaixo.',
@@ -189,6 +192,7 @@ export function importContent(input: string, draft: Draft): Content {
   if (campaign.format !== draft.briefing.format || slides.length !== slideCount(draft.briefing)) {
     throw Error(`Ajuste o briefing ou a resposta para ${formats[draft.briefing.format]} com ${slideCount(draft.briefing)} peça(s).`)
   }
+  if (!draft.article) return parsed.data
   const original = originalSource(draft.article)
   const uniqueSources = new Map(sources.map(source => [source.url, source]))
   uniqueSources.delete(original.url)

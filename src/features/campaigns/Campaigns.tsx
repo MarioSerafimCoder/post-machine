@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
+import { SaveQueue } from '../../lib/saveQueue'
+import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import { normalize, type Article } from '../radar/contract'
 import {
   approaches, backupSchema, createPrompt, defaultPreferences, formats, importContent,
@@ -17,7 +18,7 @@ const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
 const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imageBrief: '', layoutType: 'editorial' }
 
 export function Campaigns({ request, active, onBack }: {
-  request: { article: Article } | null
+  request: { article: Article | null } | null
   active: boolean
   onBack: () => void
 }) {
@@ -34,7 +35,32 @@ export function Campaigns({ request, active, onBack }: {
   const handledRequest = useRef<typeof request>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const draft = backup?.campaigns.find(item => item.id === selected)
-  const latestSave = useRef(new Map<string, symbol>())
+  const [queue] = useState(() => new SaveQueue<Draft>(putCampaign, (id, state) => {
+    setDirty(current => state === 'saved' ? current.filter(value => value !== id) : current.includes(id) ? current : [...current, id])
+    if (state === 'error') setError('Falha ao salvar. Tente novamente com Salvar campanha. Suas alterações continuam nesta tela.')
+    if (state === 'saved') setStatus('Salvo neste navegador.')
+  }))
+  const [creating, setCreating] = useState(false)
+  useEffect(() => {
+    const flush = () => { void queue.flushAll().catch(() => undefined) }
+    const leave = (event: BeforeUnloadEvent) => { if (queue.hasPending) { flush(); event.preventDefault() } }
+    window.addEventListener('hashchange', flush)
+    document.addEventListener('visibilitychange', flush)
+    window.addEventListener('beforeunload', leave)
+    return () => { flush(); window.removeEventListener('hashchange', flush); document.removeEventListener('visibilitychange', flush); window.removeEventListener('beforeunload', leave) }
+  }, [queue])
+  useEffect(() => { if (!active) void queue.flushAll().catch(() => undefined) }, [active, queue])
+  async function select(id: string) {
+    try { await queue.flushAll(); setSelected(id); setDeleteId(undefined) } catch { /* Keep the unsaved document open. */ }
+  }
+  async function create() {
+    if (!backup) return
+    try { await queue.flushAll() } catch { return }
+    const item = newDraft(null, backup.preferences)
+    persist(item, true)
+    setSelected(item.id)
+    setCreating(false)
+  }
 
   useEffect(() => {
     let live = true
@@ -42,26 +68,14 @@ export function Campaigns({ request, active, onBack }: {
     return () => { live = false }
   }, [])
 
-  function persist(value: Draft, explicit = false) {
+  const persist = useCallback((value: Draft, explicit = false) => {
     const item = { ...value, updatedAt: new Date().toISOString() }
-    const token = Symbol()
-    latestSave.current.set(item.id, token)
     setBackup(current => current && { ...current, campaigns: [item, ...current.campaigns.filter(entry => entry.id !== item.id)] })
-    setSaving(count => count + 1)
     setStatus('')
     setError('')
-    void putCampaign(item).then(() => {
-      if (latestSave.current.get(item.id) !== token) return
-      latestSave.current.delete(item.id)
-      setDirty(current => current.filter(id => id !== item.id))
-      setStatus(explicit ? 'Campanha salva.' : 'Salvo neste navegador.')
-    }, () => {
-      if (latestSave.current.get(item.id) !== token) return
-      latestSave.current.delete(item.id)
-      setDirty(current => current.includes(item.id) ? current : [...current, item.id])
-      setError('Não foi possível salvar. Tente novamente com Salvar campanha.')
-    }).finally(() => setSaving(count => count - 1))
-  }
+    queue.schedule(item.id, item)
+    if (explicit) void queue.flush(item.id).then(() => setStatus('Campanha salva.'), () => undefined)
+  }, [queue])
 
   useEffect(() => {
     if (!request || handledRequest.current === request || (!backup && !loadError)) return
@@ -69,12 +83,12 @@ export function Campaigns({ request, active, onBack }: {
       handledRequest.current = request
       const preferences = backup?.preferences ?? defaultPreferences
       const item = newDraft(request.article, preferences)
-      if (!backup) setBackup({ schemaVersion: 1, campaigns: [], preferences })
+      if (!backup) setBackup({ schemaVersion: 2, campaigns: [], preferences })
       setSelected(item.id)
       persist(item)
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [request, backup, loadError])
+  }, [request, backup, loadError, persist])
 
   useEffect(() => {
     if (active && selected) heading.current?.focus()
@@ -84,6 +98,7 @@ export function Campaigns({ request, active, onBack }: {
     setSaving(count => count + 1)
     setError('')
     try {
+      await queue.flush(item.id)
       await deleteCampaign(item.id)
       setBackup(current => current && { ...current, campaigns: current.campaigns.filter(entry => entry.id !== item.id) })
       setSelected(current => current === item.id ? undefined : current)
@@ -98,6 +113,7 @@ export function Campaigns({ request, active, onBack }: {
     setError('')
     const preferences = { audience: briefing.audience, tone: briefing.tone }
     try {
+      await queue.flushAll()
       await putPreferences(preferences)
       setBackup(current => current && { ...current, preferences })
       setStatus('Preferências salvas para as próximas pautas.')
@@ -140,7 +156,7 @@ export function Campaigns({ request, active, onBack }: {
       if (file.size > maxBackup) throw Error('O backup excede 50 MB.')
       data = backupSchema.parse(JSON.parse(await file.text()))
     } catch (failure) {
-      setError(file.size > maxBackup && failure instanceof Error ? failure.message : 'O arquivo não é um backup válido da Post Machine.')
+      setError(file.size > maxBackup && failure instanceof Error ? failure.message : 'O arquivo não é um backup válido da Direto.')
       setRestoring(false)
       return
     }
@@ -153,30 +169,32 @@ export function Campaigns({ request, active, onBack }: {
     finally { setRestoring(false) }
   }
 
-  const title = (item: Draft) => item.content?.campaign.title.trim() || item.article.title
-  const matches = backup?.campaigns.filter(item => normalize(`${title(item)} ${item.article.title} ${item.article.source}`).includes(normalize(query.trim())))
+  const title = (item: Draft) => item.content?.campaign.title.trim() || item.title || 'Nova campanha'
+  const matches = backup?.campaigns.filter(item => normalize(`${title(item)} ${item.article?.title ?? ''} ${item.article?.source ?? ''}`).includes(normalize(query.trim())))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
   return <section className="campaigns" aria-label="Pautas e prompts" aria-busy={restoring || undefined}>
     <header className="campaign-header">
       <div><h2 ref={heading} tabIndex={-1}>{draft ? 'Editar campanha' : 'Pautas e campanhas'}</h2>
         <p className="muted">As campanhas ficam neste navegador. Exporte um backup para guardá-las em outro lugar.</p></div>
-      <button className="button button-outline" onClick={onBack}>Voltar às notícias</button>
+      <button className="button button-outline" onClick={() => void queue.flushAll().then(onBack, () => undefined)}>Voltar às notícias</button>
     </header>
     {loadError && <p className="info-strip" role="alert">Não foi possível carregar as campanhas locais.</p>}
     {!backup && !loadError && <p role="status">Carregando campanhas.</p>}
-    <p className="campaign-status" role="status">{saving ? 'Salvando…' : status}</p>
+    <p className="campaign-status" role="status">{saving || (dirty.length > 0 && !error) ? 'Salvando…' : status}</p>
     {error && <p className="info-strip" role="alert">{error}</p>}
     <fieldset className="campaign-workspace" disabled={restoring}>
       <legend className="sr-only">Campanhas locais</legend>
+      <div className="campaign-actions"><button className="button button-dark" disabled={!backup} onClick={() => setCreating(value => !value)}>Nova campanha</button>
+      {creating && <><button className="button button-outline" onClick={() => void create()}>Começar do zero</button><button className="button button-outline" onClick={() => void create().then(() => document.getElementById('campaign-import-heading')?.scrollIntoView())}>Importar conteúdo</button><button className="button button-outline" onClick={onBack}>Usar notícia do Radar</button></>}</div>
       <aside className="campaign-library" aria-label="Campanhas salvas">
         <label>Buscar campanhas<input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
         <ul>{matches?.map(item => <li key={item.id}>
-          <button className="campaign-library-item" aria-pressed={item.id === selected} onClick={() => { setSelected(item.id); setDeleteId(undefined) }}>
+          <button className="campaign-library-item" aria-pressed={item.id === selected} onClick={() => void select(item.id)}>
             <strong>{title(item)}</strong><span>{dirty.includes(item.id) ? 'Salvamento pendente' : item.content ? 'Campanha' : 'Pauta'} · {date.format(new Date(item.updatedAt))}</span>
           </button>
         </li>)}</ul>
-        {matches?.length === 0 && <p className="muted">{query ? 'Nenhuma campanha encontrada.' : 'Crie sua primeira pauta a partir de uma notícia do Radar.'}</p>}
+        {matches?.length === 0 && <p className="muted">{query ? 'Nenhuma campanha encontrada.' : 'Crie uma campanha do zero ou use uma notícia do Radar.'}</p>}
         <div className="campaign-backup">
           <button className="button button-outline" disabled={!backup} onClick={exportBackup}>Exportar backup</button>
           <label className="campaign-file-label">Restaurar backup JSON<input type="file" accept=".json,application/json" disabled={saving > 0 || dirty.length > 0} onChange={event => void restore(event)} /></label>
@@ -253,15 +271,16 @@ function Editor({ draft, update, onPreferences }: {
   }
 
   return <>
-    <section className="campaign-panel" aria-labelledby="campaign-source-heading">
+    {article && <section className="campaign-panel" aria-labelledby="campaign-source-heading">
       <h3 id="campaign-source-heading">Notícia de origem</h3>
       <a href={article.url} target="_blank" rel="noreferrer">{article.title}</a>
       <p className="muted">{[article.source, article.category, article.language === 'pt' ? 'Português' : article.language === 'en' ? 'Inglês' : article.language,
         article.publishedAt && date.format(new Date(article.publishedAt))].filter(Boolean).join(' · ')}</p>
       {article.summary && <p>{article.summary}</p>}
-    </section>
+    </section>}
     <section className="campaign-panel" aria-labelledby="campaign-briefing-heading">
       <h3 id="campaign-briefing-heading">Briefing editorial</h3>
+      <label>Título do briefing<input value={draft.title} maxLength={500} onChange={event => update({ ...draft, title: event.target.value })} /></label>
       <div className="campaign-fields">
         <Select label="Objetivo" value={briefing.objective} options={choices(objectives)} change={objective => editBriefing({ objective })} />
         <label>Público-alvo<input value={briefing.audience} maxLength={500} onChange={event => editBriefing({ audience: event.target.value })} /></label>

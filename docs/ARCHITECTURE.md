@@ -1,6 +1,6 @@
 # Arquitetura e decisões
 
-Decisões registradas em 13/11/2026. Escopo implementado: fundação da interface. Especificação integral em PRODUCT_SPEC.md.
+Decisões registradas em 13/11/2026. Escopo implementado: fundação, Radar e campanhas. Fase 3 em andamento. Especificação integral em PRODUCT_SPEC.md.
 
 ## Estrutura
 
@@ -62,3 +62,9 @@ O snapshot v1 inicial é versionado; as atualizações ficam em artefatos do Git
 As fontes RSS recebem o nicho do arquivo de configuração. Os artigos relacionados no [RSS oficial do Google Trends](https://support.google.com/trends/answer/3076011?hl=pt-BR) recebem o nicho por palavras-chave, com fallback “Em alta”. A associação ao Trends é um destaque editorial; não representa audiência do artigo. O coletor não usa a data da tendência como data de publicação.
 
 Aceite end-to-end: conferir, após autenticação Access, o mesmo `collectedAt` do artefato da execução no JSON de produção.
+
+## Campanhas v2 — Direto
+
+Nome público Direto; identificadores técnicos post-machine preservados. Contrato editorial importado continua v1. Documentos locais v2 admitem origem nula e título próprio; leitura de v1 migra sem notícia fictícia. IndexedDB v2 atualiza registros em transação atômica, abortando se algum registro for inválido. Backups v1 continuam aceitos e restauração preserva colisões como cópias.
+
+SaveQueue agrupa edições por 350 ms, serializa gravações por ID e retém a última alteração em falhas. Navegação, troca de documento e perda de visibilidade disparam flush; beforeunload é proteção complementar. A área editorial permanece montada para manter pendências e permitir retentativa. Dados locais não são sincronizados entre abas/dispositivos.

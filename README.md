@@ -1,10 +1,10 @@
-# Post Machine
+# Direto
 
 Plataforma pessoal de criação de conteúdo: **Radar**, **Studio** e **Auditoria** de posts e carrosséis.
 
 ## Estado
 
-Fundação da interface disponível: navegação exclusivamente desktop (1024 px+), links diretos, estados vazios reais, roteiro do produto e design system editorial. **Desktop first, sempre; sem versão mobile.** Coletor, editor, persistência e auditoria ainda não implementados. O deploy de teste está protegido pelo Cloudflare Access.
+Fundação da interface disponível: navegação exclusivamente desktop (1024 px+), links diretos, estados vazios reais, roteiro do produto e design system editorial. **Desktop first, sempre; sem versão mobile.** Radar e campanhas implementados e publicados. Campanhas independentes e salvamento ordenado iniciam a Fase 3, etapa atual. Editor e auditoria ainda em desenvolvimento. O deploy de teste está protegido pelo Cloudflare Access.
 
 ## Executar
 
@@ -27,7 +27,7 @@ npm run test:e2e
 
 - [Especificação integral](docs/PRODUCT_SPEC.md)
 - [Arquitetura, versões, licenças e atualização do Radar](docs/ARCHITECTURE.md)
-- [Roadmap e instruções para Fase 1](docs/ROADMAP.md)
+- [Roadmap e entregas da Fase 3](docs/ROADMAP.md)
 - [Estado real e resultados](docs/STATE.md)
 - [Configuração local, Cloudflare Access e deploy](docs/SETUP.md)
 - [Instruções para agentes](AGENTS.md)
