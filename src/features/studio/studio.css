@@ -21,3 +21,10 @@
 .property-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .studio textarea { min-height: 100px; }
 @media (min-width: 1400px) { .studio-layout { grid-template-columns: 180px minmax(160px, 1fr) 208px; } }
+
+.studio-slides { padding: 14px; border: 1px solid #d8dcd2; background: #f3f4ed; }
+.slide-list { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 14px; }
+.slide-list button { flex-shrink: 0; width: 114px; }
+.slide-mini { display: flex; flex-direction: column; justify-content: space-between; height: 114px; padding: 10px; font-size: 10px; color: #163f35; margin-bottom: 8px; overflow: hidden; }
+.slide-mini small { font-size: 8px; }
+.slide-actions { display: flex; flex-wrap: wrap; gap: 8px; }

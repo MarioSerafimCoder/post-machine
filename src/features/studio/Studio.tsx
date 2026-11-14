@@ -1,14 +1,21 @@
+import type { Draft } from '../campaigns/contract'
+import { templates, compose, semantics, fromCampaign, type Template } from './templates'
+import { BrandPanel } from './BrandPanel'
+import { Slides } from './Slides'
 import { useEffect, useRef, useState } from 'react'
 import { Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
 import { Properties } from './Properties'
-import { dimensions, formatNames, newProject, type Format, type Project } from './model'
+import { defaultBrand, emptySlide, dimensions, formatNames, newProject, type Format, type Project } from './model'
 import { addObject, duplicate, sceneOf } from './objects'
 import { readImage } from './images'
 import './studio.css'
 
-export function Studio() {
-  const [project, setProject] = useState<Project>()
+export function Studio({ request }: { request: Draft | null }) {
+  const [project, setProject] = useState<Project | undefined>(() => request?.content ? fromCampaign(request, defaultBrand) : undefined)
+  const [current, setCurrent] = useState(0)
+  const [revision, setRevision] = useState(0)
+  const currentRef = useRef(0)
   const [format, setFormat] = useState<Format>('portrait')
   const [zoom, setZoom] = useState(.32)
   const [guides, setGuides] = useState(true)
@@ -20,7 +27,7 @@ export function Studio() {
   const changed = () => {
     if (!canvas.current) return
     const scene = sceneOf(canvas.current)
-    setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => i === 0 ? { ...s, scene } : s) }))
+    setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => i === currentRef.current ? { ...s, scene } : s) }))
     refresh(n => n + 1)
   }
   useEffect(() => {
@@ -33,15 +40,32 @@ export function Studio() {
     }
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key)
   }, [])
+  function replace(value: Project) { setProject(value); setRevision(n => n + 1) }
+  function chooseSlide(index: number) { currentRef.current = index; setCurrent(index) }
+  function template(layout: Template) {
+    if (!project) return
+    if (project.slides[current].scene.objects.length && !window.confirm('Trocar template preserva textos e imagem, mas recompõe os ajustes gráficos. Continuar?')) return
+    replace({ ...project, slides: project.slides.map((s, i) => i === current ? { ...s, layout, scene: compose(layout, semantics(s.scene), project.brand, project.format, s.role) } : s) })
+  }
+  function slideAction(action: 'add' | 'duplicate' | 'remove' | 'up' | 'down') {
+    if (!project) return
+    const slides = [...project.slides]
+    let next = current
+    if (action === 'add') { slides.push(emptySlide()); next = slides.length - 1 }
+    if (action === 'duplicate') { slides.splice(current + 1, 0, { ...structuredClone(slides[current]), id: crypto.randomUUID() }); next++ }
+    if (action === 'remove') { if (!window.confirm('Excluir este slide?')) return; slides.splice(current, 1); next = Math.min(current, slides.length - 1) }
+    if (action === 'up' || action === 'down') { next += action === 'up' ? -1 : 1; [slides[next], slides[current]] = [slides[current], slides[next]] }
+    chooseSlide(next); setProject({ ...project, slides })
+  }
   async function upload(file?: File) {
     if (!file || !canvas.current) return
     try {
       const image = await readImage(file)
       const selected = canvas.current.getActiveObject()
       if (selected instanceof FabricImage) {
-        image.set({ left: selected.left, top: selected.top, angle: selected.angle, scaleX: selected.getScaledWidth() / image.width, scaleY: selected.getScaledHeight() / image.height })
+        image.semantic = selected.semantic; image.set({ left: selected.left, top: selected.top, angle: selected.angle, scaleX: selected.getScaledWidth() / image.width, scaleY: selected.getScaledHeight() / image.height })
         canvas.current.remove(selected)
-      } else { image.scaleToWidth(700); image.set({ left: 80, top: 300 }) }
+      } else { image.semantic = 'image'; image.scaleToWidth(700); image.set({ left: 80, top: 300 }) }
       canvas.current.add(image); canvas.current.setActiveObject(image); canvas.current.requestRenderAll(); changed(); setError('')
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Falha ao abrir imagem.') }
   }
@@ -49,12 +73,16 @@ export function Studio() {
   return <section className="studio" aria-label="Editor Studio">
     <header className="studio-toolbar"><label>Projeto<input value={project.name} maxLength={100} onChange={e => setProject({ ...project, name: e.target.value })} /></label><span>{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span><label>Zoom<select value={zoom} onChange={e => setZoom(Number(e.target.value))}>{[.2, .25, .32, .4, .5, .75, 1].map(n => <option key={n} value={n}>{Math.round(n * 100)}%</option>)}</select></label><button onClick={() => setZoom(Math.min(.5, (window.innerWidth - 690) / 1080))}>Ajustar à tela</button><label><input type="checkbox" checked={guides} onChange={e => setGuides(e.target.checked)} />Área segura</label></header>
     {error && <p role="alert">{error}</p>}
-    <div className="studio-layout"><aside className="studio-tools"><nav aria-label="Ferramentas do Studio">{['Texto', 'Imagens', 'Elementos', 'Camadas'].map(name => <button key={name} aria-pressed={panel === name} onClick={() => setPanel(name)}>{name}</button>)}</nav>
+    <div className="studio-layout"><aside className="studio-tools"><nav aria-label="Ferramentas do Studio">{['Templates', 'Texto', 'Imagens', 'Elementos', 'Minha marca', 'Camadas'].map(name => <button key={name} aria-pressed={panel === name} onClick={() => setPanel(name)}>{name}</button>)}</nav>
+      {panel === 'Templates' && <><h3>Templates originais</h3>{Object.entries(templates).map(([key, name]) => <button key={key} onClick={() => template(key as Template)}>{name}</button>)}</>}
+      {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar marca e recompor os templates de todos os slides?')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
       {panel === 'Texto' && <><h3>Tipografia</h3><button onClick={() => { if (canvas.current) { addObject(canvas.current, 'title'); changed() } }}>Adicionar título</button><button onClick={() => { if (canvas.current) { addObject(canvas.current, 'text'); changed() } }}>Adicionar texto</button></>}
       {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} onClick={() => { if (canvas.current) { addObject(canvas.current, type); changed() } }}>{name}</button>)}</>}
       {panel === 'Imagens' && <><h3>Imagens locais</h3><label>Adicionar ou substituir imagem<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
       {panel === 'Camadas' && <><h3>Camadas</h3>{readyCanvas?.getObjects().map((o, i) => <button key={i} onClick={() => { canvas.current?.setActiveObject(o); canvas.current?.requestRenderAll(); refresh(n => n + 1) }}>{i + 1} · {o instanceof Textbox ? o.text.slice(0, 32) : o.type}</button>).reverse()}</>}
-    </aside><CanvasView key={project.id} format={project.format} initial={project.slides[0].scene} zoom={zoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value) }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties canvas={readyCanvas} changed={changed} /></div>
+    </aside><CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} format={project.format} initial={project.slides[current].scene} zoom={zoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value) }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties canvas={readyCanvas} changed={changed} /></div>
+    <Slides project={project} current={current} select={chooseSlide} action={slideAction} />
+    {project.campaignId && <p>Design vinculado à campanha. Alterações editoriais posteriores não substituem este design: gere uma nova versão pela campanha.</p>}
     <p className="muted">Ctrl+D duplica · Delete exclui · Edição local em memória nesta entrega. Persistência e exportação na entrega 3.3.</p>
   </section>
 }

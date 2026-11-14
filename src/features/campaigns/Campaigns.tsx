@@ -17,10 +17,11 @@ const platforms = {
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
 const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imageBrief: '', layoutType: 'editorial' }
 
-export function Campaigns({ request, active, onBack }: {
+export function Campaigns({ request, active, onBack, onDesign }: {
   request: { article: Article | null } | null
   active: boolean
   onBack: () => void
+  onDesign: (draft: Draft) => void
 }) {
   const [backup, setBackup] = useState<Backup>()
   const [selected, setSelected] = useState<string>()
@@ -205,6 +206,7 @@ export function Campaigns({ request, active, onBack }: {
         <Editor key={draft.id} draft={draft} update={persist} onPreferences={briefing => void savePreferences(briefing)} />
         <div className="campaign-actions">
           <button className="button button-dark" onClick={() => persist(draft, true)}>Salvar campanha</button>
+          {draft.content && <button className="button button-dark" onClick={() => void queue.flushAll().then(() => onDesign(draft), () => undefined)}>Criar design no Studio</button>}
           <button className="button button-outline" onClick={() => duplicate(draft)}>Duplicar campanha</button>
           <button className="button button-outline" onClick={() => setDeleteId(draft.id)}>Excluir campanha</button>
         </div>

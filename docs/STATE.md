@@ -106,3 +106,10 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - Código em src/features/studio, separado em model, CanvasView, objects, images, Properties e Studio. Carregado sob demanda.
 - Build e lint aprovados. Dois Playwright desktop/laptop aprovados: edição de texto, duplicação/exclusão, imagem local, recorte, camadas e ausência de erro de página/overflow.
 - Persistência, templates e exportação ainda não entregues neste commit. Próxima: 3.2.
+
+## Entrega 3.2 — 14/11/2026
+
+- Seis templates vetoriais editáveis, campos semânticos, tipografia com tamanho mínimo e limite de altura. Campanha → Criar design no Studio compõe até 20 slides, com vínculo de origem; futuras edições editoriais geram nova versão, sem sobrescrita visual.
+- Slides com duplicação, exclusão confirmada e reordenação. Minha marca com nome, arroba, cores, fontes do sistema, margens e logotipo. Troca de template/aplicação global exige confirmação.
+- Build e lint aprovados; quatro Playwright do Studio aprovados (desktop/laptop), incluindo campanha de três slides, edição, troca de template preservando título, reordenação e exclusão.
+- Próxima entrega 3.3: persistência, backup, histórico e exportação. As miniaturas ainda são resumos semânticos; QA final substituirá por prévias reais.
