@@ -86,3 +86,9 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 
 - CI da Fase 2 aprovado: 17 testes Vitest, 14 testes Playwright nos perfis desktop com verificações em 1024, 1280 e 1440 px, ESLint, build e Wrangler dry-run. Execução: https://github.com/MarioSerafimCoder/post-machine/actions/runs/43597537707.
 - A coleta agendada do Radar concluiu e gerou artefatos na execução 43540726966. A publicação parou na trava CLOUDFLARE_ACCESS_READY; a execução não chegou à verificação dos dois segredos. O deploy direto da Fase 2 abriu a sessão de upload, mas foi bloqueado com HTTP 401 no envio dos arquivos. O domínio continua vinculado ao Worker existente com Cloudflare Access. A produção ainda precisa receber a Fase 2 e ser conferida em sessão autorizada.
+
+## Publicação da Fase 2 — 14/11/2026
+
+- As alterações de pautas e campanhas já estavam na main remota (872dad8). A cópia em F:\postmachine foi sincronizada após conferir que os arquivos eram idênticos.
+- ESLint, 17 testes Vitest, 14 testes Playwright e build aprovados. A comparação do prompt copiado agora aceita a quebra de linha nativa do Windows sem ignorar diferenças de conteúdo.
+- A Fase 2 foi publicada via Wrangler no domínio de produção, versão `caee93ea-86b8-4192-aa9f-dd4df8fd0058`. A página inicial, o snapshot e os arquivos estáticos verificados continuaram redirecionando visitantes anônimos ao Cloudflare Access. A verificação do fluxo de campanhas em sessão autorizada e o deploy agendado continuam pendentes.
