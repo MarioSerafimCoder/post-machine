@@ -1,0 +1,23 @@
+.studio-welcome { padding: 44px; background: #fff; border: 1px solid #dedfd6; border-radius: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
+.studio-welcome h2 { font-size: 36px; letter-spacing: -1.3px; }
+.studio { margin-top: 18px; font-size: 12px; }
+.studio button, .studio select, .studio input, .studio textarea { font: inherit; }
+.studio button { cursor: pointer; padding: 8px 10px; border: 1px solid #d8dcd2; border-radius: 6px; background: white; text-align: left; }
+.studio button:hover, .studio button[aria-pressed=true] { background: #e9efdb; border-color: #82986a; }
+.studio button:disabled { opacity: .45; cursor: default; }
+.studio input, .studio select, .studio textarea, .studio-welcome select { width: 100%; padding: 7px; background: white; border: 1px solid #cdd3c7; border-radius: 5px; min-width: 0; }
+.studio input[type=checkbox] { width: auto; }
+.studio label { display: grid; gap: 4px; }
+.studio-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px; background: white; border: 1px solid #d8dcd2; }
+.studio-toolbar label { max-width: 170px; }
+.studio-layout { display: grid; grid-template-columns: 152px minmax(120px, 1fr) 174px; height: 690px; border: 1px solid #d8dcd2; border-top: 0; }
+.studio-tools, .studio-properties { background: #fff; padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
+.studio-tools h3, .studio-properties h3 { font-size: 14px; margin: 6px 0; }
+.studio-tools nav { display: grid; gap: 4px; border-bottom: 1px solid #ddd; padding-bottom: 12px; }
+.studio-tools p, .studio-properties p { font-size: 11px; line-height: 1.5; color: #65705c; }
+.canvas-stage { background: #e4e6e0; background-image: radial-gradient(#c5c9be 1px, transparent 1px); background-size: 16px 16px; overflow: auto; padding: 28px; }
+.canvas-paper { position: relative; width: fit-content; box-shadow: 0 8px 24px #25332622; }
+.canvas-paper.show-guides::after { content: ''; position: absolute; inset: 5.9% 7.4%; border: 1px dashed #d17868; pointer-events: none; }
+.property-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.studio textarea { min-height: 100px; }
+@media (min-width: 1400px) { .studio-layout { grid-template-columns: 180px minmax(160px, 1fr) 208px; } }

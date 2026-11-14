@@ -1,0 +1,38 @@
+import { useEffect, useRef } from 'react'
+import { Canvas } from 'fabric'
+import { dimensions, type Format, type Scene } from './model'
+import './objects'
+
+export function CanvasView({ format, initial, zoom, guides, onReady, onChange, onSelection, onError }: {
+  format: Format; initial: Scene; zoom: number; guides: boolean
+  onReady: (canvas: Canvas | null) => void; onChange: (canvas: Canvas) => void; onSelection: () => void; onError: (message: string) => void
+}) {
+  const element = useRef<HTMLCanvasElement>(null)
+  const instance = useRef<Canvas | null>(null)
+  const callbacks = useRef({ onReady, onChange, onSelection, onError })
+  useEffect(() => { callbacks.current = { onReady, onChange, onSelection, onError } })
+  useEffect(() => {
+    const canvas = new Canvas(element.current!, { width: 1080, height: dimensions[format][1], preserveObjectStacking: true, backgroundColor: initial.background })
+    instance.current = canvas
+    let live = true
+    const abort = new AbortController()
+    void canvas.loadFromJSON(initial, undefined, { signal: abort.signal }).then(() => {
+      if (!live) return
+      canvas.requestRenderAll()
+      callbacks.current.onReady(canvas)
+      const changed = () => callbacks.current.onChange(canvas)
+      canvas.on('object:modified', changed); canvas.on('text:changed', changed)
+      canvas.on('selection:created', () => callbacks.current.onSelection()); canvas.on('selection:updated', () => callbacks.current.onSelection()); canvas.on('selection:cleared', () => callbacks.current.onSelection())
+    }).catch(() => { if (live) callbacks.current.onError('Não foi possível carregar este slide. Preserve o backup e substitua imagens inválidas.') })
+    return () => { live = false; abort.abort(); callbacks.current.onReady(null); instance.current = null; void canvas.dispose() }
+    // A slide session owns one Fabric instance. Edits are applied through its API.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    const canvas = instance.current
+    if (!canvas) return
+    const [width, height] = dimensions[format]
+    canvas.setDimensions({ width: Math.round(width * zoom), height: Math.round(height * zoom) }); canvas.setZoom(zoom); canvas.requestRenderAll()
+  }, [format, zoom])
+  return <div className="canvas-stage"><div className={`canvas-paper ${guides ? 'show-guides' : ''}`}><canvas ref={element} aria-label="Canvas editável do Studio" /></div></div>
+}

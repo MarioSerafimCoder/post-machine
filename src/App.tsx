@@ -1,3 +1,5 @@
+import { lazy, Suspense } from 'react'
+const Studio = lazy(() => import('./features/studio/Studio').then(module => ({ default: module.Studio })))
 import { Campaigns } from './features/campaigns/Campaigns'
 import type { Article } from './features/radar/contract'
 import { News } from './features/radar/News'
@@ -41,7 +43,7 @@ export function App() {
         <div className="page-heading"><div><p className="eyebrow">SEU PROCESSO CRIATIVO, EM UM SÓ LUGAR</p><h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'Ideias boas merecem espaço.' : label}</h1></div><span className="badge badge-outline"><span className="status-dot" /> Fase 3 · Studio</span></div>
         {page === 'inicio' && <Overview onRoadmap={() => setRoadmap(true)} />}
         <div hidden={page !== 'radar'}><Radar active={page === 'radar'} /></div>
-        {page === 'studio' && <Studio />}
+        {page === 'studio' && <Suspense fallback={<p>Carregando Studio…</p>}><Studio /></Suspense>}
         {page === 'auditoria' && <Audit />}
         {page === 'not-found' && <section className="empty-state"><Icon name="home" /><h2>Este caminho ainda não existe.</h2><p>Volte à visão geral para explorar seu espaço.</p><a className="button button-dark" href="#/inicio">Voltar ao início</a></section>}
         <footer className="footer"><span>DIRETO <span className="footer-divider">/</span> Da referência à publicação.</span><span>Feito para o seu processo.</span></footer>
@@ -77,9 +79,6 @@ function Radar({ active }: { active: boolean }) {
     draftsTab.current?.focus()
   }
   return <><button className="button button-dark" onClick={() => { setRequest({ article: null }); setSection(1) }}>Nova campanha</button><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} ref={index === 0 ? newsTab : index === 1 ? draftsTab : undefined} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><div hidden={section !== 0}><News onCreatePost={selectArticle} /></div><div hidden={section !== 1}><Campaigns request={request} active={active && section === 1} onBack={() => { setSection(0); newsTab.current?.focus() }} /></div>{section === 2 && <section className="empty-state" aria-live="polite"><span className="empty-icon"><Icon name="radar" /></span><span className="badge">Em desenvolvimento</span><h2>{current.heading}</h2><p>{current.description}</p><span className="small muted">{current.note}</span></section>}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
-}
-function Studio() {
-  return <><p className="page-description">Ideias com forma, ritmo e identidade.</p><a className="button button-dark" href="#/radar">Nova campanha</a><section className="empty-state"><span className="empty-icon"><Icon name="studio" /></span><span className="badge">Planejado · Fase 3</span><h2>Seu próximo carrossel começa aqui.</h2><p>O editor visual ainda não está disponível. A próxima etapa do Studio trará templates editáveis, projetos locais e exportação.</p><a className="button button-dark" href="#/radar">Conhecer o Radar <Icon name="arrow" /></a></section><div className="format-panel"><h2>Formatos previstos</h2><div className="format-grid">{[['portrait', 'Retrato', '1080 × 1350'], ['square', 'Quadrado', '1080 × 1080'], ['story', 'Story', '1080 × 1920']].map(([shape, title, size]) => <div className="format-item" key={shape}><div className="format-preview"><span className={`format-shape ${shape}`} /></div><div><strong>{title}</strong><p>{size} px</p></div><span className="badge">Planejado</span></div>)}</div></div></>
 }
 function Audit() {
   return <><p className="page-description">Um olhar atento antes de compartilhar.</p><section className="empty-state"><span className="empty-icon"><Icon name="audit" /></span><span className="badge">Planejado · Fase 4</span><h2>Cada detalhe faz diferença.</h2><p>A auditoria ficará disponível após o editor. Nenhuma arte foi analisada e nenhum resultado está sendo simulado.</p><a className="button button-dark" href="#/studio">Conhecer o Studio <Icon name="arrow" /></a></section><div className="audit-grid">{[['Limites e margens', 'Textos e elementos dentro das áreas seguras.'], ['Imagens e tipografia', 'Resolução, fontes e legibilidade dos conteúdos.'], ['Consistência visual', 'Formatos, branding e campos obrigatórios.']].map(([title, text]) => <article className="audit-card" key={title}><span className="eyebrow">VERIFICAÇÃO PLANEJADA</span><h3>{title}</h3><p>{text}</p></article>)}</div></>

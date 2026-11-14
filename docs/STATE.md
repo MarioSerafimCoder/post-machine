@@ -99,3 +99,10 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - IndexedDB v2 migra documentos v1 em transação; backups antigos são aceitos sem sobrescrever colisões. SaveQueue com debounce, serialização, retenção de pendências, retentativa e flush na troca/navegação.
 - Lint aprovado, 19 testes Vitest, build aprovado. Playwright: 12 cenários anteriores passaram inicialmente; dois revelaram conflito entre feedback de preferências e autosave, corrigido aguardando flush. Os quatro cenários de campanhas passaram no reteste; quatro novos cenários cobrem criação independente e migração/restauração v1 nos dois perfis desktop.
 - Próxima entrega: 3.1, editor Fabric. Não publicado ainda. Produção segue na Fase 2; Access e pendências do agendamento preservados.
+
+## Entrega 3.1 — 14/11/2026
+
+- Fabric 7.4.0 (MIT), API tipada instalada conferida e documentação oficial consultada. Canvas com ciclo de vida isolado, texto editável, propriedades, formas, imagem local validada, recorte/enquadramento, substituição, camadas, agrupamento, alinhamento, distribuição, bloqueio e zoom. Três formatos reais, fontes do sistema sem chamada externa.
+- Código em src/features/studio, separado em model, CanvasView, objects, images, Properties e Studio. Carregado sob demanda.
+- Build e lint aprovados. Dois Playwright desktop/laptop aprovados: edição de texto, duplicação/exclusão, imagem local, recorte, camadas e ausência de erro de página/overflow.
+- Persistência, templates e exportação ainda não entregues neste commit. Próxima: 3.2.
