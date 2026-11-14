@@ -16,7 +16,7 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   await first.getByRole('button', { name: 'Criar post' }).click()
   await expect(page.getByRole('region', { name: 'Notícia de origem' }).getByRole('link')).toHaveAttribute('href', url!)
   await page.getByLabel('Público-alvo').fill('Diretores de arte')
-  await page.getByLabel('Objetivo', { exact: true }).selectOption('Educar')
+  await page.getByRole('combobox', { name: 'Objetivo', exact: true }).selectOption('Educar')
   await page.getByLabel('Tom de comunicação').selectOption('Reflexivo')
   await page.getByLabel('Quantidade de slides').selectOption('2')
   await page.getByRole('button', { name: 'Salvar público e tom como padrão' }).click()
@@ -83,7 +83,7 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
 test('importa Markdown de arquivo para post único', async ({ page }) => {
   await page.goto('/#/radar')
   await page.getByRole('button', { name: 'Criar post', exact: true }).first().click()
-  await page.getByLabel('Formato', { exact: true }).selectOption('post')
+  await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
   await page.getByLabel('Carregar arquivo').setInputFiles({
     name: 'post.md', mimeType: 'text/markdown', buffer: Buffer.from(markdownExample),
   })

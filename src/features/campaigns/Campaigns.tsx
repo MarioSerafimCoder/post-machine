@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import { normalize, type Article } from '../radar/contract'
 import {
   approaches, backupSchema, createPrompt, defaultPreferences, formats, importContent,
@@ -327,7 +327,8 @@ function choices<T extends string>(values: readonly T[]): Record<T, string> {
 function Select<T extends string>({ label, value, options, change }: {
   label: string; value: T; options: Record<T, string>; change: (value: T) => void
 }) {
-  return <label>{label}<select value={value} onChange={event => change(event.target.value as T)}>
+  const id = useId()
+  return <label htmlFor={id}><span id={id + '-label'}>{label}</span><select id={id} aria-labelledby={id + '-label'} value={value} onChange={event => change(event.target.value as T)}>
     {Object.keys(options).map(key => <option key={key} value={key}>{options[key as T]}</option>)}
   </select></label>
 }
