@@ -1,0 +1,45 @@
+import { describe, expect, it } from 'vitest'
+import { backupSchema, createPrompt, defaultPreferences, importContent, markdownExample, newDraft } from './contract'
+import type { Article } from '../radar/contract'
+
+const article: Article = {
+  id: '0'.repeat(32), title: 'Notícia de teste', source: 'Fonte de teste', category: 'Design',
+  feedId: 'teste', url: 'https://example.com/original', canonicalUrl: 'https://example.com/original',
+  collectedAt: '2026-11-14T10:00:00.000Z', publishedAt: null,
+}
+const draft = newDraft(article, defaultPreferences)
+const post = { ...draft, briefing: { ...draft.briefing, format: 'post' as const } }
+
+describe('contrato editorial', () => {
+  it('inclui o briefing, a fonte, regras factuais e a sequência no prompt', () => {
+    const prompt = createPrompt({ ...draft, briefing: { ...draft.briefing, slideCount: 3, audience: 'Designers' } })
+    expect(prompt).toContain(article.url)
+    expect(prompt).toContain('Designers')
+    expect(prompt).toContain('Separe fatos verificáveis, interpretações e opiniões')
+    expect(prompt.match(/"order":/g)).toHaveLength(3)
+  })
+
+  it('importa Markdown e JSON cercado, preservando a fonte original', () => {
+    const markdown = importContent(markdownExample, post)
+    expect(markdown.sources[0].url).toBe(article.url)
+    expect(markdown.sources[0].publishedAt).toBeNull()
+    expect(markdown.slides[0].imageBrief).toBe('Sugestão de imagem.')
+    const fenced = '\x60\x60\x60json\n' + JSON.stringify(markdown) + '\n\x60\x60\x60'
+    expect(importContent(fenced, post)).toEqual(markdown)
+  })
+
+  it('rejeita campos ausentes, referências inseguras e formato divergente', () => {
+    expect(() => importContent('{}', post)).toThrow('schemaVersion')
+    expect(() => importContent(markdownExample.replace('https://example.com/artigo', 'javascript:alert(1)'), post)).toThrow('sources.0.url')
+    expect(() => importContent(markdownExample.replace('Função: content\n', ''), post)).toThrow('Função')
+    expect(() => importContent(markdownExample, draft)).toThrow('Carrossel')
+  })
+
+  it('mantém texto importado como dados e valida o backup inteiro', () => {
+    const content = importContent(markdownExample.replace('Texto da peça.', '<img src=x onerror=alert(1)>'), post)
+    expect(content.slides[0].body).toBe('<img src=x onerror=alert(1)>')
+    const backup = { schemaVersion: 1, campaigns: [{ ...post, content }], preferences: defaultPreferences }
+    expect(backupSchema.parse(backup).campaigns[0].content).toEqual(content)
+    expect(backupSchema.safeParse({ ...backup, campaigns: [...backup.campaigns, ...backup.campaigns] }).success).toBe(false)
+  })
+})

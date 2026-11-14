@@ -6,7 +6,7 @@ test('navegação, histórico, estados vazios e ausência de overflow', async ({
   await navigation.getByRole('link', { name: 'Radar', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Radar')
   await page.getByRole('button', { name: 'Pautas e prompts' }).click()
-  await expect(page.getByText('Da referência ao briefing.')).toBeVisible()
+  await expect(page.getByText('Pautas e campanhas')).toBeVisible()
   await navigation.getByRole('link', { name: 'Studio', exact: true }).click()
   await expect(page.getByText('O editor visual ainda não está disponível.', { exact: false })).toBeVisible()
   await page.goBack()

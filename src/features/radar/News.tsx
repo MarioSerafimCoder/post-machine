@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { normalize, snapshotSchema, type Snapshot } from './contract'
+import { normalize, snapshotSchema, type Article, type Snapshot } from './contract'
 
 const dateFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 const format = (date: string) => dateFormat.format(new Date(date))
@@ -37,7 +37,7 @@ async function writeFavorite(id: string, saved: boolean) {
   } finally { db.close() }
 }
 
-export function News() {
+export function News({ onCreatePost }: { onCreatePost: (article: Article) => void }) {
   const [data, setData] = useState<Snapshot>()
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [reload, setReload] = useState(0)
@@ -126,6 +126,7 @@ export function News() {
         <p className="muted">{item.source} · {item.publishedAt ? <time dateTime={item.publishedAt}>{format(item.publishedAt)}</time> : 'Data de publicação não informada'}</p>
         {item.summary && <p>{item.summary}</p>}
         {item.trend && <p className="news-trend"><a href="https://trends.google.com/trending?geo=BR" target="_blank" rel="noreferrer">Google Trends</a> · {item.trend}</p>}
+        <button type="button" className="button news-create" onClick={() => onCreatePost(item)}>Criar post</button>
       </article>)}</div>
       {results.length > limit && <button className="button button-dark" onClick={() => setLimit(value => value + pageSize)}>Mostrar mais notícias</button>}
     </>}

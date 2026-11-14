@@ -5,12 +5,12 @@ import { App } from './App'
 function navigate(hash: string) { act(() => { window.location.hash = hash; window.dispatchEvent(new HashChangeEvent('hashchange')) }) }
 beforeEach(() => { window.location.hash = '' })
 describe('fundação', () => {
-  it('apresenta os três espaços sem anunciar ferramentas prontas', () => {
+  it('apresenta os três espaços e identifica o Radar disponível', () => {
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Ideias boas merecem espaço.' })).toBeVisible()
     const navigation = screen.getByRole('navigation', { name: 'Navegação principal' })
     expect(within(navigation).getAllByRole('link')).toHaveLength(4)
-    expect(screen.getByText(/ferramentas em desenvolvimento/)).toBeVisible()
+    expect(screen.getByText(/Radar e campanhas disponíveis/)).toBeVisible()
   })
   it('atualiza página, título e foco; alterna seções do Radar', () => {
     render(<App />); navigate('#/radar')

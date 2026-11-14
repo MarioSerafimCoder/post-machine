@@ -51,4 +51,35 @@ Importação, Fabric, templates editáveis, uploads, auditoria de artes e export
 
 ## Próxima etapa
 
-Validar o deploy agendado e o snapshot em sessão autorizada antes de encerrar a Fase 1. A Fase 2 ainda não foi iniciada.
+Validar o deploy agendado e o snapshot em sessão autorizada para encerrar a Fase 1. A implementação local da Fase 2 está registrada abaixo.
+
+## Preparacao local em F:\postmachine - 14/11/2026
+
+Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
+
+- Node 24.18.0, npm 11.16.0 e Git 2.56.1.windows.1 disponiveis.
+- Git inicializado em main, sem commits. Adicionar origin falhou: `.git/config: Permission denied`; fetch falhou ao abrir `.git/FETCH_HEAD`. Historico e upstream ainda nao restaurados. A politica da sessao protege .git contra escrita.
+- DNS/HTTPS para github.com e registry.npmjs.org: ENOTFOUND. TCP para 1.1.1.1:443 e 127.0.0.1:5173: EACCES. Servidor TCP temporario conseguiu escutar em loopback, mas o cliente no mesmo processo recebeu EACCES. Servidor de diagnostico encerrado.
+- npm sem proxy/https-proxy configurado, registry oficial e strict-ssl=true. Sem variaveis de ambiente proxy. Consulta de firewall via CIM indisponivel; nenhuma regra de firewall alterada.
+- Politica efetiva: rede restrita e elevacao sandbox desabilitada. UI: Geral mostra Acesso total ativo; Configuracao > Work > Acesso a rede local mostra Usar padrao. Nenhuma permissao alterada.
+- npm ci --fetch-retries=0 --fetch-timeout=8000 --no-audit --no-fund falhou com ENOTFOUND ao baixar zod-validation-error. Dependencias nao instaladas completamente.
+- Pendente: liberar as permissoes efetivas de rede e escrita Git pelo aplicativo, restaurar origin/main e historico preservando arquivos, concluir npm ci, lint, testes, build e verificar servidor/app. Resultados aprovados descritos acima pertencem ao ambiente anterior, nao a esta instalacao.
+
+- Reteste apos o usuario ativar Acesso a rede local em Configuracao > Work (conferido na tela): DNS e HTTPS para GitHub/npm continuam ENOTFOUND no terminal desta sessao. HTTP contra servidor temporario no proprio loopback continua EACCES. Git continua sem origin, pois a escrita em .git/config retorna Permission denied.
+
+## Instalação local e porta de testes - 14/11/2026
+
+- O PowerShell do Windows restaurou o histórico e o upstream em main (origin/main, 6cbd921) e instalou as dependências do lockfile. Lint, 13 testes unitários e build foram reconferidos no workspace.
+- Os 10 testes Playwright da primeira execução abriram o BRasa na porta 4173. Os relatórios mostram a interface do BRasa. O Post Machine agora executa o servidor de testes na porta 44173 e rejeita a reutilização de outro servidor.
+- Vite iniciou na porta de desenvolvimento 5173. O terminal gerenciado recebeu EACCES ao tentar HTTP em loopback. Validação pós-correção dos testes de navegador e carregamento da aplicação no PowerShell do Windows ainda pendentes.
+
+- Validação concluída pelo PowerShell do Windows: o resultado mais recente do Playwright indica aprovação sem testes com falha, e o navegador exibiu o Post Machine em http://127.0.0.1:5173/ (aviso de viewport abaixo de 1024 px no painel estreito). O terminal gerenciado continua recebendo EACCES no mesmo endereço.
+
+## Fase 2 — Pautas e campanhas
+
+- Cada notícia abre uma pauta com a referência original e seus metadados. O briefing ajusta objetivo, público, tom, abordagem, formato, quantidade de peças e orientações. Público e tom podem ser salvos como padrão.
+- Geração e edição local do prompt, com cópia e links para ChatGPT, Claude e Gemini. A consulta à fonte integral, a verificação factual e a distinção entre fatos, opiniões e interpretações são instruções do prompt.
+- Importação por texto ou arquivo JSON/Markdown com Zod. O exemplo de sintaxe Markdown está disponível no próprio importador. URLs aceitam apenas HTTP/HTTPS sem credenciais. Textos importados são renderizados como dados.
+- Revisão editorial permite editar campanha e peças, reordenar, adicionar, duplicar e excluir. Pautas, prompts, campanhas e preferências usam o banco IndexedDB versionado post-machine-campaigns. Backup JSON restaura por adição e preserva campanhas existentes quando há colisões de ID.
+- O contrato v1 em src/features/campaigns/contract.ts disponibiliza metadados de projeto, campanha, referência original, datas e peças ordenadas para a futura integração com o Studio.
+- Validação neste workspace: ESLint sem avisos, 17 testes Vitest e build aprovados. Playwright local depende de acesso HTTP ao servidor Vite em 127.0.0.1:44173, bloqueado no terminal gerenciado. A suíte completa também roda no GitHub Actions.
