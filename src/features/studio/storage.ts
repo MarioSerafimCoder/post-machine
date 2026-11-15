@@ -9,9 +9,27 @@ function open(): Promise<IDBDatabase> { return new Promise((resolve, reject) => 
   request.onupgradeneeded = () => { for (const name of ['projects', 'assets', 'settings', 'recovery']) if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name) }
   request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error)
 }) }
+function abortTransaction(transaction: IDBTransaction) {
+  try { transaction.abort() }
+  catch (cause) {
+    if (!(cause instanceof DOMException && cause.name === 'InvalidStateError')) throw cause
+  }
+}
 async function transaction<T>(stores: string[], mode: IDBTransactionMode, action: (tx: IDBTransaction) => () => T): Promise<T> {
   const db = await open()
-  try { return await new Promise<T>((resolve, reject) => { const tx = db.transaction(stores, mode); tx.onabort = () => reject(tx.error ?? Error('Falha no armazenamento.')); const result = action(tx); tx.oncomplete = () => { try { resolve(result()) } catch (e) { reject(e) } } }) } finally { db.close() }
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      const tx = db.transaction(stores, mode)
+      tx.onabort = () => reject(tx.error ?? Error('Falha no armazenamento.'))
+      try {
+        const result = action(tx)
+        tx.oncomplete = () => { try { resolve(result()) } catch (cause) { reject(cause) } }
+      } catch (cause) {
+        reject(cause)
+        abortTransaction(tx)
+      }
+    })
+  } finally { db.close() }
 }
 const dataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob) })
 async function pack(project: Project) {
@@ -64,6 +82,7 @@ export function withStudioStorage<T>(action: () => Promise<T>): Promise<T> {
 export function saveProject(project: Project, expected?: Project) {
   return withStudioStorage(() => writeProject(project, expected))
 }
+export class ProjectConflict extends Error {}
 async function writeProject(project: Project, expected?: Project) {
   const packed = await pack(project)
   const baseline = expected && JSON.stringify((await pack(expected)).project)
@@ -78,11 +97,11 @@ async function writeProject(project: Project, expected?: Project) {
         tx.objectStore('settings').put(packed.project.brand, 'brand')
         tx.objectStore('projects').put(packed.project, project.id)
         written = true
-      } catch { tx.abort() }
+      } catch { abortTransaction(tx) }
     }
     return () => written
   })
-  if (!written) throw Error('O projeto foi atualizado em outro lugar. Reabra o projeto antes de editar.')
+  if (!written) throw new ProjectConflict('O projeto foi atualizado em outro lugar. Reabra o projeto antes de editar.')
 }
 export async function listProjects(): Promise<Project[]> { return transaction(['projects'], 'readonly', tx => { const req = tx.objectStore('projects').getAll(); return () => req.result.map(validateProject).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)) }) }
 export function loadProject(id: string): Promise<Project> {
@@ -160,7 +179,7 @@ export function inspectStorage(clean = false) {
           if (clean) assets.delete(key)
         }
         report = { projects: projects.result.length, assets: files.size, bytes, orphans, recoverableBytes }
-      } catch (error) { failure = error; if (clean) tx.abort() }
+      } catch (error) { failure = error; if (clean) abortTransaction(tx) }
     }
     return () => { if (failure) throw failure; return report }
   }))
