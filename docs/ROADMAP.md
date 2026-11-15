@@ -14,7 +14,7 @@ Fonte de requisitos: PRODUCT_SPEC.md. Evidências e estado corrente: STATE.md.
 
 ## Etapa atual: Fase 4 — Auditoria
 
-Fases 1 a 3 implementadas e publicadas. A Fase 4 acrescenta auditoria local e revisão antes da exportação; veja resultados e limites em STATE.md. A publicação agendada do Radar continua pendente de configuração no GitHub Environment `production`.
+Fases 1 a 3 implementadas e publicadas. A Fase 4 acrescenta auditoria local e revisão antes da exportação. O Radar tem publicação agendada ativa e o fluxo de produção foi validado por disparo manual no GitHub Actions. Veja resultados e limites em STATE.md.
 
 - 4.1: regras mensuráveis e relatório estruturado com incertezas explícitas.
 - 4.2: painel no Studio, página consolidada, filtros e navegação até o elemento.

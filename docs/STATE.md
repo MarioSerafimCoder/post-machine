@@ -172,3 +172,10 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - Código da Fase 4 enviado para `origin/main` no commit `5255c42`. Build publicado manualmente pelo Wrangler no Worker existente `post-machine`, domínio `posts.marioserafim.com.br`, versão `35d34fdd-3c8d-4059-baca-1d2cfe56087a`. Nenhum binding ou Worker adicional foi criado.
 - Verificação anônima após o deploy: `/`, `/radar.json` e `/favicon.svg` continuam retornando HTTP 302 para o Cloudflare Access. Em sessão autorizada no navegador, a nova página Auditoria abriu, carregou um projeto local da Fase 3 e analisou seu slide, exibindo relatório real, filtros e resumo. O projeto e o relatório permaneceram no navegador.
 - Publicação automática do Radar continua independente e pendente da configuração do GitHub Environment `production` indicada acima. A proteção do domínio permanece ativa.
+
+## Publicação automática do Radar — 15/11/2026
+
+- O ambiente `production` do GitHub recebeu os segredos `CLOUDFLARE_ACCOUNT_ID` e `CLOUDFLARE_API_TOKEN` e a variável `CLOUDFLARE_ACCESS_READY=true`. O token da conta tem a função Editor restrita ao Worker `post-machine`.
+- A primeira execução enviou os arquivos, mas o comando `wrangler deploy` tentou atualizar o vínculo do domínio e falhou com o código 10084. O commit `c0a48b7` passou a enviar e promover a versão do Worker com `wrangler versions upload` e `wrangler versions deploy`.
+- [Execução do GitHub Actions](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43716907875) aprovada por disparo manual. A versão `ce562135-cb23-4d14-ad3e-53d6de1ebfc8` recebeu 100% do tráfego. O `radar.json` publicado corresponde ao conteúdo integral do artefato `radar-snapshot` com 321 itens e `collectedAt` de `2026-11-15T13:02:55.314Z`. O Access respondeu com redirecionamento anônimo antes e depois da publicação.
+- O mesmo workflow está agendado para 06h17, 12h17 e 18h17 de Brasília. O primeiro disparo agendado após o ajuste ainda não foi observado.
