@@ -157,7 +157,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       if (file.size > maxBackup) throw Error('O backup excede 50 MB.')
       data = backupSchema.parse(JSON.parse(await file.text()))
     } catch (failure) {
-      setError(file.size > maxBackup && failure instanceof Error ? failure.message : 'O arquivo não é um backup válido da Direto.')
+      setError(file.size > maxBackup && failure instanceof Error ? failure.message : 'O arquivo não é um backup válido do Post Machine.')
       setRestoring(false)
       return
     }

@@ -63,9 +63,9 @@ As fontes RSS recebem o nicho do arquivo de configuração. Os artigos relaciona
 
 Aceite end-to-end: conferir, após autenticação Access, o mesmo `collectedAt` do artefato da execução no JSON de produção.
 
-## Campanhas v2 — Direto
+## Campanhas v2
 
-Nome público Direto; identificadores técnicos post-machine preservados. Contrato editorial importado continua v1. Documentos locais v2 admitem origem nula e título próprio; leitura de v1 migra sem notícia fictícia. IndexedDB v2 atualiza registros em transação atômica, abortando se algum registro for inválido. Backups v1 continuam aceitos e restauração preserva colisões como cópias.
+Identificadores técnicos post-machine preservados. Contrato editorial importado continua v1. Documentos locais v2 admitem origem nula e título próprio; leitura de v1 migra sem notícia fictícia. IndexedDB v2 atualiza registros em transação atômica, abortando se algum registro for inválido. Backups v1 continuam aceitos e restauração preserva colisões como cópias.
 
 SaveQueue agrupa edições por 350 ms, serializa gravações por ID e retém a última alteração em falhas. Navegação, troca de documento e perda de visibilidade disparam flush; beforeunload é proteção complementar. A área editorial permanece montada para manter pendências e permitir retentativa. Dados locais não são sincronizados entre abas/dispositivos.
 

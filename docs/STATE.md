@@ -179,3 +179,10 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - A primeira execução enviou os arquivos, mas o comando `wrangler deploy` tentou atualizar o vínculo do domínio e falhou com o código 10084. O commit `c0a48b7` passou a enviar e promover a versão do Worker com `wrangler versions upload` e `wrangler versions deploy`.
 - [Execução do GitHub Actions](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43716907875) aprovada por disparo manual. A versão `ce562135-cb23-4d14-ad3e-53d6de1ebfc8` recebeu 100% do tráfego. O `radar.json` publicado corresponde ao conteúdo integral do artefato `radar-snapshot` com 321 itens e `collectedAt` de `2026-11-15T13:02:55.314Z`. O Access respondeu com redirecionamento anônimo antes e depois da publicação.
 - O mesmo workflow está agendado para 06h17, 12h17 e 18h17 de Brasília. O primeiro disparo agendado após o ajuste ainda não foi observado.
+
+## Fase 5.0 — Estabilização
+
+- Post Machine é o nome público provisório. O Studio ainda consome a chave de navegação anterior da Auditoria, e os bancos, IDs de projetos e esquemas anteriores continuam válidos.
+- O salvamento da Auditoria compara a versão lida com o registro persistido na mesma transação. O checkpoint pertence ao projeto e à revisão em que foi criado. Cancelar a proposta não consome tentativa. Desfazer no Studio continua integrado ao seu histórico.
+- A configuração de armazenamento mede os bytes dos arquivos locais. A limpeza verifica projetos, checkpoints e marca, e reavalia as referências na mesma transação em que exclui os órfãos. Erros abortam a limpeza. O diagnóstico não mede o custo interno do IndexedDB.
+- Lint, build, 42 testes unitários e os cenários focados de Auditoria e armazenamento no Chromium passaram. Sobreposições ambíguas e contraste sobre composição complexa continuam dependendo de revisão visual.

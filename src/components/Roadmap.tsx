@@ -16,7 +16,7 @@ export function Roadmap({ onClose }: { onClose: () => void }) {
   return <dialog ref={ref} onCancel={onClose} aria-labelledby="roadmap-title" className="roadmap-dialog">
     <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">UM PASSO DE CADA VEZ</p><h2 id="roadmap-title">O que vem pela frente.</h2></div><button className="icon-button" aria-label="Fechar roteiro" onClick={onClose}><Icon name="close" /></button></div>
     <p className="muted">A base está em construção. Cada etapa só avança depois de ser verificada.</p>
-    <ol className="phase-list">{phases.map((phase, index) => <li key={phase}><span className="phase-index">0{index}</span><span>{phase}</span><span className={`badge ${index === 0 ? 'badge-green' : ''}`}>{index <= 3 ? 'Implementado' : 'Planejado'}</span></li>)}</ol>
+    <ol className="phase-list">{phases.map((phase, index) => <li key={phase}><span className="phase-index">0{index}</span><span>{phase}</span><span className={`badge ${index === 0 ? 'badge-green' : ''}`}>{index <= 4 ? 'Implementado' : index === 5 ? 'Em andamento' : 'Planejado'}</span></li>)}</ol>
     <p className="small muted">Radar e campanhas publicados com Access. Studio implementado; validação da sessão autorizada e coleta publicada por agendamento pendentes.</p>
     <button className="button button-dark" onClick={onClose}>Voltar ao espaço</button>
   </dialog>

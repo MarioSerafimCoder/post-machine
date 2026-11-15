@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test'
 
 test('navegação, histórico, estados vazios e ausência de overflow', async ({ page }) => {
   await page.goto('/')
+  await expect(page.getByRole('link', { name: 'Post Machine — início' })).toBeVisible()
+  await expect(page).toHaveTitle(/Post Machine/)
   const navigation = page.getByRole('navigation', { name: 'Navegação principal' })
   await navigation.getByRole('link', { name: 'Radar', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Radar')

@@ -23,7 +23,7 @@ export async function exportProject(project: Project, current?: number) {
   const [width, height] = dimensions[project.format]
   const slides = current === undefined ? project.slides : [project.slides[current]]
   const zip = new JSZip(); const warnings: string[] = []; const findings: Finding[] = []; let png: Blob | undefined
-  const name = project.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]/gi, '-').slice(0, 80) || 'direto'
+  const name = project.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_-]/gi, '-').slice(0, 80) || 'post-machine'
   for (const [index, slide] of slides.entries()) {
     const result = await renderScene(slide.scene, width, height, project.brand.margin, 1, canvas => inspectCanvas(canvas, slide.id, (current ?? index)+1, project.brand, slide.layout, slide.role, project.auditSettings ?? defaultSettings))
     png = result.blob; findings.push(...result.findings); warnings.push(...result.findings.filter(f => f.severity !== 'info').map(f => `Slide ${f.slideNumber}: ${f.message}. ${f.details}`))

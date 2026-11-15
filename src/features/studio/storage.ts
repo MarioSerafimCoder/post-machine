@@ -39,23 +39,117 @@ async function hydrate(project: unknown, read: (id: string) => Promise<Blob | un
   }
   return validateProject(await walk(validateProject(project)))
 }
-export async function saveProject(project: Project) {
+export function withStudioStorage<T>(action: () => Promise<T>): Promise<T> {
+  return navigator.locks?.request('post-machine-studio-storage', action) ?? action()
+}
+export function saveProject(project: Project, expected?: Project) {
+  return withStudioStorage(() => writeProject(project, expected))
+}
+async function writeProject(project: Project, expected?: Project) {
   const packed = await pack(project)
-  await transaction(['projects', 'assets', 'settings', 'recovery'], 'readwrite', tx => {
-    packed.assets.forEach((blob, id) => tx.objectStore('assets').put(blob, id))
+  const baseline = expected && JSON.stringify((await pack(expected)).project)
+  const written = await transaction(['projects', 'assets', 'settings', 'recovery'], 'readwrite', tx => {
+    let written = false
     const old = tx.objectStore('projects').get(project.id)
-    old.onsuccess = () => { try { if (old.result && JSON.stringify(old.result) !== JSON.stringify(packed.project)) tx.objectStore('recovery').put(old.result, project.id); tx.objectStore('projects').put(packed.project, project.id) } catch { tx.abort() } }
-    tx.objectStore('settings').put(project.brand, 'brand')
-    return () => undefined
+    old.onsuccess = () => {
+      try {
+        if (expected && (expected.id !== project.id || JSON.stringify(old.result && validateProject(old.result)) !== baseline)) return
+        if (old.result && JSON.stringify(old.result) !== JSON.stringify(packed.project)) tx.objectStore('recovery').put(old.result, project.id)
+        packed.assets.forEach((blob, id) => tx.objectStore('assets').put(blob, id))
+        tx.objectStore('settings').put(packed.project.brand, 'brand')
+        tx.objectStore('projects').put(packed.project, project.id)
+        written = true
+      } catch { tx.abort() }
+    }
+    return () => written
   })
+  if (!written) throw Error('O projeto foi atualizado em outro lugar. Reabra o projeto antes de editar.')
 }
 export async function listProjects(): Promise<Project[]> { return transaction(['projects'], 'readonly', tx => { const req = tx.objectStore('projects').getAll(); return () => req.result.map(validateProject).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)) }) }
-export async function loadProject(id: string): Promise<Project> {
-  const value = await transaction(['projects'], 'readonly', tx => { const req = tx.objectStore('projects').get(id); return () => req.result as unknown })
+export function loadProject(id: string): Promise<Project> {
+  return withStudioStorage(() => loadStoredProject(id, 'projects'))
+}
+async function loadStoredProject(id: string, store: 'projects' | 'recovery'): Promise<Project> {
+  const value = await transaction([store], 'readonly', tx => { const req = tx.objectStore(store).get(id); return () => req.result as unknown })
+  if (!value) throw Error(store === 'recovery' ? 'Ainda não existe versão anterior salva.' : 'Projeto não encontrado.')
   return hydrate(value, key => transaction(['assets'], 'readonly', tx => { const req = tx.objectStore('assets').get(key); return () => req.result as Blob | undefined }))
 }
-export async function readBrand(): Promise<Brand | undefined> { return transaction(['settings'], 'readonly', tx => { const req = tx.objectStore('settings').get('brand'); return () => req.result ? brandSchema.parse(req.result) : undefined }) }
-export async function removeProject(id: string) { return transaction(['projects'], 'readwrite', tx => { tx.objectStore('projects').delete(id); return () => undefined }) }
+export async function readBrand(): Promise<Brand | undefined> {
+  return withStudioStorage(async () => {
+    const value = await transaction(['settings'], 'readonly', tx => {
+      const req = tx.objectStore('settings').get('brand')
+      return () => req.result ? brandSchema.parse(req.result) : undefined
+    })
+    return value && {
+      ...value,
+      logo: value.logo && await resolveBrandAsset(value.logo),
+      fonts: await Promise.all(value.fonts.map(async font => ({ ...font, source: await resolveBrandAsset(font.source) }))),
+    }
+  })
+}
+async function resolveBrandAsset(source: string) {
+  if (!source.startsWith('asset:')) return source
+  const blob = await transaction(['assets'], 'readonly', tx => {
+    const req = tx.objectStore('assets').get(source.slice(6))
+    return () => req.result as Blob | undefined
+  })
+  if (!blob) throw Error('Arquivo da marca ausente.')
+  return dataUrl(blob)
+}
+export function removeProject(id: string) {
+  return withStudioStorage(() => transaction(['projects', 'recovery'], 'readwrite', tx => {
+    tx.objectStore('projects').delete(id)
+    tx.objectStore('recovery').delete(id)
+    return () => undefined
+  }))
+}
+
+export function inspectStorage(clean = false) {
+  const inspect = () => withStudioStorage(() => transaction(['projects', 'recovery', 'settings', 'assets'], clean ? 'readwrite' : 'readonly', tx => {
+    const projects = tx.objectStore('projects').getAll()
+    const recovery = tx.objectStore('recovery').getAll()
+    const settings = tx.objectStore('settings').get('brand')
+    const assets = tx.objectStore('assets')
+    const keys = assets.getAllKeys()
+    const values = assets.getAll()
+    let report: { projects: number; assets: number; bytes: number; orphans: number; recoverableBytes: number }
+    let failure: unknown
+    values.onsuccess = () => {
+      try {
+        const roots = [...projects.result, ...recovery.result]
+        roots.forEach(validateProject)
+        if (settings.result !== undefined) brandSchema.parse(settings.result)
+        const references = new Set<string>()
+        function visit(value: unknown) {
+          if (typeof value === 'string' && /^asset:[a-f0-9]{64}$/.test(value)) references.add(value.slice(6))
+          if (value && typeof value === 'object') Object.values(value).forEach(visit)
+        }
+        roots.forEach(visit)
+        visit(settings.result)
+        const files = new Map(keys.result.map((key, index) => {
+          const blob = values.result[index]
+          if (typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key) || !(blob instanceof Blob) || !blob.size) throw Error('Arquivo do armazenamento inválido.')
+          return [key, blob]
+        }))
+        if ([...references].some(key => !files.has(key))) throw Error('Existem referências a arquivos ausentes.')
+        let bytes = 0, orphans = 0, recoverableBytes = 0
+        for (const [key, blob] of files) {
+          bytes += blob.size
+          if (references.has(key)) continue
+          orphans++
+          recoverableBytes += blob.size
+          if (clean) assets.delete(key)
+        }
+        report = { projects: projects.result.length, assets: files.size, bytes, orphans, recoverableBytes }
+      } catch (error) { failure = error; if (clean) tx.abort() }
+    }
+    return () => { if (failure) throw failure; return report }
+  }))
+  return clean && navigator.locks ? navigator.locks.request('post-machine-studio-drafts', { ifAvailable: true }, lock => {
+    if (!lock) throw Error('Há alterações pendentes no Studio. Salve antes de limpar.')
+    return inspect()
+  }) : inspect()
+}
 export async function backupProject(project: Project): Promise<Blob> {
   const packed = await pack(project); const zip = new JSZip()
   zip.file('project.json', JSON.stringify(packed.project))
@@ -82,8 +176,6 @@ export async function restoreProject(file: File): Promise<Project> {
   await saveProject(project); return project
 }
 
-export async function loadRecovery(id: string): Promise<Project> {
-  const value = await transaction(['recovery'], 'readonly', tx => { const req = tx.objectStore('recovery').get(id); return () => req.result as unknown })
-  if (!value) throw Error('Ainda não existe versão anterior salva.')
-  return hydrate(value, key => transaction(['assets'], 'readonly', tx => { const req = tx.objectStore('assets').get(key); return () => req.result as Blob | undefined }))
+export function loadRecovery(id: string): Promise<Project> {
+  return withStudioStorage(() => loadStoredProject(id, 'recovery'))
 }

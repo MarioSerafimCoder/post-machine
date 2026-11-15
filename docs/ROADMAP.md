@@ -12,13 +12,12 @@ Fonte de requisitos: PRODUCT_SPEC.md. Evidências e estado corrente: STATE.md.
 | 5 — Inteligência adicional | Openverse, headlines, referências manuais | Atribuição/licenças preservadas; métricas somente reais; heurísticas explícitas; modelos locais opcionais, sem APIs pagas ou scraping não autorizado. |
 | 6 — Refinamento | Testes integrados, performance, acessibilidade e revisão visual | Fluxo Radar → conteúdo importado → Studio → auditoria → exportação/backup verificado e documentação atualizada. |
 
-## Etapa atual: Fase 4 — Auditoria
+## Etapa atual: Fase 5 — Ferramentas editoriais
 
-Fases 1 a 3 implementadas e publicadas. A Fase 4 acrescenta auditoria local e revisão antes da exportação. O Radar tem publicação agendada ativa e o fluxo de produção foi validado por disparo manual no GitHub Actions. Veja resultados e limites em STATE.md.
+Fases 1 a 4 implementadas e publicadas. O Radar tem publicação agendada ativa e o fluxo de produção foi validado no GitHub Actions. Veja resultados e limites em STATE.md.
 
-- 4.1: regras mensuráveis e relatório estruturado com incertezas explícitas.
-- 4.2: painel no Studio, página consolidada, filtros e navegação até o elemento.
-- 4.3: reposicionamento seguro com proposta, checkpoint, reauditoria e desfazer.
-- 4.4: testes integrados, documentação e publicação no Worker existente.
+- 5.0: estabilização do armazenamento e da Auditoria, com identidade provisória Post Machine.
+- 5.1: análise, comparação, importação e aplicação de headlines em campanhas e no Studio.
+- 5.2: pesquisa de imagens com licenças e atribuição, a planejar.
 
 Sem Radar de Virais ou serviços externos de IA nesta fase.
