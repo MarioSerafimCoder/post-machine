@@ -37,7 +37,7 @@ O comando dry-run valida empacotamento; NÃO comprova deploy, DNS, Access ou gra
 
 Configurar no environment `production`:
 
-- Secret `CLOUDFLARE_API_TOKEN`: token limitado à conta necessária, Workers Scripts Edit e permissões de zona necessárias para o domínio, conforme procedimento oficial Cloudflare. Nunca variável VITE_.
+- Secret `CLOUDFLARE_API_TOKEN`: token da conta Cloudflare com a função Editor limitada ao Worker `post-machine`. O workflow envia uma versão com `wrangler versions upload` e publica essa versão com `wrangler versions deploy`. O domínio já vinculado é administrado na Cloudflare. Nunca use uma variável VITE_ para o token.
 - Secret `CLOUDFLARE_ACCOUNT_ID`.
 - Variable `CLOUDFLARE_ACCESS_READY=true` somente depois de confirmar a política Access e a rota no wrangler.jsonc. É uma trava operacional, não autenticação e não prova automática da política.
 
