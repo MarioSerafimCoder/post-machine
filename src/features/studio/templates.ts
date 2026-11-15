@@ -8,13 +8,14 @@ export type Semantic = { title: string; body: string; cta: string; image?: Recor
 export function semantics(scene: Scene): Semantic {
   const objects = scene.objects.flatMap(o => Array.isArray(o.objects) ? [o, ...o.objects as Record<string, unknown>[]] : [o])
   const text = (name: string) => objects.filter(o => o.semantic === name).map(o => String(o.text ?? '')).join('\n')
-  return { title: text('title') || objects.filter(o => String(o.type).toLowerCase() === 'textbox').map(o => String(o.text ?? ''))[0] || '', body: text('body'), cta: text('cta'), image: objects.find(o => o.semantic === 'image' && String(o.type).toLowerCase() === 'image') }
+  return { title: text('title') || objects.filter(o => String(o.type).toLowerCase() === 'textbox').map(o => String(o.text ?? ''))[0] || '', body: text('body'), cta: text('cta'), image: objects.find(o => o.semantic === 'image' && String(o.type).toLowerCase() === 'image') ?? scene.contentImage }
 }
 export function compose(layout: Template, content: Semantic, brand: Brand, format: Format, role = 'content'): Scene {
   const [w, h] = dimensions[format]; const m = brand.margin; const width = w - 2 * m
   const objects: Record<string, unknown>[] = []
   const rect = (x: number, y: number, rw: number, rh: number, fill: string) => objects.push(new Rect({ left: x, top: y, width: rw, height: rh, fill, strokeWidth: 0, originX: 'left', originY: 'top' }).toObject() as unknown as Record<string, unknown>)
   const text = (semantic: string, value: string, x: number, y: number, tw: number, maxHeight: number, size: number, fill = brand.primary) => {
+    if (semantic === 'body') maxHeight = Math.min(maxHeight, h - m - (content.cta ? 164 : 90) - y)
     const o = new Textbox(value, { left: x, top: y, width: tw, fontSize: size, fontFamily: semantic === 'title' ? brand.headingFont : brand.bodyFont, fontWeight: semantic === 'title' ? 'bold' : 'normal', fill, lineHeight: 1.12, originX: 'left', originY: 'top', semantic, maxHeight })
     const min = semantic === 'title' ? 48 : 30
     while (o.height > maxHeight && o.fontSize > min) o.set({ fontSize: Math.max(min, o.fontSize - 2) })
@@ -25,7 +26,7 @@ export function compose(layout: Template, content: Semantic, brand: Brand, forma
       const o = structuredClone(content.image); const ow = Number(o.width); const oh = Number(o.height)
       const scale = Math.max(iw / ow, ih / oh)
       objects.push({ ...o, left: x, top: y, width: iw / scale, height: ih / scale, scaleX: scale, scaleY: scale, angle: 0, originX: 'left', originY: 'top', semantic: 'image' })
-    } else { rect(x, y, iw, ih, brand.secondary); text('imageHint', 'INSIRA SUA IMAGEM', x + 30, y + ih / 2 - 20, iw - 60, 80, 26) }
+    } else { rect(x, y, iw, ih, brand.secondary); objects[objects.length - 1].semantic = 'imageFrame'; text('imageHint', 'INSIRA SUA IMAGEM', x + 30, y + ih / 2 - 20, iw - 60, 80, 26) }
   }
   rect(m, m, 54, 8, brand.primary)
   if (layout === 'editorial') { text('title', content.title, m, h * .19, width, h * .38, 112); text('body', content.body, m, h * .64, width * .85, h * .20, 38) }
@@ -43,7 +44,7 @@ export function compose(layout: Template, content: Semantic, brand: Brand, forma
   text('cta', content.cta, m, h - m - 140, width, 80, 32, layout === 'cta' ? brand.secondary : brand.primary)
   text('brand', [brand.name, brand.handle].filter(Boolean).join(' / '), m, h - m - 40, width, 50, 24, layout === 'cta' ? brand.background : brand.primary)
   if (brand.logo) objects.push({ type: 'Image', src: brand.logo, left: w - m - 90, top: m, width: 90, height: 90, originX: 'left', originY: 'top', semantic: 'logo' })
-  return { background: brand.background, objects: objects.map(o => ({ ...o, slideRole: role })) }
+  return { background: brand.background, ...(content.image && !['photo', 'split'].includes(layout) ? { contentImage: content.image } : {}), objects: objects.map(o => ({ ...o, slideRole: role })) }
 }
 export function fromCampaign(draft: Draft, brand: Brand) {
   if (!draft.content) throw Error('Importe e revise o conteúdo antes de criar o design.')

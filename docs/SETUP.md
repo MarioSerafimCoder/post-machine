@@ -17,7 +17,7 @@ npm run deploy:check
 
 No ambiente original npm não estava no PATH. Foi usado temporariamente o npm 11.6.2 oficial baixado de registry.npmjs.org, fora do repositório. Em instalações normais de Node, os comandos acima funcionam diretamente. Não versionar ferramentas temporárias.
 
-`npm run preview` serve o build de produção local. A aplicação não pede credenciais, não implementa login frontend e ainda não salva projetos.
+`npm run preview` serve o build de produção local. A aplicação não pede credenciais, não implementa login frontend e salva campanhas, projetos e arquivos no IndexedDB deste navegador. Faça backups antes de limpar os dados do site.
 
 ## Cloudflare — passos dependentes da conta
 
@@ -47,4 +47,6 @@ Para reproduzir localmente, use `npm run radar:collect`, `npm run build` e `npm 
 
 ## Dados e segredos
 
-Repositório público: não salvar uploads, projetos pessoais, backups, tokens ou arquivos .env. Somente código e futuros metadados públicos das fontes. O domínio de produção é planejado; o README não deve tratá-lo como aplicação publicada antes da verificação.
+Repositório público: não salvar uploads, projetos pessoais, backups, tokens ou arquivos .env. Somente código e futuros metadados públicos das fontes. O domínio de produção está publicado com Access; a validação da sessão autorizada e do agendamento deve ser registrada separadamente em STATE.
+
+QA do build com os cabeçalhos reais: `npm run test:e2e:production` usa Wrangler local na porta 44174. A suíte de desenvolvimento usa 44173; nenhuma utiliza a porta 4173 do BRasa.

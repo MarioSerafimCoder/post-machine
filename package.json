@@ -17,7 +17,8 @@
     "deploy": "npm run build && wrangler deploy",
     "deploy:check": "wrangler deploy --dry-run",
     "radar:collect": "node radar/collect.ts",
-    "deploy:verify-access": "node radar/verify-access.mjs"
+    "deploy:verify-access": "node radar/verify-access.mjs",
+    "test:e2e:production": "npm run build && playwright test --config playwright.production.config.ts"
   },
   "dependencies": {
     "fabric": "7.4.0",

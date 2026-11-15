@@ -4,7 +4,7 @@ Plataforma pessoal de criação de conteúdo: **Radar**, **Studio** e **Auditori
 
 ## Estado
 
-Fundação da interface disponível: navegação exclusivamente desktop (1024 px+), links diretos, estados vazios reais, roteiro do produto e design system editorial. **Desktop first, sempre; sem versão mobile.** Radar e campanhas implementados e publicados. Campanhas independentes e salvamento ordenado iniciam a Fase 3, etapa atual. Editor e auditoria ainda em desenvolvimento. O deploy de teste está protegido pelo Cloudflare Access.
+Fundação da interface disponível: navegação exclusivamente desktop (1024 px+), links diretos, estados vazios reais, roteiro do produto e design system editorial. **Desktop first, sempre; sem versão mobile.** Radar e campanhas implementados e publicados. Campanhas independentes e salvamento ordenado iniciam a Fase 3, etapa atual. Studio implementado: Fabric, seis templates, carrosséis, marca, fontes WOFF2 locais, imagens, IndexedDB e exportação PNG/ZIP. Auditoria completa é a próxima fase. O deploy de teste está protegido pelo Cloudflare Access.
 
 ## Executar
 

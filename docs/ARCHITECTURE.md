@@ -30,10 +30,10 @@ Versões e licenças verificadas no registro npm oficial (`https://registry.npmj
 | Vitest | 5.1.0 | MIT | Testes unitários/componentes |
 | Playwright | 1.65.0 | Apache-2.0 | Testes desktop/laptop |
 | Wrangler | 4.162.0 | MIT OR Apache-2.0 | Deploy de Static Assets |
-| Fabric.js | 7.4.0 | MIT | Adiar instalação para Fase 3 |
+| Fabric.js | 7.4.0 | MIT | Studio, carregado sob demanda |
 | Zod | 4.6.7 | MIT | Validação do Radar na coleta e no navegador |
 | Saxes | 6.0.0 | ISC | Parser XML sem DTD e sem entidades externas |
-| JSZip | 3.10.2 | MIT OR GPL-3.0-or-later | Adiar para exportação; usar opção MIT |
+| JSZip | 3.10.2 | MIT OR GPL-3.0-or-later | Backup e exportação; opção MIT |
 
 Node 24 LTS, mínimo 24.15, atende requisitos atuais do Vite, Vitest e jsdom. Versão usada localmente: 24.22.1. Dependências de desenvolvimento não são incluídas automaticamente no bundle do usuário.
 
@@ -68,3 +68,13 @@ Aceite end-to-end: conferir, após autenticação Access, o mesmo `collectedAt` 
 Nome público Direto; identificadores técnicos post-machine preservados. Contrato editorial importado continua v1. Documentos locais v2 admitem origem nula e título próprio; leitura de v1 migra sem notícia fictícia. IndexedDB v2 atualiza registros em transação atômica, abortando se algum registro for inválido. Backups v1 continuam aceitos e restauração preserva colisões como cópias.
 
 SaveQueue agrupa edições por 350 ms, serializa gravações por ID e retém a última alteração em falhas. Navegação, troca de documento e perda de visibilidade disparam flush; beforeunload é proteção complementar. A área editorial permanece montada para manter pendências e permitir retentativa. Dados locais não são sincronizados entre abas/dispositivos.
+
+## Studio (Fase 3)
+
+- Fabric.js 7.4.0: API moderna com imports nomeados, loadFromJSON e dispose assíncronos. Propriedades semânticas registradas em FabricObject.customProperties. Fontes/imagens carregadas antes de renderizar ou exportar. Referências: https://fabricjs.com/docs/ e https://fabricjs.com/docs/using-custom-properties/.
+- Documento gráfico schemaVersion 1, até 20 slides e 500 objetos por slide. Contrato Zod validado antes de hidratar Fabric; sem URLs externas, classes arbitrárias ou HTML. Campos semânticos preservam título/corpo/CTA/imagem ao trocar de template; ajustes gráficos exigem confirmação e têm undo.
+- IndexedDB post-machine-studio v2: projects, assets, settings e recovery. Migração aditiva de v1. Imagens e fontes em Blob por SHA-256; referências asset: são hidratadas em memória. Backup ZIP preserva o estado atual, marca e arquivos únicos, com verificação de hash ao restaurar; novo ID impede sobrescrita. Checkpoint anterior persistido; undo/redo de 30 operações é de sessão. Projetos nunca são enviados ao servidor.
+- Exportação por StaticCanvas isolado em resolução original, independente do zoom/seleção/retina. PNG individual e ZIP ordenado. Avisos técnicos determinísticos; não equivalem à auditoria da Fase 4.
+- Fontes: Inter regular/negrito latinas distribuídas localmente via pacote @fontsource/inter 5.3.0, SIL OFL 1.1 (licença em public/fonts/Inter-LICENSE.txt). Fontes do sistema são alternativas; WOFF2 próprio até 2 MB/arquivo, máximo oito, incluído em backup. Sem Google Fonts remoto. Usuário deve possuir licença de seus uploads.
+- FontFace carrega uploads por ArrayBuffer; imagens são decodificadas sem fetch(data:) para respeitar connect-src self. A suíte de produção roda pelo Wrangler local com os mesmos cabeçalhos CSP.
+- Custo adicional R$ 0: nenhum novo Worker, serviço, API de IA ou armazenamento remoto.

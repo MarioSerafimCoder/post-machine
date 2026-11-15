@@ -47,11 +47,11 @@ Build servido pelo Wrangler local: HTTP 200 com CSP, rota direta, navegação po
 
 O primeiro deploy foi pelo Wrangler autenticado localmente. Para publicação pelo GitHub Actions, provisionar `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` e `CLOUDFLARE_ACCESS_READY` no environment `production`, conforme SETUP.md. Isso é necessário para automatizar o deploy do Radar na Fase 1.
 
-Importação, Fabric, templates editáveis, uploads, auditoria de artes e exportação permanecem fora do escopo atual.
+Na conclusão da Fase 0, importação, Fabric, templates, uploads, auditoria e exportação estavam fora do escopo. As entregas posteriores abaixo atualizam esse registro.
 
-## Próxima etapa
+## Etapa atual
 
-Validar o deploy agendado e o snapshot em sessão autorizada para encerrar a Fase 1. A implementação local da Fase 2 está registrada abaixo.
+Fase 3 — Studio, entregas incrementais registradas abaixo. Radar e campanhas implementados e publicados; validação do agendamento e da sessão Access são pendências de produção separadas.
 
 ## Preparacao local em F:\postmachine - 14/11/2026
 
@@ -121,3 +121,12 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - PNG real e ZIP numerado; exportador isolado do zoom. Aguarda fontes e imagens; avisos de overflow, margens, ausência de imagem e baixa resolução antes do download. Prévias rasterizadas reais para os slides.
 - Lint, 20 Vitest e build aprovados. Dez Playwright do Studio passaram. Arquivos baixados conferidos: PNG 1080×1350 e ZIP com 01/02/03 nas mesmas dimensões; backup de três slides guarda uma única cópia da imagem e restaura após recarga. Teste de falha real simulada no IndexedDB passou; exceção global durante a simulação foi tratada e cenário revalidado.
 - Próxima entrega 3.4: QA final, documentação e publicação. Fontes disponíveis nesta versão são fontes do sistema; nenhuma fonte remota é carregada. Undo/redo completo não atravessa recargas, mas há recuperação do checkpoint anterior.
+
+## Entrega 3.4 — QA local, 14/11/2026
+
+- Fluxo completo implementado: campanhas independentes/Radar → importação editorial → Studio → templates/marca/imagens/fontes → salvamento/recuperação → PNG/ZIP/backup.
+- Inter regular/negrito hospedada localmente com SIL OFL; uploads WOFF2 locais carregam, são incluídos no backup e recuperam a fonte. Correções de enquadramento sem distorção, imagem semântica preservada em layouts sem fotografia, margens configuráveis, comandos de histórico e nomes acessíveis.
+- Lint e 20 Vitest aprovados. Suíte completa de desenvolvimento: 28 Playwright antes da adição de fontes. Suíte completa do build pelo Wrangler/CSP: 30 aprovados. Após os ajustes finais de canvas/atalhos/acessibilidade, os 12 testes do Studio foram reconferidos no build de produção, incluindo edição direta no canvas e ausência de erros no console. Dry-run aprovado, sem bindings.
+- PNG e ZIP conferidos por dimensões/ordem nos arquivos baixados. Layout inspecionado visualmente em screenshots de navegador a 1024/1280/1440 px; sem overflow da página, canvas rolável e zoom independente. Prévias reais dos slides substituíram os resumos semânticos.
+- GitHub production consultado: faltam CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID e CLOUDFLARE_ACCESS_READY. Não foram criadas credenciais ou removida a proteção. Publicação direta autorizada pelo proprietário; resultado remoto será registrado abaixo.
+- Limites explícitos: 20 slides, 500 elementos/slide, imagem até 20 MB/40 MP, oito fontes WOFF2 até 2 MB, backup até 150 MB. Histórico de sessão + checkpoint anterior; backup representa o estado atual. Auditoria completa e Radar de Virais não implementados.

@@ -4,6 +4,7 @@ import { newDraft, defaultPreferences } from '../src/features/campaigns/contract
 test('campanha independente preserva edições rápidas após navegação e recarga', async ({ page }) => {
   await page.goto('/#/radar')
   await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
+  await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
   await page.getByLabel('Título do briefing').fill('Ideia independente')
   await page.getByLabel('Público-alvo').fill('Designers e artistas')
   await page.getByLabel('Orientações adicionais').fill('Texto final após edições rápidas')

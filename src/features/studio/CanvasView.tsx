@@ -1,10 +1,11 @@
+import { loadFonts } from './fonts'
 import { useEffect, useRef } from 'react'
 import { Canvas } from 'fabric'
-import { dimensions, type Format, type Scene } from './model'
+import { dimensions, type Brand, type Format, type Scene } from './model'
 import './objects'
 
-export function CanvasView({ format, initial, zoom, guides, onReady, onChange, onSelection, onError }: {
-  format: Format; initial: Scene; zoom: number; guides: boolean
+export function CanvasView({ format, initial, zoom, guides, brand, onReady, onChange, onSelection, onError }: {
+  brand: Brand; format: Format; initial: Scene; zoom: number; guides: boolean
   onReady: (canvas: Canvas | null) => void; onChange: (canvas: Canvas) => void; onSelection: () => void; onError: (message: string) => void
 }) {
   const element = useRef<HTMLCanvasElement>(null)
@@ -16,7 +17,7 @@ export function CanvasView({ format, initial, zoom, guides, onReady, onChange, o
     instance.current = canvas
     let live = true
     const abort = new AbortController()
-    void canvas.loadFromJSON(initial, undefined, { signal: abort.signal }).then(() => {
+    void loadFonts(brand).then(() => canvas.loadFromJSON(initial, undefined, { signal: abort.signal })).then(() => {
       if (!live) return
       canvas.requestRenderAll()
       callbacks.current.onReady(canvas)
@@ -34,5 +35,5 @@ export function CanvasView({ format, initial, zoom, guides, onReady, onChange, o
     const [width, height] = dimensions[format]
     canvas.setDimensions({ width: Math.round(width * zoom), height: Math.round(height * zoom) }); canvas.setZoom(zoom); canvas.requestRenderAll()
   }, [format, zoom])
-  return <div className="canvas-stage"><div className={`canvas-paper ${guides ? 'show-guides' : ''}`}><canvas ref={element} aria-label="Canvas editável do Studio" /></div></div>
+  return <div className="canvas-stage"><div className={`canvas-paper ${guides ? 'show-guides' : ''}`} style={{ '--safe-x': `${brand.margin / 1080 * 100}%`, '--safe-y': `${brand.margin / dimensions[format][1] * 100}%` } as React.CSSProperties}><canvas ref={element} aria-label="Canvas editável do Studio" /></div></div>
 }

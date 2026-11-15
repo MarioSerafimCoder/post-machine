@@ -1,6 +1,6 @@
-# PROJETO: POST MACHINE
+# PROJETO: DIRETO
 
-Você é o arquiteto técnico e responsável pela fundação de uma plataforma web pessoal de criação de conteúdo chamada **Post Machine**.
+Você é o arquiteto técnico e responsável pela fundação de uma plataforma web pessoal de criação de conteúdo chamada **Direto**.
 
 **Domínio de produção:** https://posts.marioserafim.com.br
 
@@ -8,7 +8,7 @@ Você é o arquiteto técnico e responsável pela fundação de uma plataforma w
 
 Desenvolver uma aplicação web completa para descobrir pautas, planejar campanhas e criar posts e carrosséis profissionais para redes sociais.
 
-A Post Machine deve funcionar independentemente de Figma, Canva ou plugins externos.
+A Direto deve funcionar independentemente de Figma, Canva ou plugins externos.
 
 O produto terá três áreas principais:
 
@@ -353,7 +353,9 @@ Pesquisa de imagens, headlines com modelo local opcional e Radar de Virais com f
 **Fase 6 — Refinamento**
 Testes integrados, performance, acessibilidade, revisão visual e documentação final.
 
-## 12. Sua tarefa agora
+## 12. Solicitação inicial — registro histórico da Fase 0
+
+A etapa atual é a Fase 3; seguir ROADMAP.md e as entregas registradas em STATE.md. Os itens abaixo preservam o pedido inicial da fundação.
 
 1. Audite o repositório disponível.
 2. Defina a arquitetura mais simples que cumpra os requisitos.

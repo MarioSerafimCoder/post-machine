@@ -1,4 +1,5 @@
-import { StaticCanvas, FabricImage, Textbox } from 'fabric'
+import { loadFonts } from './fonts'
+import { StaticCanvas, FabricImage, Textbox, Group } from 'fabric'
 import JSZip from 'jszip'
 import { dimensions, type Project, type Scene } from './model'
 import './objects'
@@ -6,7 +7,8 @@ export function download(blob: Blob, name: string) { const url = URL.createObjec
 export function checkCanvas(canvas: StaticCanvas, margin: number) {
   const warnings: string[] = []
   const width = canvas.width, height = canvas.height
-  canvas.getObjects().forEach((o, i) => {
+  const flatten = (objects: ReturnType<StaticCanvas['getObjects']>): ReturnType<StaticCanvas['getObjects']> => objects.flatMap(o => o instanceof Group ? flatten(o.getObjects()) : [o])
+  flatten(canvas.getObjects()).forEach((o, i) => {
     const box = o.getBoundingRect(); const label = `Elemento ${i+1}`
     if (box.left < -1 || box.top < -1 || box.left + box.width > width + 1 || box.top + box.height > height + 1) warnings.push(`${label}: fora do canvas.`)
     if (o instanceof Textbox) {
@@ -31,6 +33,7 @@ export async function renderScene(scene: Scene, width: number, height: number, m
   } finally { await canvas.dispose() }
 }
 export async function exportProject(project: Project, current?: number) {
+  await loadFonts(project.brand)
   const [width, height] = dimensions[project.format]
   const slides = current === undefined ? project.slides : [project.slides[current]]
   const zip = new JSZip(); const warnings: string[] = []; let png: Blob | undefined

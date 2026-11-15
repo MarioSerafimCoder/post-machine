@@ -15,8 +15,8 @@ const dataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => { const
 async function pack(project: Project) {
   const assets = new Map<string, Blob>()
   async function walk(value: unknown): Promise<unknown> {
-    if (typeof value === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(value)) {
-      const blob = await (await fetch(value)).blob()
+    if (typeof value === 'string' && /^data:(image\/(png|jpeg|webp)|font\/woff2);base64,/.test(value)) {
+      const [header, encoded] = value.split(','); const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0)); const blob = new Blob([bytes], { type: header.slice(5, header.indexOf(';')) })
       const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map(n => n.toString(16).padStart(2, '0')).join('')
       assets.set(hash, blob); return `asset:${hash}`
     }
@@ -74,8 +74,9 @@ export async function restoreProject(file: File): Promise<Project> {
     total += data.byteLength; if (data.byteLength > 20_000_000 || total > 150_000_000) throw Error('Imagens do backup excedem o limite.')
     const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(data).buffer))].map(n => n.toString(16).padStart(2,'0')).join('')
     if (hash !== id) throw Error('Imagem corrompida no backup.')
+    const font = String.fromCharCode(...data.slice(0,4)) === 'wOF2'
     const png = data[0] === 137 && data[1] === 80; const jpeg = data[0] === 255 && data[1] === 216
-    return new Blob([data as BlobPart], { type: png ? 'image/png' : jpeg ? 'image/jpeg' : 'image/webp' })
+    return new Blob([data as BlobPart], { type: font ? 'font/woff2' : png ? 'image/png' : jpeg ? 'image/jpeg' : 'image/webp' })
   })
   project.id = crypto.randomUUID(); project.name = `${project.name.slice(0, 85)} (restaurado)`; project.updatedAt = new Date().toISOString()
   await saveProject(project); return project

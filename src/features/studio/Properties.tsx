@@ -1,8 +1,10 @@
+import { fontChoices } from './fonts'
+import type { Brand } from './model'
 import { Canvas, FabricImage, Textbox } from 'fabric'
 import { cropImage } from './images'
 import { align, duplicate, groupSelection } from './objects'
 
-export function Properties({ canvas, changed }: { canvas: Canvas | null; changed: () => void }) {
+export function Properties({ canvas, changed, brand }: { brand: Brand; canvas: Canvas | null; changed: () => void }) {
   const object = canvas?.getActiveObject()
   if (!canvas || !object) return <aside className="studio-properties"><h3>Propriedades</h3><p>Selecione um elemento no canvas ou em Camadas. Duplo clique para editar texto.</p><p>Shift + clique seleciona vários elementos.</p></aside>
   function set(values: Record<string, unknown>) { object!.set(values); object!.setCoords(); canvas!.requestRenderAll(); changed() }
@@ -11,7 +13,7 @@ export function Properties({ canvas, changed }: { canvas: Canvas | null; changed
   return <aside className="studio-properties"><h3>Propriedades</h3><p className="muted">{object.type}</p>
     {object instanceof Textbox && <>
       <label>Texto do elemento<textarea value={object.text} maxLength={8000} onChange={e => set({ text: e.target.value })} /></label>
-      <label>Fonte<select value={object.fontFamily} onChange={e => set({ fontFamily: e.target.value })}>{['Arial', 'Georgia', 'Verdana', 'Courier New'].map(font => <option key={font}>{font}</option>)}</select></label>
+      <label>Fonte<select aria-label="Fonte" value={object.fontFamily} onChange={e => set({ fontFamily: e.target.value })}>{fontChoices(brand).map(font => <option key={font.family} value={font.family}>{font.name}</option>)}</select></label>
       <label>Peso<select value={String(object.fontWeight)} onChange={e => set({ fontWeight: e.target.value })}><option value="normal">Regular</option><option value="bold">Negrito</option></select></label>
       {number('Tamanho da fonte', 'fontSize', object.fontSize, 12, 300)}
       <label>Alinhamento<select value={object.textAlign} onChange={e => set({ textAlign: e.target.value })}><option value="left">Esquerda</option><option value="center">Centro</option><option value="right">Direita</option><option value="justify">Justificado</option></select></label>

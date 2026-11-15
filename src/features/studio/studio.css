@@ -17,7 +17,7 @@
 .studio-tools p, .studio-properties p { font-size: 11px; line-height: 1.5; color: #65705c; }
 .canvas-stage { background: #e4e6e0; background-image: radial-gradient(#c5c9be 1px, transparent 1px); background-size: 16px 16px; overflow: auto; padding: 28px; }
 .canvas-paper { position: relative; width: fit-content; box-shadow: 0 8px 24px #25332622; }
-.canvas-paper.show-guides::after { content: ''; position: absolute; inset: 5.9% 7.4%; border: 1px dashed #d17868; pointer-events: none; }
+.canvas-paper.show-guides::after { content: ''; position: absolute; inset: var(--safe-y, 5.9%) var(--safe-x, 7.4%); border: 1px dashed #d17868; pointer-events: none; }
 .property-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .studio textarea { min-height: 100px; }
 @media (min-width: 1400px) { .studio-layout { grid-template-columns: 180px minmax(160px, 1fr) 208px; } }

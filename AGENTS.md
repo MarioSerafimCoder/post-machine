@@ -1,4 +1,4 @@
-# Post Machine
+# Direto (repositório post-machine)
 
 - Leia `docs/STATE.md`, `docs/PRODUCT_SPEC.md` e a fase atual em `docs/ROADMAP.md` antes de editar.
 - Trabalhe somente em `main`. Preserve arquivos e comportamentos corretos; não implemente todas as fases de uma vez.

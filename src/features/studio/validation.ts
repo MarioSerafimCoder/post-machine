@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { brandSchema, type Project } from './model'
-const sceneSchema = z.object({ background: z.string().max(100), version: z.string().optional(), objects: z.array(z.record(z.string(), z.unknown())).max(500) })
+const sceneSchema = z.object({ background: z.string().max(100), version: z.string().optional(), contentImage: z.record(z.string(), z.unknown()).optional(), objects: z.array(z.record(z.string(), z.unknown())).max(500) })
 export const projectSchema = z.object({ schemaVersion: z.literal(1), id: z.uuid(), name: z.string().max(100), format: z.enum(['portrait', 'square', 'story']), brand: brandSchema, campaignId: z.uuid().nullable(), campaignUpdatedAt: z.iso.datetime().nullable(), updatedAt: z.iso.datetime(), slides: z.array(z.object({ id: z.uuid(), scene: sceneSchema, layout: z.string().max(100), role: z.string().max(100), imageBrief: z.string().max(8000) })).min(1).max(20) })
 export function validateProject(input: unknown): Project {
   const project = projectSchema.parse(input)

@@ -9,7 +9,7 @@ FabricObject.customProperties = ['semantic', 'assetId', 'maxHeight', 'label']
 export const sceneOf = (canvas: Canvas): Scene => canvas.toObject() as Scene
 export function addObject(canvas: Canvas, type: 'title' | 'text' | 'rect' | 'circle' | 'line') {
   const common = { left: 100, top: 120, originX: 'left' as const, originY: 'top' as const, fill: '#163f35' }
-  const object = type === 'title' || type === 'text' ? new Textbox(type === 'title' ? 'Seu título aqui' : 'Escreva sua mensagem.', { ...common, width: 800, fontFamily: 'Arial', fontSize: type === 'title' ? 84 : 42, fontWeight: type === 'title' ? 'bold' : 'normal' })
+  const object = type === 'title' || type === 'text' ? new Textbox(type === 'title' ? 'Seu título aqui' : 'Escreva sua mensagem.', { ...common, width: 800, semantic: type === 'title' ? 'title' : 'body', fontFamily: 'Inter', fontSize: type === 'title' ? 84 : 42, fontWeight: type === 'title' ? 'bold' : 'normal' })
     : type === 'rect' ? new Rect({ ...common, width: 360, height: 240 }) : type === 'circle' ? new Circle({ ...common, radius: 120 }) : new Line([0, 0, 500, 0], { ...common, stroke: '#163f35', strokeWidth: 6 })
   canvas.add(object); canvas.setActiveObject(object); canvas.requestRenderAll()
 }

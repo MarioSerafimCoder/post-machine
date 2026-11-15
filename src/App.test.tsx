@@ -10,7 +10,7 @@ describe('fundação', () => {
     expect(screen.getByRole('heading', { name: 'Ideias boas merecem espaço.' })).toBeVisible()
     const navigation = screen.getByRole('navigation', { name: 'Navegação principal' })
     expect(within(navigation).getAllByRole('link')).toHaveLength(4)
-    expect(screen.getByText(/Radar e campanhas disponíveis/)).toBeVisible()
+    expect(screen.getByText(/Radar, campanhas e Studio disponíveis/)).toBeVisible()
   })
   it('atualiza página, título e foco; alterna seções do Radar', () => {
     render(<App />); navigate('#/radar')
