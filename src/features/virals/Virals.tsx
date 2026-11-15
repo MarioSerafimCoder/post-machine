@@ -8,7 +8,7 @@ import { listReferences, removeReference, restoreReferences, writeReference } fr
 import { FormatCatalog } from './FormatCatalog'
 import { ReferenceForm } from './ReferenceForm'
 import { ReferenceThumbnail, YouTubeData } from './YouTubeData'
-import { displayVideo, snapshotSchema, type YouTubeSnapshot } from './youtube'
+import { comparableYouTubePair, displayVideo, snapshotSchema, type YouTubeSnapshot } from './youtube'
 
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' })
 export function Virals({ createCampaign }: { createCampaign?: (reference: Reference) => void }) {
@@ -27,6 +27,7 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
   const [editing, setEditing] = useState<Reference>()
   const [busy, setBusy] = useState(false)
   const [showPrompt, setShowPrompt] = useState(false)
+  const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const detail = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
     let live = true
@@ -51,6 +52,13 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
   const chosen = data?.find(ref => ref.id === selected)
   const chosenIdentity = chosen && identifyUrl(chosen.url)
   const videoById = new Map(youtube?.videos.map(video => [video.id, video]))
+  const comparison = comparisonIds.flatMap(id => {
+    const ref = data?.find(item => item.id === id)
+    if (!ref) return []
+    const identity = identifyUrl(ref.url)
+    const video = identity.platform === 'youtube' ? videoById.get(identity.platformId ?? '') : undefined
+    return video?.status === 'available' ? [{ url: ref.url, title: ref.title, video }] : []
+  })
   const counts: Partial<Record<FormatId, number>> = {}
   for (const ref of data ?? []) counts[ref.format] = (counts[ref.format] ?? 0) + 1
   const niches = [...new Set(data?.map(ref => ref.niche).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'))
@@ -113,6 +121,14 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
         })
       }} />}
       {data && !visible.length && !editing && <p>{data.length ? 'Nenhuma referência corresponde aos filtros.' : 'Sua biblioteca está vazia. Adicione um link para começar.'}</p>}
+      {comparison.length > 0 && <section className="viral-card" aria-label="Comparação de métricas">
+        <h3>Comparar observações do YouTube</h3>
+        <p>Compare dois Shorts identificados pelo link ou dois vídeos de mais de três minutos, publicados com até 48 h de diferença e observados com até 1 h de diferença.</p>
+        {comparison.length < 2 ? <p>Selecione mais uma referência.</p> : comparableYouTubePair(comparison[0], comparison[1])
+          ? <div className="viral-grid">{comparison.map(item => <div key={item.url}><strong>{item.title}</strong><YouTubeData video={item.video} status={youtube?.status} /></div>)}</div>
+          : <p>Os dados selecionados não permitem uma comparação por esses critérios.</p>}
+        <button onClick={() => setComparisonIds([])}>Limpar comparação</button>
+      </section>}
       {chosen && !editing && <section className="viral-card viral-detail" aria-label="Detalhes da referência">
         <h3 tabIndex={-1} ref={detail}>{chosen.title}</h3>
         <div className="viral-controls"><a href={chosen.url} target="_blank" rel="noreferrer">Abrir fonte original</a>
@@ -147,6 +163,8 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
           <div className="viral-controls">
             <button disabled={busy} aria-pressed={ref.favorite} onClick={() => void change(() => writeReference({ ...ref, favorite: !ref.favorite }), ref.favorite ? 'Removida dos favoritos.' : 'Adicionada aos favoritos.')}>Favoritar</button>
             <button aria-pressed={selected === ref.id} onClick={() => { setSelected(ref.id); setEditing(undefined); setShowPrompt(false) }}>Ver detalhes</button>
+            {video?.status === 'available' && video.viewCount !== undefined && <button aria-pressed={comparisonIds.includes(ref.id)} onClick={() => setComparisonIds(ids =>
+              ids.includes(ref.id) ? ids.filter(id => id !== ref.id) : [...ids.slice(-1), ref.id])}>Comparar métricas</button>}
           </div>
         </article>
       })}</div>

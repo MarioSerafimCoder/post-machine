@@ -57,3 +57,17 @@ export function parseVideoBatch(input: unknown, requested: string[], observedAt:
     }
   })
 }
+
+export function comparableYouTubePair(first: { url: string; video: VideoObservation }, second: { url: string; video: VideoObservation }) {
+  const kind = ({ url, video }: typeof first) => {
+    if (/^\/shorts\//.test(new URL(url).pathname)) return 'short'
+    const fields = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(video.duration ?? '')
+    if (!fields) return undefined
+    const seconds = fields.slice(1).reduce((total, unit, index) => total + Number(unit || 0) * [86400, 3600, 60, 1][index], 0)
+    return seconds > 180 ? 'video' : undefined
+  }
+  return !!(kind(first) && kind(first) === kind(second) && first.video.viewCount && second.video.viewCount &&
+    first.video.publishedAt && second.video.publishedAt &&
+    Math.abs(Date.parse(first.video.publishedAt) - Date.parse(second.video.publishedAt)) <= 48 * 3600_000 &&
+    Math.abs(Date.parse(first.video.observedAt) - Date.parse(second.video.observedAt)) <= 3600_000)
+}

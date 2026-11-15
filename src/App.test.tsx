@@ -18,7 +18,8 @@ describe('fundação', () => {
     expect(screen.getByRole('heading', { name: 'Radar' })).toHaveFocus()
     expect(screen.getByRole('region', { name: 'Notícias do Radar' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Virais e formatos' }))
-    expect(screen.getByText(/Nenhuma referência cadastrada/)).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Virais e formatos' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Ver catálogo de formatos' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Virais e formatos' })).toHaveAttribute('aria-pressed', 'true')
   })
   it('exibe recuperação para rota desconhecida', () => {

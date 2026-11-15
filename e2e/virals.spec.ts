@@ -89,3 +89,26 @@ test('cria pauta com origem criativa e abre o resultado no Studio', async ({ pag
   await page.getByRole('button', { name: 'Virais e formatos', exact: true }).click()
   await expect(virals.locator('article')).toContainText('Formas de comparar soluções')
 })
+
+test('exibe métricas com carimbo de observação e compara snapshots equivalentes', async ({ page }) => {
+  const ids = ['abcdefghijk', 'abcdefghij0']
+  const now = new Date().toISOString()
+  await page.route('**/virals-youtube.json', route => route.fulfill({ json: {
+    schemaVersion: 1, status: 'ready', day: 'fixture', requests: 1,
+    videos: ids.map((id, index) => ({ id, status: 'available', observedAt: now, publishedAt: '2026-01-01T00:00:00Z', duration: 'PT5M', viewCount: String(100 + index) })),
+  } }))
+  const virals = await openVirals(page)
+  for (const [index, id] of ids.entries()) {
+    await virals.getByRole('button', { name: 'Adicionar referência' }).click()
+    await virals.getByLabel('Título da referência').fill(`Vídeo da fixture ${index}`)
+    await virals.getByLabel('URL original').fill(`https://youtu.be/${id}`)
+    await virals.getByRole('button', { name: 'Salvar referência' }).click()
+    await expect(virals.getByRole('region', { name: 'Detalhes da referência' })).toContainText(`${100 + index} visualizações`)
+  }
+  for (const button of await virals.getByRole('button', { name: 'Comparar métricas' }).all()) await button.click()
+  const panel = virals.getByRole('region', { name: 'Comparação de métricas' })
+  await expect(panel).toContainText('100 visualizações')
+  await expect(panel).toContainText('101 visualizações')
+  await expect(panel).toContainText('Dados do YouTube · observados em')
+  await expect(panel).not.toContainText('curtidas')
+})

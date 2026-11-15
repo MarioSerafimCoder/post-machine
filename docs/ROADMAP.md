@@ -19,6 +19,8 @@ Fases 1 a 4 implementadas e publicadas. O Radar tem publicação agendada ativa 
 - 5.0: estabilização do armazenamento e da Auditoria, com identidade provisória Post Machine.
 - 5.1: análise, comparação, importação e aplicação de headlines em campanhas e no Studio.
 - 5.2: pesquisa pelo Openverse, importação de originais, acervo local e créditos de imagens.
-- 5.3: Radar de Virais e Formatos. Começar com curadoria manual, links originais e métricas verificáveis quando disponíveis.
+- 5.3: catálogo de oito formatos, curadoria local, geração de pauta e métricas opcionais da YouTube Data API.
 
-Sem Radar de Virais ou serviços externos de IA nesta fase.
+## Próxima etapa: Fase 6 — Refinamento geral
+
+Revisar acessibilidade por teclado, consistência de mensagens e desempenho com bibliotecas maiores. Usar o fluxo de referência criativa → pauta → Headlines → Studio → Auditoria → exportação como cenário integrado. Acompanhar o Radar agendado e a integração opcional do YouTube separadamente.

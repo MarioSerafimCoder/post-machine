@@ -39,6 +39,10 @@ No Studio, abra **Imagens → Pesquisar imagens** ou use **Buscar imagem para es
 
 **Gerar créditos do projeto** permite copiar e baixar as atribuições. O ZIP das artes inclui `creditos.txt` quando houver metadados de imagens. Confira as condições da fonte antes de publicar, especialmente em imagens adaptadas.
 
+## Organizar referências criativas
+
+Em **Radar → Virais e formatos**, explore os oito formatos, cadastre links, registre observações e salve favoritos. **Criar pauta com esta referência** envia o link e a análise para o briefing da campanha. Use **Exportar biblioteca** para fazer backup das referências locais. As métricas do YouTube exigem configuração opcional no GitHub Actions. Consulte [SETUP.md](docs/SETUP.md).
+
 ## Documentação
 
 - [Especificação integral](docs/PRODUCT_SPEC.md)
