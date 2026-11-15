@@ -28,7 +28,7 @@ import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
 import type { Finding } from '../audit/contract'
 
-export function Studio({ request }: { request: Draft | null }) {
+export function Studio({ request, active }: { request: Draft | null; active: boolean }) {
   const [error, setError] = useState('')
   const { project, setProject, undo, redo, history, status, flush, getCurrent } = useDocument()
   const [library, setLibrary] = useState<Project[]>([])
@@ -77,18 +77,31 @@ export function Studio({ request }: { request: Draft | null }) {
   const selectedObject = readyCanvas?.getActiveObject()
   const selectedTitle = selectedObject instanceof Textbox && selectedObject.semantic === 'title' ? selectedObject : undefined
   const campaign = request?.id === campaignId ? request : linkedCampaign?.id === campaignId ? linkedCampaign : undefined
-  const historyKey = useEffectEvent((redoAction: boolean) => { if (redoAction) redo(); else undo(); currentRef.current = 0; setCurrent(0); setRevision(n => n + 1) })
+  function moveHistory(redoAction: boolean) {
+    const id = getCurrent()?.slides[currentRef.current]?.id
+    const next = redoAction ? redo() : undo()
+    if (!next) return
+    const index = next.slides.findIndex(slide => slide.id === id)
+    chooseSlide(index >= 0 ? index : Math.min(currentRef.current, next.slides.length - 1))
+    setRevision(value => value + 1)
+  }
+  const historyKey = useEffectEvent(moveHistory)
   useEffect(() => {
+    if (!active) return
     const key = (event: KeyboardEvent) => {
-      if (!canvas.current || event.target instanceof HTMLElement && (event.target.closest('input, textarea, select, [contenteditable=true]'))) return
+      if (event.defaultPrevented || document.querySelector('dialog[open]') || !canvas.current || event.target instanceof HTMLElement && (event.target.closest('input, textarea, select, [contenteditable=true]'))) return
       const selected = canvas.current.getActiveObject()
       if (selected instanceof Textbox && selected.isEditing) return
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); historyKey(event.shiftKey); return }
-      if (event.key === 'Delete') { event.preventDefault(); canvas.current.remove(...canvas.current.getActiveObjects()); canvas.current.discardActiveObject(); changed() }
-      if ((event.ctrlKey || event.metaKey) && event.key === 'd') { event.preventDefault(); void duplicate(canvas.current).then(changed) }
+      if (event.key === 'Delete' && selected) { event.preventDefault(); canvas.current.remove(...canvas.current.getActiveObjects()); canvas.current.discardActiveObject(); changed() }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd' && selected) {
+        const target = canvas.current
+        event.preventDefault()
+        void duplicate(target).then(() => { if (canvas.current === target) changed() }, () => setError('Não foi possível duplicar o elemento.'))
+      }
     }
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key)
-  }, [changed])
+  }, [active, changed])
   function replace(value: Project, fromStorage = false) { setProject(value, !fromStorage, fromStorage); setRevision(n => n + 1) }
   function chooseSlide(index: number) { currentRef.current = index; setCurrent(index) }
   function selectPath(path:string|null){if(!path||!canvas.current)return;const object=canvas.current.getObjects()[Number(path.split('.')[0])];if(object){canvas.current.setActiveObject(object);canvas.current.requestRenderAll();refresh(n=>n+1)}}
@@ -178,7 +191,7 @@ export function Studio({ request }: { request: Draft | null }) {
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => { if (window.confirm('Excluir este projeto local?')) void removeProject(item.id).then(() => listProjects()).then(setLibrary, error => setError(String(error))) }}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
-    <header className="studio-toolbar"><button onClick={() => void back()}>Projetos</button><button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button><span role="status">{status}</span><button disabled={!history.undo} onClick={() => { undo(); chooseSlide(0); setRevision(n => n + 1) }}>Desfazer</button><button disabled={!history.redo} onClick={() => { redo(); chooseSlide(0); setRevision(n => n + 1) }}>Refazer</button><label>Projeto<input value={project.name} maxLength={100} onChange={e => setProject({ ...project, name: e.target.value, updatedAt: new Date().toISOString() })} /></label><span>{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span><label>Zoom<select aria-label="Zoom" value={zoom} onChange={e => setZoom(Number(e.target.value))}>{[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1])].sort((a,b) => a-b).map(n => <option key={n} value={n}>{Math.round(n * 100)}%</option>)}</select></label><button onClick={() => { const stage = document.querySelector('.canvas-stage'); if (stage) setZoom(Math.max(.1, Math.min(1, (stage.clientWidth - 56) / 1080, (stage.clientHeight - 56) / dimensions[project.format][1]))) }}>Ajustar à tela</button><label><input type="checkbox" checked={guides} onChange={e => setGuides(e.target.checked)} />Área segura</label><button onClick={()=>setAuditOpen(value=>!value)}>Auditar design</button><button disabled={busy} onClick={() => void exportDesign(false)}>Exportar PNG</button><button disabled={busy} onClick={() => void exportDesign(true)}>Exportar ZIP</button><button onClick={() => setShowCredits(value => !value)}>Gerar créditos do projeto</button><button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), error => setError(String(error)))}>Backup completo</button><button onClick={() => { if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, error => setError(String(error))) }}>Recuperar versão anterior</button><button onClick={() => { const copy = structuredClone(project); copy.id = crypto.randomUUID(); copy.name = `${copy.name.slice(0, 90)} (cópia)`; replace(copy) }}>Duplicar projeto</button></header>
+    <header className="studio-toolbar"><button onClick={() => void back()}>Projetos</button><button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button><span role="status">{status}</span><button disabled={!history.undo} onClick={() => moveHistory(false)}>Desfazer</button><button disabled={!history.redo} onClick={() => moveHistory(true)}>Refazer</button><label>Projeto<input value={project.name} maxLength={100} onChange={e => setProject({ ...project, name: e.target.value, updatedAt: new Date().toISOString() })} /></label><span>{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span><label>Zoom<select aria-label="Zoom" value={zoom} onChange={e => setZoom(Number(e.target.value))}>{[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1])].sort((a,b) => a-b).map(n => <option key={n} value={n}>{Math.round(n * 100)}%</option>)}</select></label><button onClick={() => { const stage = document.querySelector('.canvas-stage'); if (stage) setZoom(Math.max(.1, Math.min(1, (stage.clientWidth - 56) / 1080, (stage.clientHeight - 56) / dimensions[project.format][1]))) }}>Ajustar à tela</button><label><input type="checkbox" checked={guides} onChange={e => setGuides(e.target.checked)} />Área segura</label><button onClick={()=>setAuditOpen(value=>!value)}>Auditar design</button><button disabled={busy} onClick={() => void exportDesign(false)}>Exportar PNG</button><button disabled={busy} onClick={() => void exportDesign(true)}>Exportar ZIP</button><button onClick={() => setShowCredits(value => !value)}>Gerar créditos do projeto</button><button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), error => setError(String(error)))}>Backup completo</button><button onClick={() => { if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, error => setError(String(error))) }}>Recuperar versão anterior</button><button onClick={() => { const copy = structuredClone(project); copy.id = crypto.randomUUID(); copy.name = `${copy.name.slice(0, 90)} (cópia)`; replace(copy) }}>Duplicar projeto</button></header>
     {pendingExport && <div className="export-warnings" role="alert"><h3>Revise antes de exportar</h3><ul>{pendingExport.findings.filter(f=>f.severity!=='info').map(f => <li key={f.id}><button onClick={()=>focusFinding(f)}>Slide {f.slideNumber}: {f.message} — localizar</button></li>)}</ul>{pendingExport.credits && <button onClick={() => exportCredits(pendingExport.credits)}>Exportar créditos desta arte</button>}<button disabled={pendingExport.source!==project} onClick={() => { download(pendingExport.blob, pendingExport.name); setPendingExport(undefined) }}>Exportar com avisos</button><button onClick={() => setPendingExport(undefined)}>Voltar para corrigir</button>{pendingExport.source!==project&&<p>O projeto mudou. Exporte novamente para revisar a versão atual.</p>}</div>}
     {showCredits && <section className="image-workspace" aria-label="Créditos do projeto">
       <h3>Créditos do projeto</h3>
@@ -204,19 +217,20 @@ export function Studio({ request }: { request: Draft | null }) {
         selectedTitle.set({ headlines })
         snapshotCanvas(text !== undefined)
       }} /></div>}
-    {auditOpen&&<AuditPanel project={project} currentSlide={current} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setPendingExport(undefined);setProject(value);setRevision(n=>n+1);await flush()}} onUndo={()=>{undo();setRevision(n=>n+1)}}/>}
+    {auditOpen&&<AuditPanel project={project} currentSlide={current} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setPendingExport(undefined);setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
     {error && <p role="alert">{error}</p>}
+    {!readyCanvas && !error && <p className="studio-loading" role="status">Carregando o slide…</p>}
     <div className="studio-layout"><aside className="studio-tools"><nav aria-label="Ferramentas do Studio">{['Templates', 'Texto', 'Imagens', 'Elementos', 'Minha marca', 'Camadas'].map(name => <button key={name} aria-pressed={panel === name} onClick={() => setPanel(name)}>{name}</button>)}</nav>
       {panel === 'Templates' && <><h3>Templates originais</h3>{Object.entries(templates).map(([key, name]) => <button key={key} onClick={() => template(key as Template)}>{name}</button>)}</>}
       {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar marca e recompor os templates de todos os slides?')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
-      {panel === 'Texto' && <><h3>Tipografia</h3><button onClick={() => { if (canvas.current) { addObject(canvas.current, 'title'); changed() } }}>Adicionar título</button><button onClick={() => { if (canvas.current) { addObject(canvas.current, 'text'); changed() } }}>Adicionar texto</button></>}
-      {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} onClick={() => { if (canvas.current) { addObject(canvas.current, type); changed() } }}>{name}</button>)}</>}
+      {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title'); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text'); changed() } }}>Adicionar texto</button></>}
+      {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, type); changed() } }}>{name}</button>)}</>}
       {panel === 'Imagens' && <><h3>Imagens</h3><div className="image-tabs" role="group" aria-label="Origem da imagem">
         <button aria-pressed={imagePanel?.tab === 'search' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('search')}>Pesquisar imagens</button>
         <button onClick={() => openImages('search', true)}>Buscar imagem para este slide</button>
         <button aria-pressed={imagePanel?.tab === 'library' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('library')}>Imagens utilizadas</button>
         {imagePanel && <button onClick={() => setImagePanel(undefined)}>Fechar painel de imagens</button>}
-      </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
+      </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input type="file" accept="image/png,image/jpeg,image/webp" disabled={!readyCanvas} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
       {panel === 'Camadas' && <><h3>Camadas</h3>{readyCanvas?.getObjects().map((o, i) => <button key={i} onClick={() => { canvas.current?.setActiveObject(o); canvas.current?.requestRenderAll(); refresh(n => n + 1) }}>{i + 1} · {o instanceof Textbox ? o.text.slice(0, 32) || ({ title: 'Título', body: 'Corpo', cta: 'Chamada para ação', brand: 'Marca' }[o.semantic ?? ''] ?? 'Texto vazio') : o.type}</button>).reverse()}</>}
     </aside><CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties brand={project.brand} canvas={readyCanvas} changed={changed} /></div>
     <Slides project={project} current={current} select={chooseSlide} action={slideAction} />

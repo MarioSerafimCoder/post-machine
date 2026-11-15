@@ -51,7 +51,7 @@ export function App() {
         <div className="page-heading"><div><p className="eyebrow">SEU PROCESSO CRIATIVO, EM UM SÓ LUGAR</p><h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'Ideias boas merecem espaço.' : label}</h1></div><span className="badge badge-outline"><span className="status-dot" /> Fase 5 · Ferramentas editoriais</span></div>
         {page === 'inicio' && <Overview onRoadmap={() => setRoadmap(true)} />}
         <div hidden={page !== 'radar'}><Radar active={page === 'radar'} onDesign={draft => { setDesignRequest(draft); window.location.hash = '/studio' }} /></div>
-        {(page === 'studio' || studioVisited) && <div hidden={page !== 'studio'}><Suspense fallback={<p>Carregando Studio…</p>}><Studio request={designRequest} /></Suspense></div>}
+        {(page === 'studio' || studioVisited) && <div hidden={page !== 'studio'}><Suspense fallback={<p>Carregando Studio…</p>}><Studio request={designRequest} active={page === 'studio'} /></Suspense></div>}
         {page === 'auditoria' && <Suspense fallback={<p>Carregando auditoria…</p>}><AuditPage /></Suspense>}
         {page === 'not-found' && <section className="empty-state"><Icon name="home" /><h2>Este caminho ainda não existe.</h2><p>Volte à visão geral para explorar seu espaço.</p><a className="button button-dark" href="#/inicio">Voltar ao início</a></section>}
         <footer className="footer"><span>POST MACHINE <span className="footer-divider">/</span> Da referência à publicação.</span><span>Feito para o seu processo.</span></footer>

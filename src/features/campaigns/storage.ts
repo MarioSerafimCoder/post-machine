@@ -47,11 +47,29 @@ export function readCampaigns() {
   })
 }
 
-export function putCampaign(draft: Draft) {
+export class CampaignConflict extends Error {}
+
+function sameCampaign(saved: unknown, expected?: Draft) {
+  if (saved === undefined) return expected === undefined
+  return expected !== undefined && JSON.stringify(draftSchema.parse(saved)) === JSON.stringify(draftSchema.parse(expected))
+}
+
+function changeCampaign(id: string, expected: Draft | undefined, change: (store: IDBObjectStore) => void) {
   return transact('readwrite', transaction => {
-    transaction.objectStore('campaigns').put(draft)
-    return () => undefined
+    const store = transaction.objectStore('campaigns')
+    const request = store.get(id)
+    let conflict = true
+    request.onsuccess = () => {
+      try { conflict = !sameCampaign(request.result, expected) }
+      catch { return }
+      if (!conflict) change(store)
+    }
+    return () => { if (conflict) throw new CampaignConflict() }
   })
+}
+
+export function putCampaign(draft: Draft, expected?: Draft) {
+  return changeCampaign(draft.id, expected, store => store.put(draft))
 }
 
 export function readCampaign(id: string) {
@@ -61,11 +79,8 @@ export function readCampaign(id: string) {
   })
 }
 
-export function deleteCampaign(id: string) {
-  return transact('readwrite', transaction => {
-    transaction.objectStore('campaigns').delete(id)
-    return () => undefined
-  })
+export function deleteCampaign(draft: Draft) {
+  return changeCampaign(draft.id, draft, store => store.delete(draft.id))
 }
 
 export function putPreferences(preferences: Preferences) {

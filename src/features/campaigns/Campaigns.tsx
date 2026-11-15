@@ -8,7 +8,7 @@ import {
   markdownExample, maxBackup, maxImport, maxSlides, newDraft, objectives, roles, tones,
   type Backup, type Briefing, type Content, type Draft, type Slide,
 } from './contract'
-import { deleteCampaign, putCampaign, putPreferences, readCampaigns, restoreCampaigns } from './storage'
+import { CampaignConflict, deleteCampaign, putCampaign, putPreferences, readCampaigns, restoreCampaigns } from './storage'
 import './campaigns.css'
 import type { Reference } from '../virals/contract'
 import { identifyUrl, platforms as referencePlatforms } from '../virals/urls'
@@ -40,9 +40,15 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   const handledRequest = useRef<typeof request>(null)
   const heading = useRef<HTMLHeadingElement>(null)
   const draft = backup?.campaigns.find(item => item.id === selected)
-  const [queue] = useState(() => new SaveQueue<Draft>(putCampaign, (id, state) => {
+  const [persisted] = useState(() => new Map<string, Draft>())
+  const [queue] = useState(() => new SaveQueue<Draft>(async item => {
+    await putCampaign(item, persisted.get(item.id))
+    persisted.set(item.id, item)
+  }, (id, state, failure) => {
     setDirty(current => state === 'saved' ? current.filter(value => value !== id) : current.includes(id) ? current : [...current, id])
-    if (state === 'error') setError('Falha ao salvar. Tente novamente com Salvar campanha. Suas alterações continuam nesta tela.')
+    if (state === 'error') setError(failure instanceof CampaignConflict
+      ? 'A campanha mudou em outra aba. Exporte um backup para guardar suas alterações e restaure-o após recarregar.'
+      : 'Falha ao salvar. Tente novamente com Salvar campanha. Suas alterações continuam nesta tela.')
     if (state === 'saved') setStatus('Salvo neste navegador.')
   }))
   const [creating, setCreating] = useState(false)
@@ -69,9 +75,13 @@ export function Campaigns({ request, active, onBack, onDesign }: {
 
   useEffect(() => {
     let live = true
-    void readCampaigns().then(result => { if (live) setBackup(result) }, () => { if (live) setLoadError(true) })
+    void readCampaigns().then(result => {
+      if (!live) return
+      result.campaigns.forEach(item => persisted.set(item.id, item))
+      setBackup(result)
+    }, () => { if (live) setLoadError(true) })
     return () => { live = false }
-  }, [])
+  }, [persisted])
 
   const persist = useCallback((value: Draft, explicit = false) => {
     const item = { ...value, updatedAt: new Date().toISOString() }
@@ -104,13 +114,14 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     setError('')
     try {
       await queue.flush(item.id)
-      await deleteCampaign(item.id)
+      await deleteCampaign(persisted.get(item.id) ?? item)
+      persisted.delete(item.id)
       setBackup(current => current && { ...current, campaigns: current.campaigns.filter(entry => entry.id !== item.id) })
       setSelected(current => current === item.id ? undefined : current)
       setDeleteId(undefined)
       setDirty(current => current.filter(id => id !== item.id))
       setStatus('Campanha excluída.')
-    } catch { setError('Não foi possível excluir a campanha.') }
+    } catch (failure) { setError(failure instanceof CampaignConflict ? 'A campanha mudou em outra aba. Recarregue antes de excluir.' : 'Não foi possível excluir a campanha.') }
     finally { setSaving(count => count - 1) }
   }
 
@@ -167,7 +178,10 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     }
     try {
       await restoreCampaigns(data)
-      setBackup(await readCampaigns())
+      const restored = await readCampaigns()
+      persisted.clear()
+      restored.campaigns.forEach(item => persisted.set(item.id, item))
+      setBackup(restored)
       setLoadError(false)
       setStatus('Backup restaurado. Campanhas com o mesmo ID foram adicionadas como cópias.')
     } catch { setError('Não foi possível concluir a restauração.') }

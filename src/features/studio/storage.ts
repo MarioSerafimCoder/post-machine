@@ -16,11 +16,21 @@ async function transaction<T>(stores: string[], mode: IDBTransactionMode, action
 const dataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob) })
 async function pack(project: Project) {
   const assets = new Map<string, Blob>()
+  const encodedAssets = new Map<string, Promise<string>>()
+  async function packAsset(value: string) {
+    const [header, encoded] = value.split(',')
+    const binary = atob(encoded)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
+    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(n => n.toString(16).padStart(2, '0')).join('')
+    assets.set(hash, new Blob([bytes], { type: header.slice(5, header.indexOf(';')) }))
+    return `asset:${hash}`
+  }
   async function walk(value: unknown): Promise<unknown> {
     if (typeof value === 'string' && /^data:(image\/(png|jpeg|webp)|font\/woff2);base64,/.test(value)) {
-      const [header, encoded] = value.split(','); const bytes = Uint8Array.from(atob(encoded), char => char.charCodeAt(0)); const blob = new Blob([bytes], { type: header.slice(5, header.indexOf(';')) })
-      const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer()))].map(n => n.toString(16).padStart(2, '0')).join('')
-      assets.set(hash, blob); return `asset:${hash}`
+      let packed = encodedAssets.get(value)
+      if (!packed) { packed = packAsset(value); encodedAssets.set(value, packed) }
+      return packed
     }
     if (Array.isArray(value)) return Promise.all(value.map(walk))
     if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k, v]) => [k, k === 'imageCredit' ? v : await walk(v)])))
@@ -29,11 +39,18 @@ async function pack(project: Project) {
   return { project: validateProject(await walk(validateProject(project))), assets }
 }
 async function hydrate(project: unknown, read: (id: string) => Promise<Blob | undefined>): Promise<Project> {
-  const cache = new Map<string, string>()
+  const cache = new Map<string, Promise<string>>()
   async function walk(value: unknown): Promise<unknown> {
     if (typeof value === 'string' && /^asset:[a-f0-9]{64}$/.test(value)) {
-      if (!cache.has(value)) { const blob = await read(value.slice(6)); if (!blob) throw Error('Imagem ausente. Restaure um backup completo.'); cache.set(value, await dataUrl(blob)) }
-      return cache.get(value)
+      let source = cache.get(value)
+      if (!source) {
+        source = read(value.slice(6)).then(blob => {
+          if (!blob) throw Error('Arquivo ausente. Restaure um backup completo.')
+          return dataUrl(blob)
+        })
+        cache.set(value, source)
+      }
+      return source
     }
     if (Array.isArray(value)) return Promise.all(value.map(walk))
     if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k,v]) => [k, k === 'imageCredit' ? v : await walk(v)])))
@@ -191,17 +208,48 @@ export async function backupProject(project: Project): Promise<Blob> {
   for (const [id, blob] of packed.assets) zip.file(`assets/${id}`, await blob.arrayBuffer())
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
 }
+
+function readZipEntry(file: JSZip.JSZipObject, maxBytes: number, account: (size: number) => boolean) {
+  // JSZip documents internalStream, but omits it on ZipObject in its bundled types.
+  const entry = file as JSZip.JSZipObject & { internalStream(type: 'uint8array'): JSZip.JSZipStreamHelper<Uint8Array> }
+  return new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
+    const stream = entry.internalStream('uint8array')
+    const chunks: Uint8Array[] = []
+    let bytes = 0
+    stream.on('data', chunk => {
+      bytes += chunk.byteLength
+      if (bytes > maxBytes || !account(chunk.byteLength)) {
+        stream.pause()
+        reject(Error('O conteúdo descompactado do backup excede o limite.'))
+        return
+      }
+      chunks.push(chunk)
+    }).on('error', () => reject(Error('Um arquivo do backup está corrompido.'))).on('end', () => {
+      const result = new Uint8Array(bytes)
+      let offset = 0
+      for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength }
+      resolve(result)
+    }).resume()
+  })
+}
+
 export async function restoreProject(file: File): Promise<Project> {
   if (file.size > 150_000_000) throw Error('Backup excede 150 MB.')
-  const zip = await JSZip.loadAsync(await file.arrayBuffer(), { checkCRC32: true })
+  const zip = await JSZip.loadAsync(await file.arrayBuffer()).catch(() => { throw Error('O arquivo não é um backup ZIP válido.') })
   if (Object.keys(zip.files).length > 500) throw Error('Backup excede o limite de arquivos.')
-  const json = await zip.file('project.json')?.async('string')
-  if (!json || json.length > 20_000_000) throw Error('Projeto ausente ou excede 20 MB.')
-  let total = json.length
-  const project = await hydrate(JSON.parse(json), async id => {
-    const data = await zip.file(`assets/${id}`)?.async('uint8array'); if (!data) return undefined
-    total += data.byteLength; if (data.byteLength > 20_000_000 || total > 150_000_000) throw Error('Imagens do backup excedem o limite.')
-    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(data).buffer))].map(n => n.toString(16).padStart(2,'0')).join('')
+  const manifest = zip.file('project.json')
+  if (!manifest) throw Error('O backup não contém o documento do projeto.')
+  let total = 0
+  const account = (size: number) => (total += size) <= 150_000_000
+  const json = await readZipEntry(manifest, 20_000_000, account)
+  let document: unknown
+  try { document = validateProject(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(json))) }
+  catch { throw Error('O documento do backup está corrompido ou usa uma versão incompatível.') }
+  const project = await hydrate(document, async id => {
+    const asset = zip.file(`assets/${id}`)
+    if (!asset) return undefined
+    const data = await readZipEntry(asset, 20_000_000, account)
+    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map(n => n.toString(16).padStart(2,'0')).join('')
     if (hash !== id) throw Error('Imagem corrompida no backup.')
     const font = String.fromCharCode(...data.slice(0,4)) === 'wOF2'
     const png = data[0] === 137 && data[1] === 80; const jpeg = data[0] === 255 && data[1] === 216

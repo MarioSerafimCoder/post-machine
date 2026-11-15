@@ -3,7 +3,7 @@ export class SaveQueue<T> {
   private pending = new Map<string, T>()
   private timers = new Map<string, ReturnType<typeof setTimeout>>()
   private running = new Map<string, Promise<void>>()
-  constructor(private write: (value: T) => Promise<unknown>, private report: (id: string, state: 'saving' | 'saved' | 'error') => void, private delay = 350) {}
+  constructor(private write: (value: T) => Promise<unknown>, private report: (id: string, state: 'saving' | 'saved' | 'error', error?: unknown) => void, private delay = 350) {}
   schedule(id: string, value: T) {
     this.pending.set(id, value)
     clearTimeout(this.timers.get(id))
@@ -12,6 +12,7 @@ export class SaveQueue<T> {
   }
   async flush(id: string): Promise<void> {
     clearTimeout(this.timers.get(id))
+    this.timers.delete(id)
     const active = this.running.get(id)
     if (active) { await active; if (this.pending.has(id)) return this.flush(id); return }
     if (!this.pending.has(id)) return
@@ -19,7 +20,7 @@ export class SaveQueue<T> {
       while (this.pending.has(id)) {
         const value = this.pending.get(id)!
         try { await this.write(value) }
-        catch (error) { this.report(id, 'error'); throw error }
+        catch (error) { this.report(id, 'error', error); throw error }
         if (this.pending.get(id) === value) this.pending.delete(id)
       }
       this.report(id, 'saved')

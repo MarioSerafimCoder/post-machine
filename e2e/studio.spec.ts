@@ -1,7 +1,21 @@
 import { test, expect, type Page } from '@playwright/test'
+import JSZip from 'jszip'
 const consoleErrors = new WeakMap<Page, string[]>()
 test.beforeEach(({ page }) => { const errors: string[] = []; consoleErrors.set(page, errors); page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) }) })
 test.afterEach(({ page }) => { expect(consoleErrors.get(page)).toEqual([]) })
+
+test('recusa conteúdo descompactado excessivo sem alterar a biblioteca de projetos', async ({ page }) => {
+  await page.goto('/#/studio')
+  const file = page.getByLabel('Restaurar projeto ZIP')
+  const zip = new JSZip().file('project.json', ' '.repeat(20_000_001))
+  const data = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
+  await file.setInputFiles({ name: 'backup-acima-do-limite.zip', mimeType: 'application/zip', buffer: data })
+  await expect(page.getByRole('alert')).toContainText('conteúdo descompactado do backup excede o limite')
+  const unknown = await new JSZip().file('project.json', '{"schemaVersion":99}').generateAsync({ type: 'nodebuffer' })
+  await file.setInputFiles({ name: 'versao-desconhecida.zip', mimeType: 'application/zip', buffer: unknown })
+  await expect(page.getByRole('alert')).toContainText('versão incompatível')
+  await expect(page.getByRole('button', { name: /^Abrir / })).toHaveCount(0)
+})
 
 test('post editável com texto, ferramentas, teclado e upload local', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message))

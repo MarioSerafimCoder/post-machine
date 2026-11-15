@@ -14,8 +14,9 @@ export function useDocument(initial?: Project) {
     const saves: SaveQueue<Project> = new SaveQueue(async value => {
       await saveProject(value, persisted.get(value.id))
       persisted.set(value.id, value)
-    }, (_, state) => {
-      setStatus(state === 'saved' ? 'Salvo' : state === 'saving' ? 'Salvando…' : 'Falha ao salvar')
+    }, (_, state, failure) => {
+      setStatus(state === 'saved' ? 'Salvo' : state === 'saving' ? 'Salvando…' : failure instanceof Error && failure.message.includes('outro lugar')
+        ? 'Outra aba atualizou o projeto. Faça um backup para preservar sua edição.' : 'Falha ao salvar')
       if (state === 'saving' && !releaseDraft && navigator.locks) {
         const pending = new Promise<void>(resolve => { releaseDraft = resolve })
         void navigator.locks.request('post-machine-studio-drafts', { mode: 'shared' }, () => pending)
@@ -35,8 +36,8 @@ export function useDocument(initial?: Project) {
     if (next && fromStorage) { persisted.set(next.id, next); setStatus('Salvo') }
     else if (next) queue.schedule(next.id, next)
   }, [persisted, queue])
-  const undo = () => { const next = past.current.pop(); if (!next || !current.current) return; future.current.push(current.current); apply(next, false) }
-  const redo = () => { const next = future.current.pop(); if (!next || !current.current) return; past.current.push(current.current); apply(next, false) }
+  const undo = () => { const next = past.current.pop(); if (!next || !current.current) return; future.current.push(current.current); apply(next, false); return next }
+  const redo = () => { const next = future.current.pop(); if (!next || !current.current) return; past.current.push(current.current); apply(next, false); return next }
   useEffect(() => {
     if (initial) queue.schedule(initial.id, initial)
     const flush = () => { void queue.flushAll().catch(() => undefined) }
