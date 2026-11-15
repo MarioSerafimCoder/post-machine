@@ -165,4 +165,10 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 
 - Lint aprovado; 42 testes Vitest; build TypeScript/Vite aprovado. 32 testes Playwright no Vite e 32 no build servido pelo Wrangler/CSP aprovados, incluindo regressões de IndexedDB, backup, fontes e PNG/ZIP. `wrangler deploy --dry-run` aprovado, sem bindings adicionais.
 - Custo operacional adicional R$ 0: auditoria executa no navegador, sem API externa. Cloudflare Access, Worker e domínio não foram alterados na configuração.
-- Publicação manual e conferência remota serão registradas após o deploy. A publicação automática do Radar segue pendente dos segredos `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` e da variável `CLOUDFLARE_ACCESS_READY` no GitHub Environment `production`.
+- A publicação manual e a conferência remota estão registradas abaixo. A publicação automática do Radar segue pendente dos segredos `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` e da variável `CLOUDFLARE_ACCESS_READY` no GitHub Environment `production`.
+
+## Publicação da Fase 4 — 15/11/2026
+
+- Código da Fase 4 enviado para `origin/main` no commit `5255c42`. Build publicado manualmente pelo Wrangler no Worker existente `post-machine`, domínio `posts.marioserafim.com.br`, versão `35d34fdd-3c8d-4059-baca-1d2cfe56087a`. Nenhum binding ou Worker adicional foi criado.
+- Verificação anônima após o deploy: `/`, `/radar.json` e `/favicon.svg` continuam retornando HTTP 302 para o Cloudflare Access. Em sessão autorizada no navegador, a nova página Auditoria abriu, carregou um projeto local da Fase 3 e analisou seu slide, exibindo relatório real, filtros e resumo. O projeto e o relatório permaneceram no navegador.
+- Publicação automática do Radar continua independente e pendente da configuração do GitHub Environment `production` indicada acima. A proteção do domínio permanece ativa.
