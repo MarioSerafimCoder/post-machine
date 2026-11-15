@@ -69,6 +69,12 @@ As headlines usam um contrato local versionado e opcional, salvo por peça na ca
 
 O armazenamento do Studio coordena gravações e coleta de órfãos via Web Locks quando disponíveis. A limpeza valida e usa a mesma transação para ler e excluir arquivos. A escrita da Auditoria e as revisões subsequentes do Studio comparam a versão persistida antes de substituir um projeto.
 
+## Imagens e créditos
+
+A pesquisa usa o endpoint anônimo do Openverse, valida o JSON com Zod e mantém um cache de cinco minutos por consulta e página. A CSP permite o catálogo e suas miniaturas. Downloads automáticos fazem uma requisição CORS sem credenciais, rejeitam redirecionamentos e se limitam a `upload.wikimedia.org` e `live.staticflickr.com`. Outros provedores podem ser usados pelo fluxo de upload manual. Nenhum proxy foi adicionado.
+
+O original entra no mesmo fluxo de arquivos locais do Fabric. O contrato versionado de créditos é opcional no objeto de imagem. O URL remoto fica como referência textual. O canvas renderiza dados locais e o IndexedDB deduplica bytes por SHA-256. O histórico lê referências de projetos e de recuperação. O ZIP de artes inclui créditos consolidados sem alterar o PNG.
+
 Identificadores técnicos post-machine preservados. Contrato editorial importado continua v1. Documentos locais v2 admitem origem nula e título próprio; leitura de v1 migra sem notícia fictícia. IndexedDB v2 atualiza registros em transação atômica, abortando se algum registro for inválido. Backups v1 continuam aceitos e restauração preserva colisões como cópias.
 
 SaveQueue agrupa edições por 350 ms, serializa gravações por ID e retém a última alteração em falhas. Navegação, troca de documento e perda de visibilidade disparam flush; beforeunload é proteção complementar. A área editorial permanece montada para manter pendências e permitir retentativa. Dados locais não são sincronizados entre abas/dispositivos.

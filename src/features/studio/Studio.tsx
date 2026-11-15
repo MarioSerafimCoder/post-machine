@@ -1,3 +1,7 @@
+import { ImageSearch } from '../images/ImageSearch'
+import { ImageLibrary } from '../images/ImageLibrary'
+import { projectCredits } from '../images/credits'
+import type { ImageCredit } from '../images/contract'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { readCampaign } from '../campaigns/storage'
@@ -32,6 +36,10 @@ export function Studio({ request }: { request: Draft | null }) {
   const [busy, setBusy] = useState(false)
   const [pendingExport, setPendingExport] = useState<Awaited<ReturnType<typeof exportProject>>>()
   const [auditOpen,setAuditOpen]=useState(false)
+  const [imagePanel, setImagePanel] = useState<{ tab: 'search' | 'library'; slideId: string; term: string; request: number }>()
+  const [showCredits, setShowCredits] = useState(false)
+  const [creditStatus, setCreditStatus] = useState('')
+  const credits = project ? projectCredits(project) : ''
   const focusPath=useRef<string|null>(null)
   useEffect(() => { void listProjects().then(setLibrary, () => setError('Não foi possível carregar os projetos.')); void readBrand().then(value => { if (value) setBrand(value) }, () => undefined) }, [])
   async function back() { try { await flush(); setLibrary(await listProjects()); setProject(undefined) } catch { setError('Falha ao salvar. Faça um backup antes de sair ou tente salvar novamente.') } }
@@ -108,31 +116,79 @@ export function Studio({ request }: { request: Draft | null }) {
     if (action === 'up' || action === 'down') { next += action === 'up' ? -1 : 1; [slides[next], slides[current]] = [slides[current], slides[next]] }
     chooseSlide(next); setProject({ ...project, slides })
   }
-  async function upload(file?: File) {
-    if (!file || !canvas.current) return
-    try {
-      const image = await readImage(file)
-      const selected = canvas.current.getActiveObject()
-      if (selected instanceof FabricImage) {
-        image.semantic = selected.semantic; image.scaleToWidth(selected.getScaledWidth()); cropImage(image, selected.getScaledWidth() / selected.getScaledHeight()); image.set({ left: selected.left, top: selected.top, angle: selected.angle, originX: selected.originX, originY: selected.originY })
-        canvas.current.remove(selected)
-      } else {
-        image.semantic = 'image'
-        const frame = canvas.current.getObjects().find(o => o.semantic === 'imageFrame')
-        image.scaleToWidth(frame ? frame.getScaledWidth() : 700)
-        if (frame) { cropImage(image, frame.getScaledWidth() / frame.getScaledHeight()); canvas.current.remove(frame, ...canvas.current.getObjects().filter(o => o.semantic === 'imageHint')) }
-        image.set({ left: frame?.left ?? 80, top: frame?.top ?? 300, originX: 'left', originY: 'top' })
+  function openImages(tab: 'search' | 'library', useBrief = false) {
+    const slide = project?.slides[current]
+    if (!slide) return
+    const term = useBrief ? (slide.imageBrief.trim() || semantics(slide.scene).title.trim()).replace(/\s+/g, ' ').slice(0, 160) : ''
+    setPanel('Imagens')
+    setImagePanel(value => ({ tab, slideId: slide.id, term, request: (value?.request ?? 0) + 1 }))
+  }
+  async function insertImage(file: File, credit?: ImageCredit, signal?: AbortSignal) {
+    const target = readyCanvas
+    const slideId = project?.slides[current]?.id
+    const selected = selectedObject
+    const stillOnSlide = () => target && canvas.current === target && getCurrent()?.slides[currentRef.current]?.id === slideId && target.getActiveObject() === selected
+    if (!stillOnSlide() || !target) throw Error('Aguarde o canvas até carregar.')
+    const image = await readImage(file)
+    if (signal?.aborted || !stillOnSlide()) {
+      image.dispose()
+      throw Error('O slide ou a seleção mudou. Escolha o destino e tente novamente.')
+    }
+    if (credit) image.set({ imageCredit: credit })
+    if (selected instanceof FabricImage) {
+      const index = target.getObjects().indexOf(selected)
+      if (index < 0) { image.dispose(); throw Error('Selecione a imagem diretamente na camada para substituí-la.') }
+      image.scaleToWidth(selected.getScaledWidth())
+      cropImage(image, selected.getScaledWidth() / selected.getScaledHeight())
+      image.set({ semantic: selected.semantic, left: selected.left, top: selected.top, angle: selected.angle,
+        originX: selected.originX, originY: selected.originY, flipX: selected.flipX, flipY: selected.flipY })
+      target.remove(selected)
+      target.insertAt(index, image)
+    } else {
+      image.semantic = 'image'
+      const frame = target.getObjects().find(object => object.semantic === 'imageFrame')
+      image.scaleToWidth(frame ? frame.getScaledWidth() : 700)
+      image.set({ left: frame?.left ?? 80, top: frame?.top ?? 300, originX: 'left', originY: 'top' })
+      const index = frame ? target.getObjects().indexOf(frame) : -1
+      if (frame) {
+        cropImage(image, frame.getScaledWidth() / frame.getScaledHeight())
+        target.remove(frame, ...target.getObjects().filter(object => object.semantic === 'imageHint'))
       }
-      canvas.current.add(image); canvas.current.setActiveObject(image); canvas.current.requestRenderAll(); changed(); setError('')
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Falha ao abrir imagem.') }
+      if (index >= 0) target.insertAt(index, image)
+      else target.add(image)
+    }
+    image.setCoords()
+    target.setActiveObject(image)
+    target.requestRenderAll()
+    changed()
+    setError('')
+  }
+  async function upload(file?: File) {
+    if (file) try { await insertImage(file) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Falha ao abrir imagem.') }
+  }
+  function exportCredits(value = credits) {
+    if (value) download(new Blob([value], { type: 'text/plain;charset=utf-8' }), 'creditos.txt')
+  }
+  async function copyCredits() {
+    try { await navigator.clipboard.writeText(credits); setCreditStatus('Créditos copiados.') }
+    catch { setCreditStatus('Não foi possível copiar. Selecione o texto dos créditos.') }
   }
   if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand }) }}>Criar projeto vazio</button><CampaignStart choose={startCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => { if (window.confirm('Excluir este projeto local?')) void removeProject(item.id).then(() => listProjects()).then(setLibrary, error => setError(String(error))) }}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
-    <header className="studio-toolbar"><button onClick={() => void back()}>Projetos</button><button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button><span role="status">{status}</span><button disabled={!history.undo} onClick={() => { undo(); chooseSlide(0); setRevision(n => n + 1) }}>Desfazer</button><button disabled={!history.redo} onClick={() => { redo(); chooseSlide(0); setRevision(n => n + 1) }}>Refazer</button><label>Projeto<input value={project.name} maxLength={100} onChange={e => setProject({ ...project, name: e.target.value, updatedAt: new Date().toISOString() })} /></label><span>{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span><label>Zoom<select aria-label="Zoom" value={zoom} onChange={e => setZoom(Number(e.target.value))}>{[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1])].sort((a,b) => a-b).map(n => <option key={n} value={n}>{Math.round(n * 100)}%</option>)}</select></label><button onClick={() => { const stage = document.querySelector('.canvas-stage'); if (stage) setZoom(Math.max(.1, Math.min(1, (stage.clientWidth - 56) / 1080, (stage.clientHeight - 56) / dimensions[project.format][1]))) }}>Ajustar à tela</button><label><input type="checkbox" checked={guides} onChange={e => setGuides(e.target.checked)} />Área segura</label><button onClick={()=>setAuditOpen(value=>!value)}>Auditar design</button><button disabled={busy} onClick={() => void exportDesign(false)}>Exportar PNG</button><button disabled={busy} onClick={() => void exportDesign(true)}>Exportar ZIP</button><button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), error => setError(String(error)))}>Backup completo</button><button onClick={() => { if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, error => setError(String(error))) }}>Recuperar versão anterior</button><button onClick={() => { const copy = structuredClone(project); copy.id = crypto.randomUUID(); copy.name = `${copy.name.slice(0, 90)} (cópia)`; replace(copy) }}>Duplicar projeto</button></header>
-    {pendingExport && <div className="export-warnings" role="alert"><h3>Revise antes de exportar</h3><ul>{pendingExport.findings.filter(f=>f.severity!=='info').map(f => <li key={f.id}><button onClick={()=>focusFinding(f)}>Slide {f.slideNumber}: {f.message} — localizar</button></li>)}</ul><button disabled={pendingExport.source!==project} onClick={() => { download(pendingExport.blob, pendingExport.name); setPendingExport(undefined) }}>Exportar com avisos</button><button onClick={() => setPendingExport(undefined)}>Voltar para corrigir</button>{pendingExport.source!==project&&<p>O projeto mudou. Exporte novamente para revisar a versão atual.</p>}</div>}
+    <header className="studio-toolbar"><button onClick={() => void back()}>Projetos</button><button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button><span role="status">{status}</span><button disabled={!history.undo} onClick={() => { undo(); chooseSlide(0); setRevision(n => n + 1) }}>Desfazer</button><button disabled={!history.redo} onClick={() => { redo(); chooseSlide(0); setRevision(n => n + 1) }}>Refazer</button><label>Projeto<input value={project.name} maxLength={100} onChange={e => setProject({ ...project, name: e.target.value, updatedAt: new Date().toISOString() })} /></label><span>{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span><label>Zoom<select aria-label="Zoom" value={zoom} onChange={e => setZoom(Number(e.target.value))}>{[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1])].sort((a,b) => a-b).map(n => <option key={n} value={n}>{Math.round(n * 100)}%</option>)}</select></label><button onClick={() => { const stage = document.querySelector('.canvas-stage'); if (stage) setZoom(Math.max(.1, Math.min(1, (stage.clientWidth - 56) / 1080, (stage.clientHeight - 56) / dimensions[project.format][1]))) }}>Ajustar à tela</button><label><input type="checkbox" checked={guides} onChange={e => setGuides(e.target.checked)} />Área segura</label><button onClick={()=>setAuditOpen(value=>!value)}>Auditar design</button><button disabled={busy} onClick={() => void exportDesign(false)}>Exportar PNG</button><button disabled={busy} onClick={() => void exportDesign(true)}>Exportar ZIP</button><button onClick={() => setShowCredits(value => !value)}>Gerar créditos do projeto</button><button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), error => setError(String(error)))}>Backup completo</button><button onClick={() => { if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, error => setError(String(error))) }}>Recuperar versão anterior</button><button onClick={() => { const copy = structuredClone(project); copy.id = crypto.randomUUID(); copy.name = `${copy.name.slice(0, 90)} (cópia)`; replace(copy) }}>Duplicar projeto</button></header>
+    {pendingExport && <div className="export-warnings" role="alert"><h3>Revise antes de exportar</h3><ul>{pendingExport.findings.filter(f=>f.severity!=='info').map(f => <li key={f.id}><button onClick={()=>focusFinding(f)}>Slide {f.slideNumber}: {f.message} — localizar</button></li>)}</ul>{pendingExport.credits && <button onClick={() => exportCredits(pendingExport.credits)}>Exportar créditos desta arte</button>}<button disabled={pendingExport.source!==project} onClick={() => { download(pendingExport.blob, pendingExport.name); setPendingExport(undefined) }}>Exportar com avisos</button><button onClick={() => setPendingExport(undefined)}>Voltar para corrigir</button>{pendingExport.source!==project&&<p>O projeto mudou. Exporte novamente para revisar a versão atual.</p>}</div>}
+    {showCredits && <section className="image-workspace" aria-label="Créditos do projeto">
+      <h3>Créditos do projeto</h3>
+      {credits ? <><label>Texto de atribuição<textarea readOnly rows={8} value={credits} /></label>
+        <div className="image-actions"><button onClick={() => void copyCredits()}>Copiar créditos</button><button onClick={() => exportCredits()}>Exportar créditos</button></div>
+        {creditStatus && <p role="status">{creditStatus}</p>}</> : <p>Este projeto ainda não tem imagens com créditos registrados.</p>}
+    </section>}
+    {panel === 'Imagens' && imagePanel?.slideId === project.slides[current].id && (imagePanel.tab === 'search'
+      ? <ImageSearch key={imagePanel.request} initialTerm={imagePanel.term} insert={insertImage} />
+      : <ImageLibrary key={imagePanel.request} flush={flush} insert={insertImage} />)}
     {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
     {selectedTitle && headlineTarget === selectedTitle && <div className="studio-headlines"><HeadlinePanel title={selectedTitle.text} stored={selectedTitle.headlines}
       context={{ ...(campaign ? campaignHeadlineContext(campaign) : { sources: [] }), format: formatNames[project.format], selectedSlide: current + 1, slides: project.slides.map(slide => semantics(slide.scene)) }}
@@ -155,7 +211,12 @@ export function Studio({ request }: { request: Draft | null }) {
       {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar marca e recompor os templates de todos os slides?')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
       {panel === 'Texto' && <><h3>Tipografia</h3><button onClick={() => { if (canvas.current) { addObject(canvas.current, 'title'); changed() } }}>Adicionar título</button><button onClick={() => { if (canvas.current) { addObject(canvas.current, 'text'); changed() } }}>Adicionar texto</button></>}
       {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} onClick={() => { if (canvas.current) { addObject(canvas.current, type); changed() } }}>{name}</button>)}</>}
-      {panel === 'Imagens' && <><h3>Imagens locais</h3><label>Adicionar ou substituir imagem<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
+      {panel === 'Imagens' && <><h3>Imagens</h3><div className="image-tabs" role="group" aria-label="Origem da imagem">
+        <button aria-pressed={imagePanel?.tab === 'search' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('search')}>Pesquisar imagens</button>
+        <button onClick={() => openImages('search', true)}>Buscar imagem para este slide</button>
+        <button aria-pressed={imagePanel?.tab === 'library' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('library')}>Imagens utilizadas</button>
+        {imagePanel && <button onClick={() => setImagePanel(undefined)}>Fechar painel de imagens</button>}
+      </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
       {panel === 'Camadas' && <><h3>Camadas</h3>{readyCanvas?.getObjects().map((o, i) => <button key={i} onClick={() => { canvas.current?.setActiveObject(o); canvas.current?.requestRenderAll(); refresh(n => n + 1) }}>{i + 1} · {o instanceof Textbox ? o.text.slice(0, 32) || ({ title: 'Título', body: 'Corpo', cta: 'Chamada para ação', brand: 'Marca' }[o.semantic ?? ''] ?? 'Texto vazio') : o.type}</button>).reverse()}</>}
     </aside><CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties brand={project.brand} canvas={readyCanvas} changed={changed} /></div>
     <Slides project={project} current={current} select={chooseSlide} action={slideAction} />

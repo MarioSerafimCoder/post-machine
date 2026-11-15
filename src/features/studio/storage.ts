@@ -1,6 +1,8 @@
 import JSZip from 'jszip'
 import { validateProject } from './validation'
 import { brandSchema, type Brand, type Project } from './model'
+import { imageCreditSchema, type ImageCredit } from '../images/contract'
+import { imageObjects } from '../images/credits'
 
 function open(): Promise<IDBDatabase> { return new Promise((resolve, reject) => {
   const request = indexedDB.open('post-machine-studio', 2)
@@ -21,7 +23,7 @@ async function pack(project: Project) {
       assets.set(hash, blob); return `asset:${hash}`
     }
     if (Array.isArray(value)) return Promise.all(value.map(walk))
-    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k, v]) => [k, await walk(v)])))
+    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k, v]) => [k, k === 'imageCredit' ? v : await walk(v)])))
     return value
   }
   return { project: validateProject(await walk(validateProject(project))), assets }
@@ -34,7 +36,7 @@ async function hydrate(project: unknown, read: (id: string) => Promise<Blob | un
       return cache.get(value)
     }
     if (Array.isArray(value)) return Promise.all(value.map(walk))
-    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k,v]) => [k, await walk(v)])))
+    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k,v]) => [k, k === 'imageCredit' ? v : await walk(v)])))
     return value
   }
   return validateProject(await walk(validateProject(project)))
@@ -122,7 +124,7 @@ export function inspectStorage(clean = false) {
         const references = new Set<string>()
         function visit(value: unknown) {
           if (typeof value === 'string' && /^asset:[a-f0-9]{64}$/.test(value)) references.add(value.slice(6))
-          if (value && typeof value === 'object') Object.values(value).forEach(visit)
+          if (value && typeof value === 'object') Object.entries(value).forEach(([key, entry]) => { if (key !== 'imageCredit') visit(entry) })
         }
         roots.forEach(visit)
         visit(settings.result)
@@ -149,6 +151,39 @@ export function inspectStorage(clean = false) {
     if (!lock) throw Error('Há alterações pendentes no Studio. Salve antes de limpar.')
     return inspect()
   }) : inspect()
+}
+
+export type UsedImage = { id: string; asset: string; credit?: ImageCredit }
+export function listUsedImages() {
+  return transaction(['projects', 'recovery'], 'readonly', tx => {
+    const current = tx.objectStore('projects').getAll()
+    const recovery = tx.objectStore('recovery').getAll()
+    return () => {
+      const history = new Map<string, UsedImage>()
+      const projects = [...current.result, ...recovery.result].map(validateProject).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      for (const project of projects) for (const slide of project.slides) {
+        const objects = slide.scene.contentImage ? [...slide.scene.objects, slide.scene.contentImage] : slide.scene.objects
+        for (const image of imageObjects(objects)) {
+          if (typeof image.src !== 'string' || !/^asset:[a-f0-9]{64}$/.test(image.src)) continue
+          const asset = image.src.slice(6)
+          const parsed = imageCreditSchema.safeParse(image.imageCredit)
+          const credit = parsed.success ? parsed.data : undefined
+          const id = `${asset}:${credit?.sourceId ?? ''}`
+          if (!history.has(id)) history.set(id, { id, asset, credit })
+        }
+      }
+      return [...history.values()]
+    }
+  })
+}
+
+export async function readImageAsset(asset: string) {
+  const blob = await transaction(['assets'], 'readonly', tx => {
+    const request = tx.objectStore('assets').get(asset)
+    return () => request.result as Blob | undefined
+  })
+  if (!blob) throw Error('Arquivo indisponível no armazenamento local.')
+  return blob
 }
 export async function backupProject(project: Project): Promise<Blob> {
   const packed = await pack(project); const zip = new JSZip()

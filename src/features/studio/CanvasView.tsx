@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Canvas } from 'fabric'
 import { dimensions, type Brand, type Format, type Scene } from './model'
 import './objects'
+import { verifySceneLoaded } from './sceneIntegrity'
 
 export function CanvasView({ format, initial, zoom, guides, brand, onReady, onChange, onSelection, onError }: {
   brand: Brand; format: Format; initial: Scene; zoom: number; guides: boolean
@@ -19,6 +20,7 @@ export function CanvasView({ format, initial, zoom, guides, brand, onReady, onCh
     const abort = new AbortController()
     void loadFonts(brand).then(() => canvas.loadFromJSON(initial, undefined, { signal: abort.signal })).then(() => {
       if (!live) return
+      verifySceneLoaded(canvas, initial)
       canvas.requestRenderAll()
       callbacks.current.onReady(canvas)
       const changed = () => callbacks.current.onChange(canvas)

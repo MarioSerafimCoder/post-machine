@@ -18,6 +18,7 @@ Fases 1 a 4 implementadas e publicadas. O Radar tem publicação agendada ativa 
 
 - 5.0: estabilização do armazenamento e da Auditoria, com identidade provisória Post Machine.
 - 5.1: análise, comparação, importação e aplicação de headlines em campanhas e no Studio.
-- 5.2: pesquisa de imagens com licenças e atribuição, a planejar.
+- 5.2: pesquisa pelo Openverse, importação de originais, acervo local e créditos de imagens.
+- 5.3: Radar de Virais e Formatos. Começar com curadoria manual, links originais e métricas verificáveis quando disponíveis.
 
 Sem Radar de Virais ou serviços externos de IA nesta fase.

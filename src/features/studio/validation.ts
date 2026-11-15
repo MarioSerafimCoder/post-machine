@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { brandSchema, type Project } from './model'
 import { headlineSessionSchema } from '../headlines/contract'
+import { imageCreditSchema } from '../images/contract'
 const sceneSchema = z.object({ background: z.string().max(100), version: z.string().optional(), contentImage: z.record(z.string(), z.unknown()).optional(), objects: z.array(z.record(z.string(), z.unknown())).max(500) })
 export const projectSchema = z.object({ schemaVersion: z.literal(1), id: z.uuid(), name: z.string().max(100), format: z.enum(['portrait', 'square', 'story']), brand: brandSchema, auditSettings: z.object({ requireBrand: z.boolean(), requireLogo: z.boolean(), enforcePalette: z.boolean(), minBodySize: z.number().min(1).max(200), minLargeSize: z.number().min(1).max(200), contrastNormal: z.number().min(1).max(21), contrastLarge: z.number().min(1).max(21) }).optional(), campaignId: z.uuid().nullable(), campaignUpdatedAt: z.iso.datetime().nullable(), updatedAt: z.iso.datetime(), slides: z.array(z.object({ id: z.uuid(), scene: sceneSchema, layout: z.string().max(100), role: z.string().max(100), imageBrief: z.string().max(8000) })).min(1).max(20) })
 export function validateProject(input: unknown): Project {
@@ -20,6 +21,7 @@ export function validateProject(input: unknown): Project {
       if (['width', 'height', 'fontSize'].includes(key) && (typeof data !== 'number' || data < 0 || data > 40000)) throw Error('Dimensões inválidas.')
       if (key === 'text' && (typeof data !== 'string' || data.length > 8000)) throw Error('Texto excede o limite.')
       if (key === 'headlines') { headlineSessionSchema.parse(data); continue }
+      if (key === 'imageCredit') { imageCreditSchema.parse(data); continue }
       inspect(data, depth + 1)
     }
   }

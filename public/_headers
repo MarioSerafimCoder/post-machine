@@ -3,6 +3,6 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://api.openverse.org; font-src 'self'; connect-src 'self' https://api.openverse.org https://upload.wikimedia.org https://live.staticflickr.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
 /radar.json
   Cache-Control: private, no-cache

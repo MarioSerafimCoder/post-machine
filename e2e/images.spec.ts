@@ -1,0 +1,111 @@
+import { test, expect } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import JSZip from 'jszip'
+
+const ids = ['ee293bf3-d38a-4162-aca8-771708adc0b8', '6b1455be-9a81-4fb1-a08b-ea6bfe705587']
+const fixture = (index: number) => ({
+  id: ids[index], title: ['Fachada da fixture', 'Pátio da fixture'][index], creator: ['Autor A', 'Autor B'][index], source: 'flickr',
+  url: `https://live.staticflickr.com/fixture-${index}.png`, thumbnail: `https://api.openverse.org/v1/images/${ids[index]}/thumb/`,
+  width: 400, height: 300, filetype: 'png', foreign_landing_url: `https://www.flickr.com/photos/fixture${index}`,
+  license: index === 0 ? 'by' : 'by-nc', license_version: '4.0', license_url: `https://creativecommons.org/licenses/${index === 0 ? 'by' : 'by-nc'}/4.0/`,
+  attribution: `Atribuição da fixture ${index}`,
+})
+
+test('Openverse com fixtures: busca, fallback, troca, créditos e backup', async ({ page }) => {
+  await page.goto('/#/studio')
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.getByLabel('Projeto', { exact: true }).fill('Acervo de teste')
+  await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
+  await page.getByLabel('Texto do elemento').fill('Fachadas e pátios')
+  const bytes = Buffer.from(await page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 400; canvas.height = 300; canvas.getContext('2d')!.fillRect(0, 0, 400, 300)
+    return canvas.toDataURL().split(',')[1]
+  }), 'base64')
+  await page.route('https://api.openverse.org/v1/images/?*', route => {
+    const url = new URL(route.request().url())
+    expect(url.searchParams.get('source')).toBe('flickr')
+    return route.fulfill({ json: { page_count: 2, results: [fixture(url.searchParams.get('page') === '1' ? 0 : 1)] } })
+  })
+  await page.route('https://api.openverse.org/v1/images/*/thumb/', route => route.fulfill({ status: 404, body: '' }))
+  await page.route('https://live.staticflickr.com/fixture-0.png', route => route.fulfill({ contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: bytes }))
+  await page.route('https://live.staticflickr.com/fixture-1.png', route => route.abort('failed'))
+  await page.getByRole('button', { name: 'Imagens', exact: true }).click()
+  await page.getByRole('button', { name: 'Buscar imagem para este slide' }).click()
+  await expect(page.getByLabel('Termo de pesquisa')).toHaveValue('Fachadas e pátios')
+  await page.getByLabel('Fonte do Openverse', { exact: true }).selectOption('flickr')
+  await page.getByRole('button', { name: 'Pesquisar', exact: true }).click()
+  await expect(page.getByText('Miniatura indisponível', { exact: true })).toBeVisible()
+  for (const width of [1024,1280,1440]) {
+    await page.setViewportSize({ width, height: 960 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+  await page.getByRole('button', { name: 'Ver detalhes' }).click()
+  let detail = page.getByRole('region', { name: 'Detalhes da imagem selecionada' })
+  await expect(detail).toContainText('Atribuição exigida')
+  await detail.getByRole('button', { name: 'Inserir no Studio' }).click()
+  await expect(detail).toContainText('Imagem inserida')
+  const x = page.getByLabel('X', { exact: true })
+  await x.fill('160')
+  await page.getByRole('button', { name: 'Próxima página' }).click()
+  await page.getByRole('button', { name: 'Ver detalhes' }).click()
+  detail = page.getByRole('region', { name: 'Detalhes da imagem selecionada' })
+  await expect(detail).toContainText('restringe uso comercial')
+  await detail.getByRole('button', { name: 'Inserir no Studio' }).click()
+  await expect(detail).toContainText('não liberou o original')
+  await detail.getByLabel('Importar arquivo com estes créditos').setInputFiles({ name: 'fixture.png', mimeType: 'image/png', buffer: bytes })
+  await expect(detail).toContainText('Imagem inserida')
+  await expect(x).toHaveValue('160')
+  await page.getByRole('button', { name: 'Gerar créditos do projeto' }).click()
+  await expect(page.getByLabel('Texto de atribuição')).toHaveValue(/Autor B/)
+  await expect(page.getByLabel('Texto de atribuição')).not.toHaveValue(/Autor A/)
+  await page.getByRole('button', { name: 'Exportar ZIP', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: 'Revise antes de exportar' })).toContainText('Uso comercial restrito')
+  const zipEvent = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Exportar com avisos' }).click()
+  const zip = await JSZip.loadAsync(await readFile(await (await zipEvent).path()))
+  expect(await zip.file('creditos.txt')!.async('string')).toContain('Autor B')
+  expect((await zip.file('01-Acervo-de-teste.png')!.async('nodebuffer')).readUInt32BE(16)).toBe(1080)
+  await page.getByRole('button', { name: 'Duplicar slide', exact: true }).click()
+  const backupEvent = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Backup completo' }).click()
+  const backup = await readFile(await (await backupEvent).path())
+  const backupZip = await JSZip.loadAsync(backup)
+  expect(Object.keys(backupZip.files).filter(name => /^assets\/[a-f0-9]{64}$/.test(name))).toHaveLength(1)
+  await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await page.getByLabel('Restaurar projeto ZIP').setInputFiles({ name: 'arquivo.zip', mimeType: 'application/zip', buffer: backup })
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue(/restaurado/)
+  await expect(page.getByLabel('Texto de atribuição')).toHaveValue(/Slides: 1, 2[\s\S]+Autor B/)
+  await page.getByRole('button', { name: 'Imagens utilizadas' }).click()
+  await expect(page.getByRole('region', { name: 'Imagens utilizadas' })).toContainText('Pátio da fixture')
+})
+
+test('Auditoria identifica imagem local ilegível em vez de perder o relatório', async ({ page }) => {
+  await page.goto('/#/studio')
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Abrir Novo projeto' })).toBeVisible()
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('post-machine-studio', 2)
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    try {
+      const transaction = database.transaction('projects', 'readwrite')
+      const cursor = transaction.objectStore('projects').openCursor()
+      cursor.onsuccess = () => {
+        const entry = cursor.result
+        if (!entry) return
+        const project = entry.value
+        project.slides[0].scene.objects = [{ type: 'Image', src: 'data:image/png;base64,Y29ycm9tcGlkbw==', width: 40, height: 40 }]
+        entry.update(project)
+      }
+      await new Promise<void>((resolve, reject) => { transaction.oncomplete = () => resolve(); transaction.onabort = () => reject(transaction.error) })
+    } finally { database.close() }
+  })
+  await page.getByRole('link', { name: 'Auditoria', exact: true }).click()
+  await page.getByLabel('Projeto para auditar').selectOption({ label: 'Novo projeto' })
+  await page.getByRole('button', { name: 'Auditar todos os slides' }).click()
+  await expect(page.getByRole('heading', { name: 'Arquivo de imagem ilegível' })).toBeVisible()
+})

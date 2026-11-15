@@ -44,5 +44,6 @@ export function useDocument(initial?: Project) {
     window.addEventListener('hashchange', flush); document.addEventListener('visibilitychange', flush); window.addEventListener('beforeunload', leave)
     return () => { flush(); window.removeEventListener('hashchange', flush); document.removeEventListener('visibilitychange', flush); window.removeEventListener('beforeunload', leave) }
   }, [initial, queue])
-  return { project, setProject: apply, getCurrent: () => current.current, undo, redo, history, status, flush: () => queue.flushAll() }
+  const flush = useCallback(() => queue.flushAll(), [queue])
+  return { project, setProject: apply, getCurrent: () => current.current, undo, redo, history, status, flush }
 }

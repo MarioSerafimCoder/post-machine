@@ -33,6 +33,12 @@ Na revisão da campanha, abra **Melhorar headline** na peça desejada. No Studio
 
 Os títulos, favoritos e propostas ficam no documento local. No Studio, **Projetos → Configurações de armazenamento** permite verificar os arquivos de imagem e fonte e limpar os que perderam todas as referências.
 
+## Pesquisar imagens e gerar créditos
+
+No Studio, abra **Imagens → Pesquisar imagens** ou use **Buscar imagem para este slide** para preencher o termo com o briefing ou título. Confira a página original e a licença no painel de detalhes. Quando o provedor não permitir a importação direta, baixe o original e use **Importar arquivo com estes créditos**. As imagens salvas aparecem em **Imagens utilizadas**.
+
+**Gerar créditos do projeto** permite copiar e baixar as atribuições. O ZIP das artes inclui `creditos.txt` quando houver metadados de imagens. Confira as condições da fonte antes de publicar, especialmente em imagens adaptadas.
+
 ## Documentação
 
 - [Especificação integral](docs/PRODUCT_SPEC.md)

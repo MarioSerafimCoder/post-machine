@@ -1,4 +1,5 @@
 import { FabricImage, Group, StaticCanvas, Textbox, type FabricObject } from 'fabric'
+import { licenseTerms } from '../images/contract'
 import type { Brand } from '../studio/model'
 import { parseColor, composite, contrast } from './contrast'
 import { defaultSettings, type AuditSettings, type Category, type Finding, type Severity } from './contract'
@@ -43,6 +44,15 @@ export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber
     } else if(o.text.trim()) add('CONTRAST_UNKNOWN','info','contrast',item,'Contraste requer revisão visual','Há fotografia, gradiente, transparência ou camadas que impedem medição confiável.','Confira a legibilidade na prévia e no PNG.',false,'unverifiable')
   }
   if(o instanceof FabricImage){
+    const credit = o.imageCredit
+    if (credit) {
+      const terms = licenseTerms(credit)
+      if (!terms.valid) add('IMAGE_LICENSE_UNKNOWN','warning','image',item,'Licença desconhecida ou incompleta','Os campos disponíveis não confirmam as condições de uso.','Confira a licença na página de origem.',false,'unverifiable')
+      if (!credit.sourcePage || !credit.title || (terms.attribution && !credit.creator)) add('IMAGE_CREDIT_INCOMPLETE','warning','image',item,'Créditos da imagem incompletos','Faltam dados de identificação, autoria ou página de origem.','Confira os dados na fonte e complemente os créditos antes de publicar.',false,'unverifiable')
+      if (terms.attribution) add('IMAGE_ATTRIBUTION','warning','image',item,credit.attribution ? 'Atribuição exigida' : 'Atribuição exigida; texto da fonte ausente','A licença informada exige créditos para publicação.','Exporte os créditos e confira autor, fonte, licença e indicação de alterações.',false,'unverifiable')
+      if (terms.commercial === false) add('IMAGE_NONCOMMERCIAL','warning','image',item,'Uso comercial restrito','A licença indicada contém a cláusula Não Comercial.','Confirme as condições da fonte ou selecione outra imagem.',false,'unverifiable')
+      if (terms.noDerivatives || terms.shareAlike) add('IMAGE_ADAPTATION','warning','image',item,'Condições para adaptações',terms.noDerivatives ? 'A licença indicada restringe a distribuição de adaptações.' : 'A licença indicada exige compartilhamento de adaptações sob a mesma licença.','Confira se a edição e a publicação atendem às condições da fonte.',false,'unverifiable')
+    }
     const original=o.getOriginalSize(), effectiveW=o.width, effectiveH=o.height
     const element=o.getElement(); if(element instanceof HTMLImageElement&&!element.complete||!original.width||!original.height) add('IMAGE_MISSING','error','image',item,'Imagem indisponível','A imagem não foi carregada completamente.','Substitua o arquivo local.')
     if(o.cropX<0||o.cropY<0||o.cropX+effectiveW>original.width+1||o.cropY+effectiveH>original.height+1) add('IMAGE_CROP','warning','image',item,'Recorte fora da imagem','Parte do recorte ultrapassa a imagem original.','Revise o enquadramento.')

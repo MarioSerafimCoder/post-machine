@@ -64,6 +64,7 @@ test('compara, aplica, preserva a arte e reabre headlines', async ({ page }) => 
   await layer.click()
   await expect(text).toHaveValue(longTitle)
   await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Abrir Headline editorial' })).toBeVisible()
   await page.reload()
   await page.getByRole('button', { name: 'Abrir Headline editorial' }).click()
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
