@@ -8,7 +8,7 @@ import type { Article } from './features/radar/contract'
 import { News } from './features/radar/News'
 import { useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
-import { FormatCatalog } from './features/virals/FormatCatalog'
+import { Virals } from './features/virals/Virals'
 import { Roadmap } from './components/Roadmap'
 import { usePage, type Page } from './lib/navigation'
 
@@ -88,5 +88,5 @@ function Radar({ active, onDesign }: { active: boolean; onDesign: (draft: Draft)
     setSection(1)
     draftsTab.current?.focus()
   }
-  return <><CampaignStart choose={mode => { if (mode === 'radar') setSection(0); else { setRequest({ article: null }); setSection(1) } }} /><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} ref={index === 0 ? newsTab : index === 1 ? draftsTab : undefined} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><div hidden={section !== 0}><News onCreatePost={selectArticle} /></div><div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1} onBack={() => { setSection(0); newsTab.current?.focus() }} /></div>{section === 2 && <FormatCatalog />}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
+  return <><CampaignStart choose={mode => { if (mode === 'radar') setSection(0); else { setRequest({ article: null }); setSection(1) } }} /><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} ref={index === 0 ? newsTab : index === 1 ? draftsTab : undefined} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><div hidden={section !== 0}><News onCreatePost={selectArticle} /></div><div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1} onBack={() => { setSection(0); newsTab.current?.focus() }} /></div>{section === 2 && <Virals />}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
 }
