@@ -253,7 +253,16 @@ Windows, Intel i5-9400F, Node 24.18.0, Chromium do Playwright e build Vite servi
 | Abertura do acervo, mediana | 919 ms | 615 ms |
 | Aplicação de uma busca no acervo, mediana | 1.080 ms | 15 ms |
 | Amostra de heap após abertura, mediana | 12 MiB | 9 MiB |
+| Barra do Studio em 1024 × 768 | 178 px | 102 px |
 
 - A abertura pós-mudança variou de 611 a 1.051 ms. A redução do custo da busca foi consistente nas três medições. Essas amostras locais não são Core Web Vitals de campo.
 - Studio em 1280 × 800: fixture típica com 6 slides × 60 retângulos abriu em 113 ms, trocou para o último slide em 80 ms e registrou 9 MiB de heap. Fixture de estresse com 20 × 500 retângulos abriu em 406 ms, trocou em 348 ms e registrou 19 MiB. São amostras únicas sem fotografias e medem abertura, troca e disponibilidade das camadas. O limite global de complexidade continua aplicável a grupos, imagens e propriedades serializadas.
 - Limites de uso: o navegador pode encerrar uma gravação ainda pendente. A interface e os backups oferecem recuperação enquanto a edição está na sessão. A inspeção de composição, arraste e seleção gráfica de grupos continuam dependentes da superfície visual. A revisão de acessibilidade usou a WCAG como referência e não certifica conformidade integral.
+
+### Entrega 6.5 — Validação e publicação
+
+- ESLint, 69 testes Vitest, TypeScript/Vite e dry-run do Wrangler aprovados. A suíte Playwright teve 60 aprovações no Vite e 60 no build servido pelo Wrangler. O [CI da revisão publicada](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43737278795) também executou 60 testes com sucesso. `npm audit` retornou zero vulnerabilidades no inventário instalado.
+- Cenários integrados passaram para notícia e referência até exportação, análise de headline, importação Openverse com fixtures, créditos, Auditoria e correção de margem. O backup de projeto preservou imagem, fonte, créditos e cópia restaurada. Os testes de falhas exercitaram gravação IndexedDB, conflito de abas, HTTP 429, falha de rede, imagem ilegível, ZIP excessivo, versão desconhecida, JSON inválido e retentativa de exportação.
+- Revisão desktop em 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080. Os PNGs de exemplo foram inspecionados em 1080 × 1350, 1080 × 1080 e 1080 × 1920, com texto longo e forma translúcida. As verificações automatizadas também conferiram pixels sem guias, dimensões do ZIP, fonte local, imagens e `creditos.txt`. O foco novo mediu contraste de 6,17:1 sobre o fundo principal e de 5,63:1 sobre o fundo de seleção nas cores avaliadas.
+- A [publicação](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43737361339) do commit `348b088` promoveu a versão `43dd78c5-4ecf-4bd4-b40b-1eec45c5ebca` do Worker existente a 100%. Visitantes anônimos receberam HTTP 302 para o Cloudflare Access antes e depois. O navegador autenticado recebeu o mesmo bundle e o mesmo `collectedAt` do artefato, de `2026-11-15T16:46:56.144Z`, com 404 notícias no snapshot.
+- Em produção, a referência de teste mostrou as contagens reais do YouTube observadas às 13h20 e reaproveitadas do cache. Um projeto salvo na Fase 5.3 reabriu no Studio, passou pela Auditoria e gerou PNG de 1080 × 1350. O deploy reutilizou os recursos existentes e o custo operacional adicional foi R$ 0.
