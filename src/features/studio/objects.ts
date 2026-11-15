@@ -17,7 +17,9 @@ export function addObject(canvas: Canvas, type: 'title' | 'text' | 'rect' | 'cir
 }
 export async function duplicate(canvas: Canvas) {
   const source = canvas.getActiveObject(); if (!source) return
-  const copy = await source.clone(); copy.set({ left: source.left + 24, top: source.top + 24 }); canvas.add(copy); canvas.setActiveObject(copy); canvas.requestRenderAll()
+  const copy = await source.clone()
+  if (canvas.disposed || canvas.destroyed) { copy.dispose(); return }
+  copy.set({ left: source.left + 24, top: source.top + 24 }); canvas.add(copy); canvas.setActiveObject(copy); canvas.requestRenderAll()
 }
 export function groupSelection(canvas: Canvas) {
   const selected = canvas.getActiveObjects()

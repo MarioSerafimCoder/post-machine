@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { renderScene } from './export'
 import { dimensions, type Scene, type Format } from './model'
 import type { Project } from './model'
@@ -8,10 +8,26 @@ export function Slides({ project, current, select, action }: { project: Project;
 
 function Thumbnail({ scene, format }: { scene: Scene; format: Format }) {
   const [url, setUrl] = useState('')
+  const [seen, setSeen] = useState(false)
+  const element = useRef<HTMLSpanElement>(null)
   useEffect(() => {
-    let active = true; let source = ''
-    const timer = window.setTimeout(() => { void renderScene(scene, dimensions[format][0], dimensions[format][1], 0, .1).then(({ blob }) => { if (active) { source = URL.createObjectURL(blob); setUrl(source) } }, () => undefined) }, 650)
-    return () => { active = false; window.clearTimeout(timer); if (source) URL.revokeObjectURL(source) }
-  }, [scene, format])
-  return url ? <img className="slide-thumbnail" src={url} alt="Prévia do slide" /> : <span className="slide-mini">Preparando prévia…</span>
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) { setSeen(true); observer.disconnect() }
+    })
+    if (element.current) observer.observe(element.current)
+    return () => observer.disconnect()
+  }, [])
+  useEffect(() => {
+    if (!seen) return
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      const [width, height] = dimensions[format]
+      void renderScene(scene, width, height, { scale: .1, signal: controller.signal }).then(({ blob }) => {
+        if (!controller.signal.aborted) setUrl(URL.createObjectURL(blob))
+      }, () => undefined)
+    }, 650)
+    return () => { controller.abort(); window.clearTimeout(timer) }
+  }, [scene, format, seen])
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
+  return <span ref={element} className="slide-mini" aria-hidden="true">{url ? <img className="slide-thumbnail" src={url} alt="" /> : 'Prévia'}</span>
 }

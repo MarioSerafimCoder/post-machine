@@ -36,10 +36,10 @@ export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo}: Props
     controller.current?.abort(); const abort = new AbortController();controller.current=abort
     setBusy(true);setError('');setProgress('Preparando…')
     try {
-      const result=await auditProject({project:value,slideIndex:index,signal:abort.signal,progress:(done,total)=>setProgress(`${done} de ${total} slides`)})
+      const result=await auditProject({project:value,slideIndex:index,signal:abort.signal,progress:(done,total)=>{if(!abort.signal.aborted)setProgress(`${done} de ${total} slides`)}})
       if(abort.signal.aborted)return
       setReport({...result,corrections});setSource(value);setReviewed(new Set());setProgress('')
-    } catch (cause) {if(!abort.signal.aborted)setError(cause instanceof Error?cause.message:String(cause))}
+    } catch (cause) {if(!abort.signal.aborted){setProgress('');setError(cause instanceof Error?cause.message:String(cause))}}
     finally {if(controller.current===abort){controller.current=null;setBusy(false)}}
   }
   async function fix(finding: Finding) {
@@ -79,7 +79,7 @@ export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo}: Props
   const updateSettings=(next:typeof settings)=>{if(next.minBodySize<1||next.minBodySize>200||next.minLargeSize<1||next.minLargeSize>200||next.contrastNormal<1||next.contrastNormal>21||next.contrastLarge<1||next.contrastLarge>21)return;void Promise.resolve().then(()=>onChange({...project,auditSettings:next,updatedAt:new Date().toISOString()}, project)).catch(cause=>setError(String(cause)))}
   const toggle=(key:'requireBrand'|'requireLogo'|'enforcePalette')=>updateSettings({...settings,[key]:!settings[key]})
   return <section className="audit-panel" aria-label="Auditoria de design">
-    <div className="audit-actions"><button className="button button-dark" disabled={busy || proposing} onClick={()=>void run()}>Auditar todos os slides</button>{currentSlide!==undefined&&<button className="button button-outline" disabled={busy || proposing} onClick={()=>void run(currentSlide)}>Auditar slide atual</button>}{busy&&<><span role="status">{progress}</span><button onClick={()=>controller.current?.abort()}>Cancelar</button></>}</div>
+    <div className="audit-actions"><button className="button button-dark" disabled={busy || proposing} onClick={()=>void run()}>Auditar todos os slides</button>{currentSlide!==undefined&&<button className="button button-outline" disabled={busy || proposing} onClick={()=>void run(currentSlide)}>Auditar slide atual</button>}{progress&&<span role="status">{progress}</span>}{busy&&<button onClick={()=>{controller.current?.abort();setProgress('Auditoria interrompida.')}}>Cancelar</button>}</div>
     <details className="audit-settings"><summary>Regras da marca e limites</summary><label><input type="checkbox" checked={settings.requireBrand} onChange={()=>toggle('requireBrand')}/> Exigir identificação de marca</label><label><input type="checkbox" checked={settings.requireLogo} onChange={()=>toggle('requireLogo')}/> Exigir logotipo</label><label><input type="checkbox" checked={settings.enforcePalette} onChange={()=>toggle('enforcePalette')}/> Conferir paleta</label><label>Texto mínimo (px) <input type="number" min="1" max="200" value={settings.minBodySize} onChange={e=>updateSettings({...settings,minBodySize:Number(e.target.value)})}/></label><label>Título mínimo (px) <input type="number" min="1" max="200" value={settings.minLargeSize} onChange={e=>updateSettings({...settings,minLargeSize:Number(e.target.value)})}/></label><label>Contraste texto comum <input type="number" min="1" max="21" step="0.1" value={settings.contrastNormal} onChange={e=>updateSettings({...settings,contrastNormal:Number(e.target.value)})}/></label><label>Contraste texto grande <input type="number" min="1" max="21" step="0.1" value={settings.contrastLarge} onChange={e=>updateSettings({...settings,contrastLarge:Number(e.target.value)})}/></label></details>
     {error&&<p role="alert" className="audit-error">{error}</p>}
     {stale&&<p role="status" className="audit-stale">O projeto mudou desde a última análise. Execute novamente antes de corrigir ou exportar o relatório.</p>}

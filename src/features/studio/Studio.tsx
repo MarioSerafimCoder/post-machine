@@ -6,8 +6,7 @@ import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { readCampaign } from '../campaigns/storage'
 import { measureTitle } from './headlineFit'
-import { CampaignStart } from '../campaigns/CampaignStart'
-import { startCampaign } from '../campaigns/startCampaign'
+import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
 import { loadFonts } from './fonts'
 import { useDocument } from './useDocument'
 import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject } from './storage'
@@ -27,8 +26,9 @@ import './studio.css'
 import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
 import type { Finding } from '../audit/contract'
+import { resolvePage } from '../../lib/navigation'
 
-export function Studio({ request, active }: { request: Draft | null; active: boolean }) {
+export function Studio({ request, active, onStartCampaign }: { request: Draft | null; active: boolean; onStartCampaign: (mode: CampaignStartMode) => void }) {
   const [error, setError] = useState('')
   const { project, setProject, undo, redo, history, status, flush, getCurrent } = useDocument()
   const [library, setLibrary] = useState<Project[]>([])
@@ -42,11 +42,28 @@ export function Studio({ request, active }: { request: Draft | null; active: boo
   const credits = project ? projectCredits(project) : ''
   const focusPath=useRef<string|null>(null)
   useEffect(() => { void listProjects().then(setLibrary, () => setError('Não foi possível carregar os projetos.')); void readBrand().then(value => { if (value) setBrand(value) }, () => undefined) }, [])
-  async function back() { try { await flush(); setLibrary(await listProjects()); setProject(undefined) } catch { setError('Falha ao salvar. Faça um backup antes de sair ou tente salvar novamente.') } }
+  async function back() {
+    try {
+      await flush()
+      setLibrary(await listProjects())
+      await flush()
+      setPendingExport(undefined)
+      setError('')
+      setProject(undefined)
+    } catch { setError('Falha ao salvar. Faça um backup antes de sair ou tente salvar novamente.') }
+  }
   async function exportDesign(all: boolean) {
     if (!project) return
-    setBusy(true); setError('')
-    try { const result = await exportProject(project, all ? undefined : current); if (result.warnings.length) {setPendingExport(result);setAuditOpen(true)} else download(result.blob, result.name) } catch (e) { setError(String(e)) } finally { setBusy(false) }
+    setBusy(true); setError(''); setPendingExport(undefined)
+    try {
+      const result = await exportProject(project, all ? undefined : current)
+      const latest = getCurrent()
+      if (latest?.id !== project.id) return
+      if (latest !== project) { setError('O projeto mudou durante a exportação. Exporte novamente para incluir as últimas edições.'); return }
+      if (result.warnings.length) { setPendingExport(result); setAuditOpen(true) }
+      else download(result.blob, result.name)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível exportar o design. Tente novamente.') }
+    finally { setBusy(false) }
   }
   const [current, setCurrent] = useState(0)
   const [revision, setRevision] = useState(0)
@@ -57,6 +74,7 @@ export function Studio({ request, active }: { request: Draft | null; active: boo
   const [panel, setPanel] = useState('Texto')
   const [, refresh] = useState(0)
   const canvas = useRef<Canvas | null>(null)
+  const canvasStage = useRef<HTMLDivElement>(null)
   const [readyCanvas, setReadyCanvas] = useState<Canvas | null>(null)
   const snapshotCanvas = useCallback((record: boolean) => {
     if (!canvas.current) return
@@ -89,7 +107,7 @@ export function Studio({ request, active }: { request: Draft | null; active: boo
   useEffect(() => {
     if (!active) return
     const key = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || document.querySelector('dialog[open]') || !canvas.current || event.target instanceof HTMLElement && (event.target.closest('input, textarea, select, [contenteditable=true]'))) return
+      if (event.defaultPrevented || resolvePage(window.location.hash) !== 'studio' || document.querySelector('dialog[open]') || !canvas.current || event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable=true]')) return
       const selected = canvas.current.getActiveObject()
       if (selected instanceof Textbox && selected.isEditing) return
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); historyKey(event.shiftKey); return }
@@ -186,13 +204,68 @@ export function Studio({ request, active }: { request: Draft | null; active: boo
     try { await navigator.clipboard.writeText(credits); setCreditStatus('Créditos copiados.') }
     catch { setCreditStatus('Não foi possível copiar. Selecione o texto dos créditos.') }
   }
-  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand }) }}>Criar projeto vazio</button><CampaignStart choose={startCampaign} />
+  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand }) }}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => { if (window.confirm('Excluir este projeto local?')) void removeProject(item.id).then(() => listProjects()).then(setLibrary, error => setError(String(error))) }}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
-    <header className="studio-toolbar"><button onClick={() => void back()}>Projetos</button><button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button><span role="status">{status}</span><button disabled={!history.undo} onClick={() => moveHistory(false)}>Desfazer</button><button disabled={!history.redo} onClick={() => moveHistory(true)}>Refazer</button><label>Projeto<input value={project.name} maxLength={100} onChange={e => setProject({ ...project, name: e.target.value, updatedAt: new Date().toISOString() })} /></label><span>{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span><label>Zoom<select aria-label="Zoom" value={zoom} onChange={e => setZoom(Number(e.target.value))}>{[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1])].sort((a,b) => a-b).map(n => <option key={n} value={n}>{Math.round(n * 100)}%</option>)}</select></label><button onClick={() => { const stage = document.querySelector('.canvas-stage'); if (stage) setZoom(Math.max(.1, Math.min(1, (stage.clientWidth - 56) / 1080, (stage.clientHeight - 56) / dimensions[project.format][1]))) }}>Ajustar à tela</button><label><input type="checkbox" checked={guides} onChange={e => setGuides(e.target.checked)} />Área segura</label><button onClick={()=>setAuditOpen(value=>!value)}>Auditar design</button><button disabled={busy} onClick={() => void exportDesign(false)}>Exportar PNG</button><button disabled={busy} onClick={() => void exportDesign(true)}>Exportar ZIP</button><button onClick={() => setShowCredits(value => !value)}>Gerar créditos do projeto</button><button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), error => setError(String(error)))}>Backup completo</button><button onClick={() => { if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, error => setError(String(error))) }}>Recuperar versão anterior</button><button onClick={() => { const copy = structuredClone(project); copy.id = crypto.randomUUID(); copy.name = `${copy.name.slice(0, 90)} (cópia)`; replace(copy) }}>Duplicar projeto</button></header>
-    {pendingExport && <div className="export-warnings" role="alert"><h3>Revise antes de exportar</h3><ul>{pendingExport.findings.filter(f=>f.severity!=='info').map(f => <li key={f.id}><button onClick={()=>focusFinding(f)}>Slide {f.slideNumber}: {f.message} — localizar</button></li>)}</ul>{pendingExport.credits && <button onClick={() => exportCredits(pendingExport.credits)}>Exportar créditos desta arte</button>}<button disabled={pendingExport.source!==project} onClick={() => { download(pendingExport.blob, pendingExport.name); setPendingExport(undefined) }}>Exportar com avisos</button><button onClick={() => setPendingExport(undefined)}>Voltar para corrigir</button>{pendingExport.source!==project&&<p>O projeto mudou. Exporte novamente para revisar a versão atual.</p>}</div>}
+    <header className="studio-toolbar" aria-label="Ações do projeto">
+      <div className="studio-toolbar-row">
+        <button onClick={() => void back()}>Projetos</button>
+        <label className="studio-project-name">Projeto<input value={project.name} maxLength={100} onChange={event => setProject({ ...project, name: event.target.value, updatedAt: new Date().toISOString() })} /></label>
+        <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
+        <span className="studio-save-status" role="status">{status}</span>
+        <div className="studio-actions" role="group" aria-label="Histórico">
+          <button disabled={!history.undo} onClick={() => moveHistory(false)}>Desfazer</button>
+          <button disabled={!history.redo} onClick={() => moveHistory(true)}>Refazer</button>
+        </div>
+        <details className="studio-more" onBlur={event => {
+          if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
+        }} onKeyDown={event => {
+          if (event.key !== 'Escape' || !event.currentTarget.open) return
+          event.stopPropagation()
+          event.currentTarget.open = false
+          event.currentTarget.querySelector('summary')?.focus()
+        }}>
+          <summary>Mais ações</summary>
+          <div className="studio-more-menu" onClick={event => {
+            if (!(event.target instanceof HTMLButtonElement)) return
+            const menu = event.currentTarget.parentElement as HTMLDetailsElement
+            menu.open = false
+            menu.querySelector('summary')?.focus()
+          }}>
+            <button onClick={() => setShowCredits(value => !value)}>Gerar créditos do projeto</button>
+            <button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), () => setError('Não foi possível gerar o backup deste projeto.'))}>Backup completo</button>
+            <button onClick={() => {
+              if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) {
+                void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, cause => setError(cause instanceof Error ? cause.message : 'Não foi possível recuperar a versão anterior.'))
+              }
+            }}>Recuperar versão anterior</button>
+            <button onClick={() => {
+              const copy = { ...project, id: crypto.randomUUID(), name: project.name.slice(0, 90) + ' (cópia)' }
+              replace(copy)
+            }}>Duplicar projeto</button>
+          </div>
+        </details>
+      </div>
+      <div className="studio-toolbar-row">
+        <span className="muted">{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span>
+        <label className="studio-inline-field">Zoom<select aria-label="Zoom" value={zoom} onChange={event => setZoom(Number(event.target.value))}>
+          {[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1])].sort((a,b) => a - b).map(value => <option key={value} value={value}>{Math.round(value * 100)}%</option>)}
+        </select></label>
+        <button onClick={() => {
+          const stage = canvasStage.current?.querySelector('.canvas-stage')
+          if (stage) setZoom(Math.max(.1, Math.min(1, (stage.clientWidth - 40) / 1080, (stage.clientHeight - 40) / dimensions[project.format][1])))
+        }}>Ajustar à tela</button>
+        <label className="studio-inline-field"><input type="checkbox" checked={guides} onChange={event => setGuides(event.target.checked)} />Área segura</label>
+        <div className="studio-actions studio-output" role="group" aria-label="Revisão e exportação" aria-busy={busy}>
+          <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Auditar design</button>
+          <button disabled={busy} onClick={() => void exportDesign(false)}>Exportar PNG</button>
+          <button disabled={busy} onClick={() => void exportDesign(true)}>Exportar ZIP</button>
+        </div>
+      </div>
+    </header>
+    {pendingExport?.source.id === project.id && <div className="export-warnings" role="alert"><h3>Revise antes de exportar</h3><ul>{pendingExport.findings.filter(f=>f.severity!=='info').map(f => <li key={f.id}><button onClick={()=>focusFinding(f)}>Slide {f.slideNumber}: {f.message} — localizar</button></li>)}</ul>{pendingExport.credits && <button onClick={() => exportCredits(pendingExport.credits)}>Exportar créditos desta arte</button>}<button disabled={pendingExport.source!==project} onClick={() => { download(pendingExport.blob, pendingExport.name); setPendingExport(undefined) }}>Exportar com avisos</button><button onClick={() => setPendingExport(undefined)}>Voltar para corrigir</button>{pendingExport.source!==project&&<p>O projeto mudou. Exporte novamente para revisar a versão atual.</p>}</div>}
     {showCredits && <section className="image-workspace" aria-label="Créditos do projeto">
       <h3>Créditos do projeto</h3>
       {credits ? <><label>Texto de atribuição<textarea readOnly rows={8} value={credits} /></label>
@@ -220,7 +293,7 @@ export function Studio({ request, active }: { request: Draft | null; active: boo
     {auditOpen&&<AuditPanel project={project} currentSlide={current} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setPendingExport(undefined);setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
     {error && <p role="alert">{error}</p>}
     {!readyCanvas && !error && <p className="studio-loading" role="status">Carregando o slide…</p>}
-    <div className="studio-layout"><aside className="studio-tools"><nav aria-label="Ferramentas do Studio">{['Templates', 'Texto', 'Imagens', 'Elementos', 'Minha marca', 'Camadas'].map(name => <button key={name} aria-pressed={panel === name} onClick={() => setPanel(name)}>{name}</button>)}</nav>
+    <div className="studio-layout" ref={canvasStage}><aside className="studio-tools"><nav aria-label="Ferramentas do Studio">{['Templates', 'Texto', 'Imagens', 'Elementos', 'Minha marca', 'Camadas'].map(name => <button key={name} aria-pressed={panel === name} onClick={() => setPanel(name)}>{name}</button>)}</nav>
       {panel === 'Templates' && <><h3>Templates originais</h3>{Object.entries(templates).map(([key, name]) => <button key={key} onClick={() => template(key as Template)}>{name}</button>)}</>}
       {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar marca e recompor os templates de todos os slides?')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
       {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title'); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text'); changed() } }}>Adicionar texto</button></>}
@@ -231,7 +304,7 @@ export function Studio({ request, active }: { request: Draft | null; active: boo
         <button aria-pressed={imagePanel?.tab === 'library' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('library')}>Imagens utilizadas</button>
         {imagePanel && <button onClick={() => setImagePanel(undefined)}>Fechar painel de imagens</button>}
       </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input type="file" accept="image/png,image/jpeg,image/webp" disabled={!readyCanvas} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
-      {panel === 'Camadas' && <><h3>Camadas</h3>{readyCanvas?.getObjects().map((o, i) => <button key={i} onClick={() => { canvas.current?.setActiveObject(o); canvas.current?.requestRenderAll(); refresh(n => n + 1) }}>{i + 1} · {o instanceof Textbox ? o.text.slice(0, 32) || ({ title: 'Título', body: 'Corpo', cta: 'Chamada para ação', brand: 'Marca' }[o.semantic ?? ''] ?? 'Texto vazio') : o.type}</button>).reverse()}</>}
+      {panel === 'Camadas' && <><h3>Camadas</h3>{readyCanvas?.getObjects().map((o, i) => <button key={i} aria-pressed={selectedObject === o} onClick={() => { canvas.current?.setActiveObject(o); canvas.current?.requestRenderAll(); refresh(n => n + 1) }}>{i + 1} · {o instanceof Textbox ? o.text.slice(0, 32) || ({ title: 'Título', body: 'Corpo', cta: 'Chamada para ação', brand: 'Marca' }[o.semantic ?? ''] ?? 'Texto vazio') : o.type}</button>).reverse()}</>}
     </aside><CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties brand={project.brand} canvas={readyCanvas} changed={changed} /></div>
     <Slides project={project} current={current} select={chooseSlide} action={slideAction} />
     {project.campaignId && <p>Design vinculado à campanha. Alterações editoriais posteriores não substituem este design: gere uma nova versão pela campanha.</p>}

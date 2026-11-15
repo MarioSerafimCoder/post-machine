@@ -1,11 +1,15 @@
 import type { Brand } from './model'
 const loaded = new Map<string, Promise<void>>()
+export class LocalFontError extends Error {}
 export async function loadFonts(brand: Brand) {
   await Promise.all([document.fonts.load('16px Inter'), document.fonts.load('bold 16px Inter')])
   await Promise.all(brand.fonts.map(font => {
     if (!loaded.has(font.family)) {
       const bytes = Uint8Array.from(atob(font.source.split(',')[1]), c => c.charCodeAt(0))
-      const pending = new FontFace(font.family, bytes.buffer).load().then(face => { document.fonts.add(face) }).catch(error => { loaded.delete(font.family); throw error })
+      const pending = new FontFace(font.family, bytes.buffer).load().then(face => { document.fonts.add(face) }).catch(() => {
+        loaded.delete(font.family)
+        throw new LocalFontError(`Não foi possível carregar a fonte ${font.name}. Confira o arquivo WOFF2 ou restaure o backup do projeto.`)
+      })
       loaded.set(font.family, pending)
     }
     return loaded.get(font.family)

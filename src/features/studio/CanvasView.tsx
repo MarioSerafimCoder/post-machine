@@ -1,4 +1,4 @@
-import { loadFonts } from './fonts'
+import { loadFonts, LocalFontError } from './fonts'
 import { useEffect, useRef } from 'react'
 import { Canvas } from 'fabric'
 import { dimensions, type Brand, type Format, type Scene } from './model'
@@ -26,7 +26,9 @@ export function CanvasView({ format, initial, zoom, guides, brand, onReady, onCh
       const changed = () => callbacks.current.onChange(canvas)
       canvas.on('object:modified', changed); canvas.on('text:changed', changed)
       canvas.on('selection:created', () => callbacks.current.onSelection()); canvas.on('selection:updated', () => callbacks.current.onSelection()); canvas.on('selection:cleared', () => callbacks.current.onSelection())
-    }).catch(() => { if (live) callbacks.current.onError('Não foi possível carregar este slide. Preserve o backup e substitua imagens inválidas.') })
+    }).catch(error => {
+      if (live) callbacks.current.onError(error instanceof LocalFontError ? error.message : 'Não foi possível carregar este slide. Preserve o backup e substitua imagens inválidas.')
+    })
     return () => { live = false; abort.abort(); callbacks.current.onReady(null); instance.current = null; void canvas.dispose() }
     // A slide session owns one Fabric instance. Edits are applied through its API.
     // eslint-disable-next-line react-hooks/exhaustive-deps

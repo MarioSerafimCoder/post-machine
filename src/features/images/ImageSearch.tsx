@@ -45,7 +45,8 @@ export function ImageSearch({ initialTerm, insert }: { initialTerm: string; inse
       if (controller.signal.aborted) return
       if (cause instanceof SearchLimit) {
         setError(`Limite de buscas atingido. Tente após ${new Date(cause.until).toLocaleTimeString('pt-BR')}.`)
-      } else setError(cause instanceof TypeError ? 'Não foi possível conectar ao Openverse. Tente novamente.' : String(cause instanceof Error ? cause.message : cause))
+      } else if (cause instanceof DOMException && cause.name === 'TimeoutError') setError('A busca no Openverse demorou demais. Tente novamente.')
+      else setError(cause instanceof TypeError ? 'Não foi possível conectar ao Openverse. Tente novamente.' : String(cause instanceof Error ? cause.message : cause))
     } finally { if (queryController.current === controller) setLoading(false) }
   }
   function select(image: ImageResult) {

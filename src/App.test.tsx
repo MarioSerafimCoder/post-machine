@@ -12,11 +12,11 @@ describe('fundação', () => {
     expect(within(navigation).getAllByRole('link')).toHaveLength(4)
     expect(screen.getByText(/Radar, campanhas e Studio disponíveis/)).toBeVisible()
   })
-  it('atualiza página, título e foco; alterna seções do Radar', () => {
+  it('atualiza página, título e foco; alterna seções do Radar', async () => {
     render(<App />); navigate('#/radar')
     expect(document.title).toBe('Radar — Post Machine')
     expect(screen.getByRole('heading', { name: 'Radar' })).toHaveFocus()
-    expect(screen.getByRole('region', { name: 'Notícias do Radar' })).toBeVisible()
+    expect(await screen.findByRole('region', { name: 'Notícias do Radar' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Virais e formatos' }))
     expect(screen.getByRole('region', { name: 'Virais e formatos' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Ver catálogo de formatos' })).toBeVisible()

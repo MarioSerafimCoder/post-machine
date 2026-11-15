@@ -24,7 +24,7 @@ const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imag
 export function Campaigns({ request, active, onBack, onDesign }: {
   request: { article: Article | null; reference?: Reference } | null
   active: boolean
-  onBack: () => void
+  onBack: (references: boolean) => void
   onDesign: (draft: Draft) => void
 }) {
   const [backup, setBackup] = useState<Backup>()
@@ -196,7 +196,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     <header className="campaign-header">
       <div><h2 ref={heading} tabIndex={-1}>{draft ? 'Editar campanha' : 'Pautas e campanhas'}</h2>
         <p className="muted">As campanhas ficam neste navegador. Exporte um backup para guardá-las em outro lugar.</p></div>
-      <button className="button button-outline" onClick={() => void queue.flushAll().then(onBack, () => undefined)}>Voltar às notícias</button>
+      <button className="button button-outline" onClick={() => void queue.flushAll().then(() => onBack(Boolean(draft?.creativeOrigin)), () => undefined)}>{draft?.creativeOrigin ? 'Voltar às referências' : 'Voltar às notícias'}</button>
     </header>
     {loadError && <p className="info-strip" role="alert">Não foi possível carregar as campanhas locais.</p>}
     {!backup && !loadError && <p role="status">Carregando campanhas.</p>}
@@ -205,7 +205,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     <fieldset className="campaign-workspace" disabled={restoring}>
       <legend className="sr-only">Campanhas locais</legend>
       <div className="campaign-actions"><button className="button button-dark" disabled={!backup} onClick={() => setCreating(value => !value)}>Nova campanha</button>
-      {creating && <><button className="button button-outline" onClick={() => void create()}>Começar do zero</button><button className="button button-outline" onClick={() => void create().then(() => document.getElementById('campaign-import-heading')?.scrollIntoView())}>Importar conteúdo</button><button className="button button-outline" onClick={onBack}>Usar notícia do Radar</button></>}</div>
+      {creating && <><button className="button button-outline" onClick={() => void create()}>Começar do zero</button><button className="button button-outline" onClick={() => void create().then(() => document.getElementById('campaign-import-heading')?.scrollIntoView())}>Importar conteúdo</button><button className="button button-outline" onClick={() => onBack(false)}>Usar notícia do Radar</button></>}</div>
       <aside className="campaign-library" aria-label="Campanhas salvas">
         <label>Buscar campanhas<input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
         <ul>{matches?.map(item => <li key={item.id}>

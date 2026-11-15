@@ -23,7 +23,7 @@ it('preserva pendências após falha e permite retentativa', async () => {
   queue.schedule('a', 'última edição')
   await expect(queue.flushAll()).rejects.toThrow('QuotaExceededError')
   expect(queue.hasPending).toBe(true)
-  expect(report).toHaveBeenCalledWith('a', 'error')
+  expect(report).toHaveBeenCalledWith('a', 'error', expect.objectContaining({ message: 'QuotaExceededError' }))
   await queue.flushAll()
   expect(write).toHaveBeenLastCalledWith('última edição')
   expect(queue.hasPending).toBe(false)

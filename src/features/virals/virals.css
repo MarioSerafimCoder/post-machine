@@ -1,5 +1,5 @@
 .viral-workspace { display: grid; gap: 16px; margin-bottom: 20px; }
-.viral-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:12px; align-items:start; }
+.viral-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr)); gap:12px; align-items:start; }
 .viral-card { display:grid; gap:8px; min-width:0; padding:14px; border:1px solid var(--line); border-radius:10px; background:#fff; overflow-wrap:anywhere; }
 .viral-card summary { font-weight:700; cursor:pointer; }
 .viral-card p { margin:4px 0; }
@@ -7,6 +7,14 @@
 .viral-card dd { margin:0 0 8px; }
 .viral-controls { display:flex; flex-wrap:wrap; align-items:end; gap:10px; }
 .viral-controls label { display:grid; gap:4px; }
+.viral-controls :is(input[type=search],select), .viral-fields :is(input, select, textarea), .viral-detail textarea {
+  border: 1px solid #cdd3c7; border-radius: 6px; padding: 7px 9px; background: #fff; color: var(--green); font: inherit;
+}
+.viral-controls input[type=search] { width: min(230px, 100%); }
+.viral-controls label:has(input[type=checkbox]) { display: flex; align-items: center; min-height: 38px; gap: 6px; }
+.viral-controls button:not(.button) { border: 1px solid #cdd3c7; border-radius: 6px; padding: 7px 9px; background: #fff; }
+.viral-controls button[aria-pressed=true]:not(.button) { border-color: #82986a; background: #e9efdb; }
+.viral-controls button:disabled { opacity: .55; }
 .viral-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .viral-fields label { display:grid; gap:4px; }
 .viral-fields input,.viral-fields select,.viral-fields textarea { min-width:0; width:100%; }

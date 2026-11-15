@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { normalize } from '../radar/contract'
 import { editorialFormat, formats, type FormatId } from './catalog'
 import { analysisFields, newReference, type AnalysisField, type Reference } from './contract'
@@ -10,6 +10,7 @@ import { ReferenceForm } from './ReferenceForm'
 import { ReferenceThumbnail, YouTubeData } from './YouTubeData'
 import { comparableYouTubePair, displayVideo, snapshotSchema, type YouTubeSnapshot } from './youtube'
 
+const pageSize = 24
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' })
 export function Virals({ createCampaign }: { createCampaign?: (reference: Reference) => void }) {
   const [data, setData] = useState<Reference[]>()
@@ -18,6 +19,7 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
   const [status, setStatus] = useState('')
   const [tab, setTab] = useState<'library' | 'formats'>('library')
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(0)
   const [source, setSource] = useState<Platform | ''>('')
   const [format, setFormat] = useState<FormatId | ''>('')
   const [niche, setNiche] = useState('')
@@ -51,7 +53,7 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
   useEffect(() => { if (selected && !editing) detail.current?.focus() }, [selected, editing])
   const chosen = data?.find(ref => ref.id === selected)
   const chosenIdentity = chosen && identifyUrl(chosen.url)
-  const videoById = new Map(youtube?.videos.map(video => [video.id, video]))
+  const videoById = useMemo(() => new Map(youtube?.videos.map(video => [video.id, video])), [youtube])
   const comparison = comparisonIds.flatMap(id => {
     const ref = data?.find(item => item.id === id)
     if (!ref) return []
@@ -59,15 +61,24 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
     const video = identity.platform === 'youtube' ? videoById.get(identity.platformId ?? '') : undefined
     return video?.status === 'available' ? [{ url: ref.url, title: ref.title, video }] : []
   })
-  const counts: Partial<Record<FormatId, number>> = {}
-  for (const ref of data ?? []) counts[ref.format] = (counts[ref.format] ?? 0) + 1
-  const niches = [...new Set(data?.map(ref => ref.niche).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'))
-  const visible = (data ?? []).filter(ref => {
-    const searchable = normalize([ref.title, ref.description, ref.author].join(' '))
-    return (!query.trim() || searchable.includes(normalize(query.trim()))) &&
-      (!source || identifyUrl(ref.url).platform === source) && (!format || ref.format === format) &&
-      (!niche || ref.niche === niche) && (!favorites || ref.favorite)
-  }).sort((a,b) => order === 'published' ? b.publication.localeCompare(a.publication) || b.createdAt.localeCompare(a.createdAt) : b.createdAt.localeCompare(a.createdAt))
+  const { index, counts, niches } = useMemo(() => {
+    const counts: Partial<Record<FormatId, number>> = {}
+    const niches = new Set<string>()
+    const index = (data ?? []).map(ref => {
+      counts[ref.format] = (counts[ref.format] ?? 0) + 1
+      if (ref.niche) niches.add(ref.niche)
+      return { ref, searchable: normalize([ref.title, ref.description, ref.author].join(' ')), ...identifyUrl(ref.url) }
+    }).sort((a, b) => b.ref.createdAt.localeCompare(a.ref.createdAt))
+    return { index, counts, niches: [...niches].sort((a, b) => a.localeCompare(b, 'pt-BR')) }
+  }, [data])
+  const term = normalize(query.trim())
+  const visible = index.filter(({ ref, searchable, platform }) =>
+    (!term || searchable.includes(term)) && (!source || platform === source) && (!format || ref.format === format) &&
+    (!niche || ref.niche === niche) && (!favorites || ref.favorite))
+  if (order === 'published') visible.sort((a, b) => b.ref.publication.localeCompare(a.ref.publication))
+  const pages = Math.ceil(visible.length / pageSize)
+  const currentPage = Math.min(page, Math.max(0, pages - 1))
+  const visiblePage = visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
 
   async function change(action: () => Promise<Reference[]>, message: string) {
     setBusy(true); setError(''); setStatus('')
@@ -98,12 +109,12 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
       setFormat(id); setSource(''); setNiche(''); setQuery(''); setFavorites(false); setSelected(undefined); setEditing(undefined); setTab('library')
     }} /> : <>
       <div className="viral-controls">
-        <label>Buscar referências<input type="search" value={query} onChange={event => setQuery(event.target.value)} /></label>
-        <label>Plataforma<select value={source} onChange={event => setSource(event.target.value as Platform | '')}><option value="">Todas</option>{Object.entries(platforms).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
-        <label>Formato<select value={format} onChange={event => setFormat(event.target.value as FormatId | '')}><option value="">Todos</option>{formats.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label>Filtrar nicho<select value={niche} onChange={event => setNiche(event.target.value)}><option value="">Todos</option>{niches.map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Ordenar<select value={order} onChange={event => setOrder(event.target.value)}><option value="created">Cadastro mais recente</option><option value="published">Publicação mais recente</option></select></label>
-        <label><input type="checkbox" checked={favorites} onChange={event => setFavorites(event.target.checked)} /> Só favoritas</label>
+        <label>Buscar referências<input type="search" value={query} onChange={event => { setQuery(event.target.value); setPage(0) }} /></label>
+        <label>Plataforma<select value={source} onChange={event => { setSource(event.target.value as Platform | ''); setPage(0) }}><option value="">Todas</option>{Object.entries(platforms).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+        <label>Formato<select value={format} onChange={event => { setFormat(event.target.value as FormatId | ''); setPage(0) }}><option value="">Todos</option>{formats.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label>Filtrar nicho<select value={niche} onChange={event => { setNiche(event.target.value); setPage(0) }}><option value="">Todos</option>{niches.map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Ordenar<select value={order} onChange={event => { setOrder(event.target.value); setPage(0) }}><option value="created">Cadastro mais recente</option><option value="published">Publicação mais recente</option></select></label>
+        <label><input type="checkbox" checked={favorites} onChange={event => { setFavorites(event.target.checked); setPage(0) }} /> Só favoritas</label>
         <button className="button button-dark" disabled={busy || !data} onClick={() => { setSelected(undefined); setError(''); setEditing(newReference()) }}>Adicionar referência</button>
       </div>
       <div className="viral-controls">
@@ -150,8 +161,12 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
           <div className="viral-controls"><button onClick={() => void navigator.clipboard.writeText(editorialPrompt(chosen)).then(() => setStatus('Prompt copiado.'), () => setError('Selecione o texto para copiar.'))}>Copiar prompt de análise</button><a href="https://chatgpt.com/" target="_blank" rel="noreferrer">Abrir ChatGPT</a></div>
         </>}
       </section>}
-      <div className="viral-grid">{visible.map(ref => {
-        const { platform, platformId } = identifyUrl(ref.url)
+      {pages > 1 && <nav className="viral-controls" aria-label="Páginas de referências">
+        <button disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Referências anteriores</button>
+        <span role="status">Página {currentPage + 1} de {pages} · {visible.length} referências</span>
+        <button disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Próximas referências</button>
+      </nav>}
+      <div className="viral-grid">{visiblePage.map(({ ref, platform, platformId }) => {
         const video = platform === 'youtube' && platformId ? videoById.get(platformId) : undefined
         return <article className="viral-card" key={ref.id}>
           <ReferenceThumbnail key={video?.thumbnail ?? platform} platform={platform} thumbnail={video?.thumbnail} />

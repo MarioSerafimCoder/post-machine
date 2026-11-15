@@ -14,7 +14,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; font: inherit; }
 a { color: inherit; text-decoration: none; }
 button, a { transition: background .16s, color .16s, border-color .16s; }
-button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid #739850; outline-offset: 5px; }
+:is(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid #42662d; outline-offset: 3px; }
 h1:focus, main:focus { outline: none; }
 h1, h2, h3, p { margin: 0; }
 .app-shell { display: flex; min-height: 100vh; }
@@ -158,7 +158,6 @@ h1 { font-size: clamp(24px, 2.3vw, 34px); font-weight: 550; line-height: 1.3; le
 .news-filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding: 16px; background: #fcfcf9; border: 1px solid var(--line); border-radius: 8px; }
 .news-filters label { display: grid; gap: 5px; min-width: 0; font-size: 13px; font-weight: 600; }
 .news-filters input:not([type=checkbox]), .news-filters select { min-width: 0; width: 100%; padding: 8px; font: inherit; font-weight: 400; background: white; border: 1px solid #a4ada1; border-radius: 5px; }
-.news-filters :is(input,select):focus-visible, .news-sources summary:focus-visible { outline: 3px solid #739850; outline-offset: 2px; }
 .news-filters .news-checkbox { display: flex; align-items: center; gap: 8px; }
 .news-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
 .news-card { background: #fcfcf9; border: 1px solid var(--line); border-radius: 8px; padding: 17px; display: grid; align-content: start; gap: 9px; overflow-wrap: anywhere; }
