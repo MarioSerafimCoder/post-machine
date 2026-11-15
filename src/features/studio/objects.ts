@@ -1,11 +1,12 @@
 import { ActiveSelection, Canvas, Circle, FabricObject, Group, Line, Rect, Textbox } from 'fabric'
 import type { Scene } from './model'
+import type { HeadlineSession } from '../headlines/contract'
 
 declare module 'fabric' {
-  interface FabricObject { semantic?: string; assetId?: string; maxHeight?: number; label?: string }
-  interface SerializedObjectProps { semantic?: string; assetId?: string; maxHeight?: number; label?: string }
+  interface FabricObject { semantic?: string; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession }
+  interface SerializedObjectProps { semantic?: string; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession }
 }
-FabricObject.customProperties = ['semantic', 'assetId', 'maxHeight', 'label']
+FabricObject.customProperties = ['semantic', 'assetId', 'maxHeight', 'label', 'headlines']
 export const sceneOf = (canvas: Canvas): Scene => canvas.toObject() as Scene
 export function addObject(canvas: Canvas, type: 'title' | 'text' | 'rect' | 'circle' | 'line') {
   const common = { left: 100, top: 120, originX: 'left' as const, originY: 'top' as const, fill: '#163f35' }

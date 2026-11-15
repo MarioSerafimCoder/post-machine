@@ -65,6 +65,10 @@ Aceite end-to-end: conferir, após autenticação Access, o mesmo `collectedAt` 
 
 ## Campanhas v2
 
+As headlines usam um contrato local versionado e opcional, salvo por peça na campanha e no objeto de título do Studio. O JSON externo é validado com Zod. A campanha é usada como contexto para o prompt, que pode ser copiado e usado fora da aplicação. O Studio mede a caixa com Fabric e aplica somente o texto e seus metadados de edição. Os backups carregam esses campos com o documento.
+
+O armazenamento do Studio coordena gravações e coleta de órfãos via Web Locks quando disponíveis. A limpeza valida e usa a mesma transação para ler e excluir arquivos. A escrita da Auditoria e as revisões subsequentes do Studio comparam a versão persistida antes de substituir um projeto.
+
 Identificadores técnicos post-machine preservados. Contrato editorial importado continua v1. Documentos locais v2 admitem origem nula e título próprio; leitura de v1 migra sem notícia fictícia. IndexedDB v2 atualiza registros em transação atômica, abortando se algum registro for inválido. Backups v1 continuam aceitos e restauração preserva colisões como cópias.
 
 SaveQueue agrupa edições por 350 ms, serializa gravações por ID e retém a última alteração em falhas. Navegação, troca de documento e perda de visibilidade disparam flush; beforeunload é proteção complementar. A área editorial permanece montada para manter pendências e permitir retentativa. Dados locais não são sincronizados entre abas/dispositivos.

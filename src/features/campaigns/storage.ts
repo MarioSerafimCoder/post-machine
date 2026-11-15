@@ -54,6 +54,13 @@ export function putCampaign(draft: Draft) {
   })
 }
 
+export function readCampaign(id: string) {
+  return transact('readonly', transaction => {
+    const request = transaction.objectStore('campaigns').get(id)
+    return () => request.result ? draftSchema.parse(request.result) : undefined
+  })
+}
+
 export function deleteCampaign(id: string) {
   return transact('readwrite', transaction => {
     transaction.objectStore('campaigns').delete(id)

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { articleSchema, webUrl, type Article } from '../radar/contract'
+import { headlineSessionSchema } from '../headlines/contract'
 
 export const objectives = ['Informar', 'Educar', 'Gerar engajamento', 'Provocar reflexão', 'Apresentar uma opinião', 'Converter'] as const
 export const tones = ['Profissional', 'Criativo', 'Provocativo', 'Reflexivo', 'Informal', 'Institucional'] as const
@@ -20,7 +21,7 @@ const briefingSchema = preferencesSchema.extend({
 const sourceSchema = z.object({ title: short.trim().min(1), url: webUrl, publishedAt: z.iso.datetime({ offset: true }).nullable() })
 const slideSchema = z.object({
   order: z.number().int().min(1).max(maxSlides), role: z.enum(['cover', 'content', 'cta']),
-  title: short, body: prose, imageBrief: prose, layoutType: short,
+  title: short, body: prose, imageBrief: prose, layoutType: short, headlines: headlineSessionSchema.optional(),
 })
 export const contentSchema = z.object({
   schemaVersion: z.literal(1),

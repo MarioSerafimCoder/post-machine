@@ -27,6 +27,12 @@ npm run test:e2e
 
 Abra um projeto no Studio e clique em **Auditar design** para verificar o slide atual ou o carrossel. A página **Auditoria** permite escolher um projeto salvo e filtrar as ocorrências. Clique em **Localizar no Studio** para editar o elemento. Quando houver uma correção segura de posição, a proposta mostra o deslocamento antes de aplicar; **Desfazer** retorna à versão anterior. O relatório pode ser baixado em JSON. Ao exportar PNG/ZIP com avisos, confirme explicitamente após a revisão.
 
+## Trabalhar um título
+
+Na revisão da campanha, abra **Melhorar headline** na peça desejada. No Studio, selecione um elemento de título e clique em **Melhorar título**. O painel conta caracteres e palavras, sinaliza pontos de revisão e permite comparar propostas locais ou importar o JSON produzido em ChatGPT, Claude ou Gemini. No Studio, o painel mede o encaixe na caixa atual e pode desfazer a edição pelo histórico do projeto.
+
+Os títulos, favoritos e propostas ficam no documento local. No Studio, **Projetos → Configurações de armazenamento** permite verificar os arquivos de imagem e fonte e limpar os que perderam todas as referências.
+
 ## Documentação
 
 - [Especificação integral](docs/PRODUCT_SPEC.md)

@@ -1,0 +1,14 @@
+.headline-panel { display: grid; gap: 12px; min-width: 0; padding: 16px; margin: 12px 0; border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow-wrap: anywhere; }
+.headline-panel h4, .headline-panel p { margin: 0; }
+.headline-panel label { display: grid; gap: 4px; margin-bottom: 4px; }
+.headline-panel textarea, .headline-panel input[type=number] { width: 100%; min-width: 0; }
+.headline-diagnosis, .headline-card { display: grid; gap: 6px; padding: 12px; border-radius: 8px; background: #f6f7f2; }
+.headline-actions, .headline-modes, .headline-limits { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.headline-actions button { min-height: 32px; }
+.headline-modes { border: 1px solid var(--line); padding: 8px; }
+.headline-modes label { display: flex; align-items: center; }
+.headline-limits label { width: 136px; }
+.headline-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+.headline-card .badge { justify-self: start; }
+.headline-card p, .headline-panel small { font-size: 12px; }
+.studio-headlines { max-width: 840px; }

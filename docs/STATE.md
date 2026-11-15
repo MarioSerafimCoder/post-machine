@@ -186,3 +186,11 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - O salvamento da Auditoria compara a versão lida com o registro persistido na mesma transação. O checkpoint pertence ao projeto e à revisão em que foi criado. Cancelar a proposta não consome tentativa. Desfazer no Studio continua integrado ao seu histórico.
 - A configuração de armazenamento mede os bytes dos arquivos locais. A limpeza verifica projetos, checkpoints e marca, e reavalia as referências na mesma transação em que exclui os órfãos. Erros abortam a limpeza. O diagnóstico não mede o custo interno do IndexedDB.
 - Lint, build, 42 testes unitários e os cenários focados de Auditoria e armazenamento no Chromium passaram. Sobreposições ambíguas e contraste sobre composição complexa continuam dependendo de revisão visual.
+
+## Fase 5.1 — Agente de Headlines
+
+- Campanhas e Studio compartilham diagnóstico em português brasileiro, sete abordagens, limites editáveis, propostas por regras, prompt para IA externa e importação JSON validada. O diagnóstico separa contagens de heurísticas e encaminha afirmações e impacto para revisão editorial.
+- O Studio mede candidatos com a tipografia e caixa em uso, sinaliza os que excedem espaço e altera o texto sem recompor o template. Favoritos, original, preferências e histórico de aplicação acompanham a peça ou o objeto do título nos documentos locais e backups. Os contratos anteriores continuam aceitos.
+- Ollama avaliado e fora desta entrega. Sua API local usa uma origem diferente da aplicação publicada, exige autorização de origem no serviço e é bloqueada pela CSP atual (`connect-src 'self'`). A lista de modelos seria consultada em `/api/tags` após resolver o acesso local em uma arquitetura optativa. Nenhum proxy foi criado. Consulte a [documentação do Ollama](https://docs.ollama.com/faq) e a [referência de CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src).
+- Lint, 47 testes Vitest, build e 38 testes Playwright no build servido pelo Wrangler passaram. Os cenários conferem o layout em 1024, 1280 e 1440 px, a troca de projetos na Auditoria, o limite de tentativas, a reversão de transação de limpeza, a persistência de headlines e o aviso de altura no Studio.
+- Próxima etapa prevista: 5.2, pesquisa de imagens e preservação de licenças e atribuições.
