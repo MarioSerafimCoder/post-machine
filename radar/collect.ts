@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { SaxesParser } from 'saxes'
 import { z } from 'zod'
 import { articleSchema, normalize, snapshotSchema, sourceSchema, type Article, type Snapshot } from '../src/features/radar/contract.ts'
+import { classifyArticle, orderEdition } from './editorial.ts'
 
 type Source = z.infer<typeof sourceSchema>
 type Element = { name: string; attributes: Record<string, string>; children: Element[]; text: string }
@@ -78,7 +79,14 @@ function similar(a: string, b: string) {
   return overlap >= 5 && overlap / (first.size + second.size - overlap) >= .84
 }
 
-export function parseFeed(xml: string, source: Source, collectedAt: string, keywords: Record<string, string[]> = {}): Article[] {
+function publicationDate(raw: string) {
+  const months: Record<string, string> = { fev: 'Feb', abr: 'Apr', mai: 'May', ago: 'Aug', set: 'Sep', out: 'Oct', dez: 'Dec' }
+  const rfc = raw.replace(/^\p{L}+,\s*/u, '').replace(/\b(fev|abr|mai|ago|set|out|dez)\b/gi, month => months[month.toLowerCase()])
+  const date = Date.parse(rfc)
+  return Number.isFinite(date) ? new Date(date).toISOString() : null
+}
+
+export function parseFeed(xml: string, source: Source, collectedAt: string): Article[] {
   const tree: Element = { name: '', attributes: {}, children: [], text: '' }
   const stack = [tree]
   const parser = new SaxesParser()
@@ -107,56 +115,66 @@ export function parseFeed(xml: string, source: Source, collectedAt: string, keyw
       const url = (trend ? value(node,'news_item_url') : link?.attributes.href ?? link?.text.trim()) ?? ''
       let canonicalUrl: string
       try { canonicalUrl = canonical(url) } catch { return [] }
-      const date = trend ? NaN : Date.parse(value(entry,'pubdate','published','date') ?? '')
-      const haystack = ` ${words(`${title} ${trend ?? ''}`).join(' ')} `
-      const category = trend ? Object.entries(keywords).find(([,terms]) => terms.some(term => haystack.includes(` ${words(term).join(' ')} `)))?.[0] ?? source.category : source.category
       const summary = plain(value(node, ...(trend ? ['news_item_snippet'] : ['description','summary']))).slice(0,420)
+      const feedTags = trend ? [] : entry.children.filter(item => item.name === 'category')
+        .map(item => plain(item.attributes.label ?? item.attributes.term ?? item.text).slice(0, 100)).filter(Boolean).slice(0, 12)
       const parsed = articleSchema.safeParse({
         id: createHash('sha256').update(canonicalUrl).digest('hex').slice(0,32), canonicalUrl, url, title,
         summary: summary || undefined, source: plain(value(node,'news_item_source')) || source.name,
-        feedId: source.id, category, language: source.language, country: source.country, trend,
-        publishedAt: Number.isFinite(date) ? new Date(date).toISOString() : null, collectedAt,
+        feedId: source.id, category: source.category, language: source.language, country: source.country, trend,
+        feedTags: feedTags.length ? feedTags : undefined,
+        publishedAt: trend ? null : publicationDate(value(entry,'pubdate','published','date') ?? ''), collectedAt,
       })
       return parsed.success ? [parsed.data] : []
     })
   })
 }
 
-export async function collect(sources: Source[], previous: Snapshot | null, keywords: Record<string,string[]>, fetcher = fetchFeed, now = new Date()): Promise<Snapshot> {
+export async function collect(sources: Source[], previous: Snapshot | null, fetcher = fetchFeed, now = new Date()): Promise<Snapshot> {
   const attemptedAt = now.toISOString()
   const results = await Promise.all(sources.map(async source => {
     const info = { id: source.id, name: source.name, url: source.url }
     try {
-      const items = parseFeed(await fetcher(source), source, attemptedAt, keywords)
+      const items = parseFeed(await fetcher(source), source, attemptedAt)
       if (!items.length) throw Error('Feed sem itens válidos')
-      return { items, status: { ...info, count: items.length, error: undefined } }
+      const eligible = items.filter(item => classifyArticle(item, source))
+      return { items: eligible, status: { ...info, count: eligible.length, error: undefined } }
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
       return { items: [], status: { ...info, count: 0, error: /^HTTP \d+$/.test(message) ? message : 'Feed indisponível ou inválido' } }
     }
   }))
   const success = results.some(result => !result.status.error)
-  const items = (previous?.items ?? []).filter(item => Date.parse(item.collectedAt) >= +now - 14 * DAY || !success)
+  const active = new Map(sources.map(source => [source.id, source]))
+  const classify = (item: Article) => {
+    const source = active.get(item.feedId)
+    return source && classifyArticle(item, source)
+  }
+  const items = (previous?.items ?? []).filter(item => (Date.parse(item.collectedAt) >= +now - 14 * DAY || !success) && classify(item))
   for (const fresh of results.flatMap(result => result.items)) {
     const index = items.findIndex(item => item.canonicalUrl === fresh.canonicalUrl || similar(item.title, fresh.title))
     if (index < 0) items.push(fresh)
     else if (items[index].canonicalUrl === fresh.canonicalUrl) {
       const old = items[index]
-      items[index] = { ...(old.trend && !fresh.trend ? fresh : old), trend: fresh.trend ?? old.trend }
+      items[index] = { ...(old.trend && !fresh.trend ? fresh : old), trend: fresh.trend ?? old.trend,
+        feedTags: fresh.feedTags ?? old.feedTags, collectedAt: old.collectedAt }
     }
   }
-  items.sort((a,b) => (b.publishedAt ?? b.collectedAt).localeCompare(a.publishedAt ?? a.collectedAt))
-  return snapshotSchema.parse({ version: 1, attemptedAt, collectedAt: success ? attemptedAt : previous?.collectedAt ?? null, sources: results.map(r => r.status), items: items.slice(0,600) })
+  const ranked = items.flatMap(item => {
+    const result = classify(item)
+    return result ? [result] : []
+  })
+  return snapshotSchema.parse({ version: 1, attemptedAt, collectedAt: success ? attemptedAt : previous?.collectedAt ?? null, sources: results.map(r => r.status), items: orderEdition(ranked) })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const file = new URL('../public/radar.json', import.meta.url)
-  const config = z.object({ sources: z.array(sourceSchema).min(1), keywords: z.record(z.string(),z.array(z.string().min(1))) }).parse(JSON.parse(await readFile(new URL('./sources.json',import.meta.url),'utf8')))
+  const config = z.object({ sources: z.array(sourceSchema).min(1) }).parse(JSON.parse(await readFile(new URL('./sources.json',import.meta.url),'utf8')))
   const previous = await readFile(file,'utf8').then(raw => snapshotSchema.parse(JSON.parse(raw)), error => {
     if (error.code !== 'ENOENT') throw error
     return null
   })
-  const result = await collect(config.sources, previous, config.keywords)
+  const result = await collect(config.sources, previous)
   if (!result.collectedAt) throw Error('Nenhuma fonte válida e nenhum snapshot anterior')
   const temp = new URL('../public/radar.json.tmp',import.meta.url)
   await writeFile(temp, JSON.stringify(result) + '\n')
