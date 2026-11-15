@@ -12,14 +12,13 @@ Fonte de requisitos: PRODUCT_SPEC.md. Evidências e estado corrente: STATE.md.
 | 5 — Inteligência adicional | Openverse, headlines, referências manuais | Atribuição/licenças preservadas; métricas somente reais; heurísticas explícitas; modelos locais opcionais, sem APIs pagas ou scraping não autorizado. |
 | 6 — Refinamento | Testes integrados, performance, acessibilidade e revisão visual | Fluxo Radar → conteúdo importado → Studio → auditoria → exportação/backup verificado e documentação atualizada. |
 
-## Etapa atual: Fase 3 — Studio
+## Etapa atual: Fase 4 — Auditoria
 
-Fases 1 e 2 implementadas e publicadas. Validação em sessão Access autorizada e publicação agendada continuam pendentes (ver STATE).
+Fases 1 a 3 implementadas e publicadas. A Fase 4 acrescenta auditoria local e revisão antes da exportação; veja resultados e limites em STATE.md. A publicação agendada do Radar continua pendente de configuração no GitHub Environment `production`.
 
-- 3.0: campanhas independentes, migração v2, salvamento ordenado e marca Direto.
-- 3.1: editor Fabric, formatos, texto, imagens e ferramentas.
-- 3.2: seis templates, carrosséis, marca e integração editorial.
-- 3.3: persistência, histórico, backups, PNG e ZIP.
-- 3.4: testes integrados, revisão visual e publicação protegida.
+- 4.1: regras mensuráveis e relatório estruturado com incertezas explícitas.
+- 4.2: painel no Studio, página consolidada, filtros e navegação até o elemento.
+- 4.3: reposicionamento seguro com proposta, checkpoint, reauditoria e desfazer.
+- 4.4: testes integrados, documentação e publicação no Worker existente.
 
-Validar e registrar cada entrega antes de avançar. Sem Radar de Virais ou serviços externos de IA nesta fase.
+Sem Radar de Virais ou serviços externos de IA nesta fase.

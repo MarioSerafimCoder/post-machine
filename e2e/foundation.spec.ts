@@ -12,7 +12,7 @@ test('navegação, histórico, estados vazios e ausência de overflow', async ({
   await page.goBack()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Radar')
   await navigation.getByRole('link', { name: 'Auditoria', exact: true }).click()
-  await expect(page.getByText('Nenhuma arte foi analisada', { exact: false })).toBeVisible()
+  await expect(page.getByLabel('Projeto para auditar')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 

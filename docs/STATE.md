@@ -138,3 +138,31 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - Sessão autorizada do Access conferida no navegador: Studio — Direto abriu; projeto de verificação criado, template editorial aplicado, texto editado, salvo e reaberto após recarga. PNG baixado de produção e inspecionado visualmente, 1080×1350, sem corte no texto. Nenhum erro do aplicativo registrado; o fluxo de login Cloudflare registrou aviso próprio de ViewTransition abortada, sem impedir o acesso.
 - Projeto “Verificação do Studio” permanece apenas no IndexedDB do navegador usado na validação, não foi enviado ao repositório/servidor. Screenshot e PNG de evidência são locais, fora do versionamento.
 - Fase 3 implementada, testada e publicada. Pendência externa preservada: configurar os dois segredos e a variável do environment production para o deploy agendado do Radar e validar o snapshot daquela execução. Fase 4 não iniciada.
+
+## Fase 4 — Auditoria de design, 14/11/2026
+
+### Entrega 4.1 — Motor
+
+- `src/features/audit/` recebe o projeto sem alterá-lo e usa o canvas Fabric nas dimensões originais, independente do zoom. Relatório com IDs reproduzíveis por slide/caminho de objeto, gravidade, certeza, regras, data, versão e estado final.
+- Regras de canvas/margens, tamanho/escala, overflow e invisibilidade de texto, fontes, tamanho tipográfico, imagens, contraste de cores sólidas com composição de opacidade, marca e campos exigidos. Fotografia e sobreposição ambígua são indicadas para revisão visual, sem afirmar erro medido.
+- A antiga verificação isolada do exportador foi migrada para as mesmas regras. A exportação analisa o canvas já carregado para o PNG/ZIP, sem segunda renderização completa.
+- 22 testes unitários do motor aprovados. Limite conhecido: alinhamento editorial sem regra explícita do template e intenção de sobreposições não podem ser julgados automaticamente.
+
+### Entrega 4.2 — Interface
+
+- Página Auditoria com seleção de projeto local, análise completa, resumo, filtros por gravidade/categoria/slide/situação, revisão manual e download JSON. Studio com “Auditar design”, análise do slide atual ou de todos, progresso/cancelamento e navegação para o objeto. Resultado anterior é marcado desatualizado quando o projeto muda.
+- Configurações opcionais de marca, logo, paleta e limites de texto/contraste são salvas no projeto. `auditSettings` é opcional no contrato v1, preservando projetos e backups antigos.
+- Antes de exportar, ocorrências relevantes são mostradas e ligadas ao elemento; exportar com avisos requer clique explícito. O PNG e o ZIP mantêm dimensões originais.
+- Playwright integrado validou a interface em 1024, 1280 e 1440 px, a navegação e o relatório JSON.
+
+### Entrega 4.3 — Correções assistidas
+
+- Apenas objetos de primeiro nível, desbloqueados e que cabem na área podem ser movidos automaticamente para dentro do canvas ou margem. Grupos, texto editorial, cor e enquadramento ficam para edição manual.
+- A proposta informa deslocamento e exige confirmação. O Studio salva o checkpoint anterior, insere a correção no histórico, reexecuta a auditoria e permite desfazer; o armazenamento mantém a versão anterior para recuperação. Duas tentativas por ocorrência no painel, incluindo falhas, encerram a sugestão automática.
+- Teste unitário comprovou correção sem alterar o conteúdo e recusa de objeto que não cabe. Playwright comprovou correção, desfazer, nova auditoria e reabertura do projeto.
+
+### Entrega 4.4 — QA local
+
+- Lint aprovado; 42 testes Vitest; build TypeScript/Vite aprovado. 32 testes Playwright no Vite e 32 no build servido pelo Wrangler/CSP aprovados, incluindo regressões de IndexedDB, backup, fontes e PNG/ZIP. `wrangler deploy --dry-run` aprovado, sem bindings adicionais.
+- Custo operacional adicional R$ 0: auditoria executa no navegador, sem API externa. Cloudflare Access, Worker e domínio não foram alterados na configuração.
+- Publicação manual e conferência remota serão registradas após o deploy. A publicação automática do Radar segue pendente dos segredos `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` e da variável `CLOUDFLARE_ACCESS_READY` no GitHub Environment `production`.
