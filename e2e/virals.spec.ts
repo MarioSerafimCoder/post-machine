@@ -62,3 +62,29 @@ test('catálogo e biblioteca manual com fixture, filtros e backup', async ({ pag
   await virals.getByLabel('Restaurar biblioteca JSON').setInputFiles({ name: 'biblioteca.json', mimeType: 'application/json', buffer: backup })
   await expect(cards).toContainText('Arquitetura editorial')
 })
+
+test('cria pauta com origem criativa e abre o resultado no Studio', async ({ page }) => {
+  const virals = await openVirals(page)
+  await virals.getByRole('button', { name: 'Adicionar referência' }).click()
+  await virals.getByLabel('Título da referência').fill('Formas de comparar soluções')
+  await virals.getByLabel('URL original').fill('https://youtu.be/abcdefghijk')
+  await virals.getByLabel('Mecanismo criativo').fill('Comparação com critérios iguais')
+  await virals.getByRole('button', { name: 'Salvar referência' }).click()
+  await virals.getByRole('button', { name: 'Criar pauta com esta referência' }).click()
+  const origin = page.getByRole('region', { name: 'Referência criativa de origem' })
+  await expect(origin.getByRole('link')).toHaveAttribute('href', 'https://youtu.be/abcdefghijk')
+  await page.getByLabel('Formato', { exact: true }).selectOption('post')
+  await page.getByRole('button', { name: 'Gerar prompt para IA', exact: true }).click()
+  await expect(page.getByLabel('Prompt editorial')).toHaveValue(/Comparação com critérios iguais/)
+  await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({ schemaVersion: 1,
+    campaign: { title: 'Design da referência', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'post', caption: '', cta: '' },
+    slides: [{ order: 1, role: 'content', title: 'Critérios para comparar', body: 'Comece pelo objetivo.', layoutType: 'editorial', imageBrief: '' }], sources: [],
+  }))
+  await page.getByRole('button', { name: 'Importar conteúdo', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Revisão editorial' }).locator('..').getByRole('link', { name: 'Formas de comparar soluções' })).toBeVisible()
+  await page.getByRole('button', { name: 'Criar design no Studio' }).click()
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Design da referência')
+  await page.getByRole('link', { name: 'Radar', exact: true }).click()
+  await page.getByRole('button', { name: 'Virais e formatos', exact: true }).click()
+  await expect(virals.locator('article')).toContainText('Formas de comparar soluções')
+})

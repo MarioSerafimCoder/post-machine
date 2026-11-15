@@ -9,6 +9,7 @@ import { News } from './features/radar/News'
 import { useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { Virals } from './features/virals/Virals'
+import type { Reference } from './features/virals/contract'
 import { Roadmap } from './components/Roadmap'
 import { usePage, type Page } from './lib/navigation'
 
@@ -75,7 +76,7 @@ const radarSections = [
 ]
 function Radar({ active, onDesign }: { active: boolean; onDesign: (draft: Draft) => void }) {
   const [section, setSection] = useState(0)
-  const [request, setRequest] = useState<{ article: Article | null } | null>(null)
+  const [request, setRequest] = useState<{ article: Article | null; reference?: Reference } | null>(null)
   const newsTab = useRef<HTMLButtonElement>(null)
   const draftsTab = useRef<HTMLButtonElement>(null)
   useEffect(() => {
@@ -88,5 +89,5 @@ function Radar({ active, onDesign }: { active: boolean; onDesign: (draft: Draft)
     setSection(1)
     draftsTab.current?.focus()
   }
-  return <><CampaignStart choose={mode => { if (mode === 'radar') setSection(0); else { setRequest({ article: null }); setSection(1) } }} /><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} ref={index === 0 ? newsTab : index === 1 ? draftsTab : undefined} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><div hidden={section !== 0}><News onCreatePost={selectArticle} /></div><div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1} onBack={() => { setSection(0); newsTab.current?.focus() }} /></div>{section === 2 && <Virals />}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
+  return <><CampaignStart choose={mode => { if (mode === 'radar') setSection(0); else { setRequest({ article: null }); setSection(1) } }} /><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} ref={index === 0 ? newsTab : index === 1 ? draftsTab : undefined} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><div hidden={section !== 0}><News onCreatePost={selectArticle} /></div><div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1} onBack={() => { setSection(0); newsTab.current?.focus() }} /></div>{section === 2 && <Virals createCampaign={reference => { setRequest({ article: null, reference }); setSection(1); draftsTab.current?.focus() }} />}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
 }

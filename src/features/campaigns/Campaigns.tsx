@@ -4,12 +4,14 @@ import { SaveQueue } from '../../lib/saveQueue'
 import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import { normalize, type Article } from '../radar/contract'
 import {
-  approaches, backupSchema, createPrompt, defaultPreferences, formats, importContent,
+  approaches, backupSchema, createPrompt, defaultPreferences, draftFromReference, formats, importContent,
   markdownExample, maxBackup, maxImport, maxSlides, newDraft, objectives, roles, tones,
   type Backup, type Briefing, type Content, type Draft, type Slide,
 } from './contract'
 import { deleteCampaign, putCampaign, putPreferences, readCampaigns, restoreCampaigns } from './storage'
 import './campaigns.css'
+import type { Reference } from '../virals/contract'
+import { identifyUrl, platforms as referencePlatforms } from '../virals/urls'
 
 const platforms = {
   ChatGPT: 'https://chatgpt.com/',
@@ -20,7 +22,7 @@ const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
 const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imageBrief: '', layoutType: 'editorial' }
 
 export function Campaigns({ request, active, onBack, onDesign }: {
-  request: { article: Article | null } | null
+  request: { article: Article | null; reference?: Reference } | null
   active: boolean
   onBack: () => void
   onDesign: (draft: Draft) => void
@@ -85,7 +87,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     const timer = window.setTimeout(() => {
       handledRequest.current = request
       const preferences = backup?.preferences ?? defaultPreferences
-      const item = newDraft(request.article, preferences)
+      const item = request.reference ? draftFromReference(request.reference, preferences) : newDraft(request.article, preferences)
       if (!backup) setBackup({ schemaVersion: 2, campaigns: [], preferences })
       setSelected(item.id)
       persist(item)
@@ -275,6 +277,12 @@ function Editor({ draft, update, onPreferences }: {
   }
 
   return <>
+    {draft.creativeOrigin && <section className="campaign-panel" aria-label="Referência criativa de origem">
+      <h3>Referência criativa de origem</h3>
+      <a href={draft.creativeOrigin.url} target="_blank" rel="noreferrer">{draft.creativeOrigin.title}</a>
+      <p>{referencePlatforms[identifyUrl(draft.creativeOrigin.url).platform]}{draft.creativeOrigin.author && ` · ${draft.creativeOrigin.author}`} · Cadastro manual</p>
+      {draft.creativeOrigin.description && <p>{draft.creativeOrigin.description}</p>}
+    </section>}
     {article && <section className="campaign-panel" aria-labelledby="campaign-source-heading">
       <h3 id="campaign-source-heading">Notícia de origem</h3>
       <a href={article.url} target="_blank" rel="noreferrer">{article.title}</a>

@@ -17,7 +17,9 @@ export const referenceSchema = z.object({
   analysis: analysisSchema, favorite: z.boolean(), createdAt: z.iso.datetime(),
 }).strict()
 export const librarySchema = z.object({ schemaVersion: z.literal(1), references: z.array(referenceSchema).max(2000) }).strict()
+export const creativeOriginSchema = referenceSchema.omit({ favorite: true, createdAt: true }).extend({ kind: z.literal('creative-reference') })
 export type Reference = z.infer<typeof referenceSchema>
+export type CreativeOrigin = z.infer<typeof creativeOriginSchema>
 export type AnalysisField = keyof Reference['analysis']
 export const newReference = (): Reference => ({
   id: crypto.randomUUID(), title: '', url: '', author: '', publication: '', type: 'Vídeo', format: 'provocativa',
