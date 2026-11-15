@@ -130,3 +130,11 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - PNG e ZIP conferidos por dimensões/ordem nos arquivos baixados. Layout inspecionado visualmente em screenshots de navegador a 1024/1280/1440 px; sem overflow da página, canvas rolável e zoom independente. Prévias reais dos slides substituíram os resumos semânticos.
 - GitHub production consultado: faltam CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID e CLOUDFLARE_ACCESS_READY. Não foram criadas credenciais ou removida a proteção. Publicação direta autorizada pelo proprietário; resultado remoto será registrado abaixo.
 - Limites explícitos: 20 slides, 500 elementos/slide, imagem até 20 MB/40 MP, oito fontes WOFF2 até 2 MB, backup até 150 MB. Histórico de sessão + checkpoint anterior; backup representa o estado atual. Auditoria completa e Radar de Virais não implementados.
+
+## Publicação e conferência online — 14/11/2026
+
+- Entregas 3.0–3.4 enviadas para origin/main, código publicado no commit 2cf68bb. CI Linux aprovado: https://github.com/MarioSerafimCoder/post-machine/actions/runs/43660701534 (instalação limpa, lint, 20 Vitest, build, 30 Playwright e dry-run).
+- Publicado no Worker existente post-machine, domínio posts.marioserafim.com.br, versão 41488b14-d0d5-4c50-833f-89ce6ab4bcca. Sem novos recursos ou bindings. Verificação posterior: /, /radar.json e /favicon.svg retornam 302 ao Access para visitantes anônimos.
+- Sessão autorizada do Access conferida no navegador: Studio — Direto abriu; projeto de verificação criado, template editorial aplicado, texto editado, salvo e reaberto após recarga. PNG baixado de produção e inspecionado visualmente, 1080×1350, sem corte no texto. Nenhum erro do aplicativo registrado; o fluxo de login Cloudflare registrou aviso próprio de ViewTransition abortada, sem impedir o acesso.
+- Projeto “Verificação do Studio” permanece apenas no IndexedDB do navegador usado na validação, não foi enviado ao repositório/servidor. Screenshot e PNG de evidência são locais, fora do versionamento.
+- Fase 3 implementada, testada e publicada. Pendência externa preservada: configurar os dois segredos e a variável do environment production para o deploy agendado do Radar e validar o snapshot daquela execução. Fase 4 não iniciada.
