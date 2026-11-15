@@ -1,0 +1,15 @@
+.viral-workspace { display: grid; gap: 16px; margin-bottom: 20px; }
+.viral-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:12px; align-items:start; }
+.viral-card { display:grid; gap:8px; min-width:0; padding:14px; border:1px solid var(--line); border-radius:10px; background:#fff; overflow-wrap:anywhere; }
+.viral-card summary { font-weight:700; cursor:pointer; }
+.viral-card p { margin:4px 0; }
+.viral-card dt { font-weight:650; }
+.viral-card dd { margin:0 0 8px; }
+.viral-controls { display:flex; flex-wrap:wrap; align-items:end; gap:10px; }
+.viral-controls label { display:grid; gap:4px; }
+.viral-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.viral-fields label { display:grid; gap:4px; }
+.viral-fields input,.viral-fields select,.viral-fields textarea { min-width:0; width:100%; }
+.viral-placeholder { aspect-ratio:16/5; display:grid; place-items:center; color:var(--green); border-radius:6px; background:#edf1e5; font-weight:650; }
+.viral-card img { aspect-ratio:16/9; width:100%; object-fit:cover; border-radius:6px; }
+.viral-detail textarea { width:100%; }

@@ -8,6 +8,7 @@ import type { Article } from './features/radar/contract'
 import { News } from './features/radar/News'
 import { useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
+import { FormatCatalog } from './features/virals/FormatCatalog'
 import { Roadmap } from './components/Roadmap'
 import { usePage, type Page } from './lib/navigation'
 
@@ -70,14 +71,13 @@ function Overview({ onRoadmap }: { onRoadmap: () => void }) {
 const radarSections = [
   { title: 'Notícias e pautas' },
   { title: 'Pautas e prompts' },
-  { title: 'Virais e formatos', heading: 'Referências que ampliam o repertório.', description: 'A curadoria manual de formatos e referências criativas será implementada na Fase 5.', note: 'Nenhuma referência cadastrada. Métricas nunca serão inventadas.' },
+  { title: 'Virais e formatos' },
 ]
 function Radar({ active, onDesign }: { active: boolean; onDesign: (draft: Draft) => void }) {
   const [section, setSection] = useState(0)
   const [request, setRequest] = useState<{ article: Article | null } | null>(null)
   const newsTab = useRef<HTMLButtonElement>(null)
   const draftsTab = useRef<HTMLButtonElement>(null)
-  const current = radarSections[section]
   useEffect(() => {
     const start = (event: Event) => { const mode = (event as CustomEvent<CampaignStartMode>).detail; if (mode === 'radar') setSection(0); else { setRequest({ article: null }); setSection(1) } }
     window.addEventListener('direto:new-campaign', start); return () => window.removeEventListener('direto:new-campaign', start)
@@ -88,5 +88,5 @@ function Radar({ active, onDesign }: { active: boolean; onDesign: (draft: Draft)
     setSection(1)
     draftsTab.current?.focus()
   }
-  return <><CampaignStart choose={mode => { if (mode === 'radar') setSection(0); else { setRequest({ article: null }); setSection(1) } }} /><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} ref={index === 0 ? newsTab : index === 1 ? draftsTab : undefined} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><div hidden={section !== 0}><News onCreatePost={selectArticle} /></div><div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1} onBack={() => { setSection(0); newsTab.current?.focus() }} /></div>{section === 2 && <section className="empty-state" aria-live="polite"><span className="empty-icon"><Icon name="radar" /></span><span className="badge">Em desenvolvimento</span><h2>{current.heading}</h2><p>{current.description}</p><span className="small muted">{current.note}</span></section>}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
+  return <><CampaignStart choose={mode => { if (mode === 'radar') setSection(0); else { setRequest({ article: null }); setSection(1) } }} /><p className="page-description">Um lugar para descobrir, conectar e guardar boas referências.</p><div className="segmented" role="group" aria-label="Seções do Radar">{radarSections.map((item, index) => <button key={item.title} ref={index === 0 ? newsTab : index === 1 ? draftsTab : undefined} aria-pressed={section === index} onClick={() => setSection(index)}>{item.title}</button>)}</div><div hidden={section !== 0}><News onCreatePost={selectArticle} /></div><div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1} onBack={() => { setSection(0); newsTab.current?.focus() }} /></div>{section === 2 && <FormatCatalog />}<div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div></>
 }

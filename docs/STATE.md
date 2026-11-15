@@ -210,3 +210,7 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - 5.2D: lint, build, 54 testes Vitest, 42 testes Playwright no build servido pelo Wrangler e dry-run aprovados. As fixtures cobrem CORS, fallback manual, troca de créditos, restauração, deduplicação e auditoria de arquivo ilegível. A revisão de layout cobriu 1024, 1280 e 1440 px.
 - [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43723919148) aprovado. O [workflow de produção](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43723919175) publicou o commit `857e1b4` como versão `668b18ba-828e-44b6-8138-d47da6e82cad` e confirmou a proteção do Access antes e depois.
 - Verificação real no navegador autenticado: busca por `architecture` com filtros Flickr e CC BY, miniaturas carregadas, original de 683 × 1024 px de kevin dooley inserido no canvas, créditos recuperados ao reabrir o projeto e exigência de atribuição exibida pela Auditoria. O projeto de verificação ficou no IndexedDB do navegador.
+
+## Fase 5.3 — Radar de Virais e Formatos
+
+- 5.3A: `catalog.ts` e `FormatCatalog.tsx` substituem o placeholder com oito formatos, cada um com estrutura, objetivo, nichos e sequência sugerida. Build aprovado. Cadastro e métricas são etapas seguintes.
