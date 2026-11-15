@@ -47,6 +47,12 @@ Para reproduzir localmente, use `npm run radar:collect`, `npm run build` e `npm 
 
 ## Dados e segredos
 
+### YouTube opcional em Virais e Formatos
+
+No Google Cloud, habilite a YouTube Data API v3 e use uma chave dedicada com restrição à YouTube Data API. Cadastre a chave em **Settings → Secrets and variables → Actions → Repository secrets**, com o nome `YOUTUBE_API_KEY`. No mesmo painel, em **Variables**, configure `YOUTUBE_VIDEO_IDS` com IDs públicos separados por vírgula. Use apenas IDs autorizados para publicação no snapshot. A biblioteca pessoal e as notas não alimentam essa variável e ficam no navegador. Rode o workflow `Radar e deploy protegido` para atualizar.
+
+O coletor usa lotes de até 50 IDs e aceita no máximo 200 IDs. `YOUTUBE_REQUESTS_PER_RUN` (padrão 2, máximo 4) e `YOUTUBE_REQUESTS_PER_DAY` (padrão 6, máximo 20) são limites opcionais deste workflow. O orçamento diário segue o fuso do Pacífico. O cache evita nova consulta ao mesmo vídeo por 24 h e descarta observações após sete dias. Artefatos de cache duram sete dias. Sem chave ou sem lista pública, o modo manual continua disponível. Consulte [videos.list](https://developers.google.com/youtube/data/reference/rest/v3/videos/list) e as [políticas de dados](https://developers.google.com/youtube/terms/developer-policies).
+
 Repositório público: não salvar uploads, projetos pessoais, backups, tokens ou arquivos .env. Somente código e futuros metadados públicos das fontes. O domínio de produção está publicado com Access; a validação da sessão autorizada e do agendamento deve ser registrada separadamente em STATE.
 
 QA do build com os cabeçalhos reais: `npm run test:e2e:production` usa Wrangler local na porta 44174. A suíte de desenvolvimento usa 44173; nenhuma utiliza a porta 4173 do BRasa.

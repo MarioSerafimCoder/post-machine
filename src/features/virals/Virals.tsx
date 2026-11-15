@@ -7,10 +7,13 @@ import { identifyUrl, platforms, type Platform } from './urls'
 import { listReferences, removeReference, restoreReferences, writeReference } from './storage'
 import { FormatCatalog } from './FormatCatalog'
 import { ReferenceForm } from './ReferenceForm'
+import { ReferenceThumbnail, YouTubeData } from './YouTubeData'
+import { displayVideo, snapshotSchema, type YouTubeSnapshot } from './youtube'
 
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' })
 export function Virals({ createCampaign }: { createCampaign?: (reference: Reference) => void }) {
   const [data, setData] = useState<Reference[]>()
+  const [youtube, setYouTube] = useState<YouTubeSnapshot>()
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
   const [tab, setTab] = useState<'library' | 'formats'>('library')
@@ -30,8 +33,24 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
     void listReferences().then(value => { if (live) setData(value) }, () => { if (live) setError('Não foi possível abrir a biblioteca local.') })
     return () => { live = false }
   }, [])
+  useEffect(() => {
+    const controller = new AbortController()
+    void fetch('/virals-youtube.json', { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8_000)]), cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw Error('Consulta indisponível.')
+        return response.json()
+      })
+      .then(value => {
+        const snapshot = snapshotSchema.parse(value)
+        if (!controller.signal.aborted) setYouTube({ ...snapshot, videos: snapshot.videos.filter(video => displayVideo(video, Date.now())) })
+      })
+      .catch(() => { if (!controller.signal.aborted) setYouTube({ schemaVersion: 1, status: 'error', videos: [], requests: 0, day: '' }) })
+    return () => controller.abort()
+  }, [])
   useEffect(() => { if (selected && !editing) detail.current?.focus() }, [selected, editing])
   const chosen = data?.find(ref => ref.id === selected)
+  const chosenIdentity = chosen && identifyUrl(chosen.url)
+  const videoById = new Map(youtube?.videos.map(video => [video.id, video]))
   const counts: Partial<Record<FormatId, number>> = {}
   for (const ref of data ?? []) counts[ref.format] = (counts[ref.format] ?? 0) + 1
   const niches = [...new Set(data?.map(ref => ref.niche).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'pt-BR'))
@@ -108,19 +127,22 @@ export function Virals({ createCampaign }: { createCampaign?: (reference: Refere
         {chosen.description && <p>{chosen.description}</p>}
         <dl>{Object.entries(chosen.analysis).filter(([, value]) => value).map(([key, value]) => <div key={key}><dt>{analysisFields[key as AnalysisField]}</dt><dd>{value}</dd></div>)}</dl>
         <p><strong>Estrutura sugerida pelo catálogo</strong> {editorialFormat(chosen.format).slides}</p>
-        <p className="muted">Métricas observadas indisponíveis.</p>
+                {chosenIdentity?.platform === 'youtube' ? <YouTubeData video={videoById.get(chosenIdentity.platformId ?? '')} status={youtube?.status} detailed />
+          : <p className="muted">Métricas observadas indisponíveis.</p>}
         <div className="viral-controls"><button aria-expanded={showPrompt} onClick={() => setShowPrompt(value => !value)}>Gerar prompt de análise</button></div>
         {showPrompt && <><label>Prompt de análise<textarea rows={7} readOnly value={editorialPrompt(chosen)} /></label>
           <div className="viral-controls"><button onClick={() => void navigator.clipboard.writeText(editorialPrompt(chosen)).then(() => setStatus('Prompt copiado.'), () => setError('Selecione o texto para copiar.'))}>Copiar prompt de análise</button><a href="https://chatgpt.com/" target="_blank" rel="noreferrer">Abrir ChatGPT</a></div>
         </>}
       </section>}
       <div className="viral-grid">{visible.map(ref => {
-        const platform = platforms[identifyUrl(ref.url).platform]
+        const { platform, platformId } = identifyUrl(ref.url)
+        const video = platform === 'youtube' && platformId ? videoById.get(platformId) : undefined
         return <article className="viral-card" key={ref.id}>
-          <span className="viral-placeholder">{platform}</span>
+          <ReferenceThumbnail key={video?.thumbnail ?? platform} platform={platform} thumbnail={video?.thumbnail} />
           <h3>{ref.title}</h3>
           <p>{editorialFormat(ref.format).name}{ref.niche && ` · ${ref.niche}`}</p>
           {ref.author && <small>{ref.author}</small>}
+          {platform === 'youtube' && <YouTubeData video={video} status={youtube?.status} />}
           <small>{ref.publication ? 'Publicado em ' + date.format(new Date(ref.publication)) : 'Cadastrado em ' + date.format(new Date(ref.createdAt))}</small>
           <div className="viral-controls">
             <button disabled={busy} aria-pressed={ref.favorite} onClick={() => void change(() => writeReference({ ...ref, favorite: !ref.favorite }), ref.favorite ? 'Removida dos favoritos.' : 'Adicionada aos favoritos.')}>Favoritar</button>

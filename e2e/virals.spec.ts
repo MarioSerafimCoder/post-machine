@@ -70,6 +70,7 @@ test('cria pauta com origem criativa e abre o resultado no Studio', async ({ pag
   await virals.getByLabel('URL original').fill('https://youtu.be/abcdefghijk')
   await virals.getByLabel('Mecanismo criativo').fill('Comparação com critérios iguais')
   await virals.getByRole('button', { name: 'Salvar referência' }).click()
+  await expect(virals.getByRole('region', { name: 'Detalhes da referência' })).toContainText('Métricas não conectadas')
   await virals.getByRole('button', { name: 'Criar pauta com esta referência' }).click()
   const origin = page.getByRole('region', { name: 'Referência criativa de origem' })
   await expect(origin.getByRole('link')).toHaveAttribute('href', 'https://youtu.be/abcdefghijk')

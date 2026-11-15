@@ -5,7 +5,7 @@ import { identifyUrl, platforms } from './urls'
 export function editorialPrompt(ref: Reference) {
   const platform = platforms[identifyUrl(ref.url).platform]
   const format = editorialFormat(ref.format)
-  const hasContext = !!(ref.description || ref.analysis.hook || ref.analysis.structure || ref.analysis.mechanism)
+  const hasContext = !!ref.description || Object.values(ref.analysis).some(Boolean)
   return [
     'Analise esta referência criativa em português e proponha como aplicar seu mecanismo editorial a outro tema.',
     'Use apenas as observações fornecidas. Não presuma que abriu ou assistiu ao link. Separe o que foi observado de hipóteses. Não invente métricas, elementos, cenas ou falas.',
