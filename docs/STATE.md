@@ -194,3 +194,8 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - Ollama avaliado e fora desta entrega. Sua API local usa uma origem diferente da aplicação publicada, exige autorização de origem no serviço e é bloqueada pela CSP atual (`connect-src 'self'`). A lista de modelos seria consultada em `/api/tags` após resolver o acesso local em uma arquitetura optativa. Nenhum proxy foi criado. Consulte a [documentação do Ollama](https://docs.ollama.com/faq) e a [referência de CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src).
 - Lint, 47 testes Vitest, build e 38 testes Playwright no build servido pelo Wrangler passaram. Os cenários conferem o layout em 1024, 1280 e 1440 px, a troca de projetos na Auditoria, o limite de tentativas, a reversão de transação de limpeza, a persistência de headlines e o aviso de altura no Studio.
 - Próxima etapa prevista: 5.2, pesquisa de imagens e preservação de licenças e atribuições.
+
+### Publicação das fases 5.0 e 5.1 — 15/11/2026
+
+- Commits `e4be5c7` e `7760e06` na `main`. [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43719705704) aprovado. [Workflow de produção](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43719706031) publicou a versão `14cfc0a8-60d3-4431-b977-39232f1d3a75` no Worker existente e confirmou o Access antes e depois.
+- Na sessão autorizada, o Radar carregou notícias, a Auditoria abriu e analisou um projeto da Fase 3 e o Studio reabriu o mesmo projeto. O Agente de Headlines mostrou as medidas do título e gerou o prompt no site publicado. Aplicação, persistência e desfazer foram cobertos na suíte do build local.
