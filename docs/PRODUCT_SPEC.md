@@ -92,22 +92,21 @@ O Radar é uma das funcionalidades mais importantes do produto.
 
 Criar três seções:
 
-### A. Notícias e Pautas
+### A. Radar Criativo
 
-Agregar artigos e notícias por nicho.
+Observar design, branding, direção de arte, publicidade, criação e mercado criativo para profissionais e estúdios.
 
-Categorias iniciais configuráveis:
+Categorias editoriais:
 
-- Design e criatividade
-- Arquitetura
-- Marketing e publicidade
-- Tecnologia e inteligência artificial
-- Cinema e cultura
-- Economia
-- Saúde e bem-estar
-- Psicologia
+- Branding e identidade visual
+- Design gráfico e tipografia
+- Publicidade e criação
+- Direção de arte e imagem
+- Design digital e UX/UI
+- IA e ferramentas criativas
+- Mercado criativo
 
-Utilizar fontes RSS verificáveis e Google Trends.
+Usar RSS público dos editores. Google Trends entra apenas quando a notícia associada oferece evidência criativa em seu título ou resumo. Cinema, arquitetura e tecnologia exigem vínculo editorial com criação, comunicação, estética ou indústria criativa. Saúde, psicologia e economia geral ficam fora da seleção principal.
 
 Priorizar notícias brasileiras e internacionais relevantes, com suporte a português e inglês.
 
@@ -122,7 +121,7 @@ Cada item deve possuir:
 - Data de coleta
 - Categoria
 - País/idioma, quando identificável
-- Indicador de relevância
+- Recorte editorial de criação e mercado ou contexto criativo
 - Status de favorito
 
 Implementar:
@@ -130,12 +129,16 @@ Implementar:
 - Coleta automática três vezes por dia.
 - Configuração das fontes por arquivo.
 - Deduplicação por URL canônica e similaridade de título.
-- Filtros por categoria, data, idioma e fonte.
+- Filtros por categoria, data, idioma, fonte e recorte.
 - Busca textual.
 - Favoritos.
 - Histórico de notícias recentes.
 - Indicação da última atualização.
 - Estado de erro quando uma fonte estiver indisponível.
+
+A classificação usa expressões normalizadas em português e inglês, com fronteiras de palavra. Uma correspondência vale oito pontos no título e quatro no resumo ou nas categorias do RSS, com até duas por campo. Etiquetas editoriais específicas verificadas podem contribuir com cinco pontos. Adequação à especialidade da fonte vale dois. A classificação legada pode desempatar evidências do artigo. Branding, design gráfico e publicidade recebem três pontos de prioridade. Fontes especializadas com categoria definida podem sinalizar a categoria quando o artigo não tem termos explícitos. A pontuação fica no coletor.
+
+A edição combina recência e pertinência e procura alternar publicações em uma janela de três dias. Quando há material suficiente, o alvo é quatro publicações do recorte direto para uma de contexto criativo. A classificação é reaplicada ao histórico de fontes ativas, inclusive na falha total. Artigos de fontes removidas saem da seleção, com IDs, URLs e dados locais das campanhas e dos favoritos mantidos.
 
 Arquitetura preferencial: coletor Node.js executado pelo GitHub Actions, que gera JSON validado e disponibiliza o resultado ao frontend estático.
 

@@ -27,6 +27,11 @@ Fases 1 a 4 implementadas e publicadas. O Radar tem publicação agendada ativa 
 - Carregamento sob demanda, biblioteca paginada e miniaturas sob demanda. Salvamento protegido contra gravações concorrentes e restauração com limites durante a leitura.
 - Fluxos integrados de notícia e referência até exportação, backups e falhas simuladas. Resultados e publicação registrados em [STATE.md](STATE.md).
 
+## Radar Criativo
+
+- Taxonomia de sete áreas, curadoria bilíngue, prioridade para branding, design gráfico e publicidade e equilíbrio entre criação e contexto.
+- O coletor mantém fontes públicas brasileiras e internacionais e reclassifica o histórico de origens ativas. A verificação de disponibilidade e publicação está em [STATE.md](STATE.md).
+
 ## Propostas futuras
 
 - Avaliar navegação e leitura das camadas complexas com tecnologias assistivas e sessões de uso real.
