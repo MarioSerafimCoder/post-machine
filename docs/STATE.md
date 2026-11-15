@@ -231,3 +231,29 @@ Instalacao ainda bloqueada nesta sessao do Work. Arquivos de codigo preservados.
 - Alto: o Studio aceita ações de inserção antes do Fabric sinalizar que terminou de carregar. Campanhas abertas em abas diferentes fazem `put` sem comparar a revisão e podem sobrescrever uma edição. A abertura de backups ZIP verifica CRC de todas as entradas antes de impor limites de descompressão. A biblioteca com 2.000 referências montou 2.000 cartões e demorou 919 ms para abrir e 1.080 ms para responder à busca (medianas de três amostras locais).
 - Médio: a visão geral carrega o bundle editorial e solicita o snapshot do Radar em segundo plano. A barra do Studio mediu 178 px a 1024 × 768 e a área do canvas tem altura fixa de 689 px em todas as quatro resoluções. A seção de referências perde filtros ao alternar de seção, os atalhos globais do Studio continuam registrados quando o editor está oculto e desfazer volta sempre ao primeiro slide.
 - Baixo: o roteiro integrado ainda apresenta fases já publicadas como pendentes e o foco de campos/controles depende de estilos diferentes por módulo.
+
+### Entregas 6.1–6.4
+
+- O Studio agrupa nome, salvamento e histórico. Auditoria, PNG e ZIP ficam visíveis. Créditos, backup, recuperação e duplicação ficam em Mais ações. O canvas usa a altura disponível e centraliza a arte quando ela cabe. Os controles mostram foco visível, a seleção em Camadas tem estado acessível e Escape fecha Mais ações e devolve o foco.
+- Campanhas de referências voltam à biblioteca com os filtros preservados. Os atalhos do Studio operam na rota do editor, e Desfazer/Refazer preservam o slide ativo quando ele existe na revisão de destino. O editor aguarda o Fabric antes de liberar as ferramentas de inserção.
+- O Radar tem carregamento sob demanda. Referências usam busca normalizada e páginas de 24 cartões. Miniaturas carregam quando entram na faixa visível. PNG/ZIP renderizam em uma superfície isolada e descartam uma exportação cuja fonte mudou enquanto ela era gerada.
+- A versão persistida da campanha é conferida na mesma transação que grava ou exclui. Conflitos entre abas preservam a edição pendente para backup. O Studio torna o conflito explícito e trata abortos de IndexedDB sem propagar um segundo erro. Restauração ZIP limita bytes durante a descompressão e verifica a integridade dos assets por SHA-256.
+- O Openverse apresenta falhas de conexão, tempo limite e HTTP 429 com instruções de retentativa. A Auditoria informa interrupção após Cancelar. Fonte local inválida tem instrução para recuperar o WOFF2. O esquema, armazenamento por origem e regras de acesso seguem descritos em [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### Medições locais
+
+Windows, Intel i5-9400F, Node 24.18.0, Chromium do Playwright e build Vite servido na mesma máquina. Tempos de abertura e busca usam relógio de parede e incluem espera pela interface. Acervo sintético de 2.000 referências, três contextos novos por versão. A heap é uma amostra de JavaScript, com `--enable-precise-memory-info`, sem contabilizar GPU e memória nativa do canvas.
+
+| Medida | Base | Fase 6 |
+| --- | ---: | ---: |
+| JavaScript inicial, gzip | 122,91 kB | 73,98 kB |
+| CSS inicial, gzip | 6,32 kB | 5,40 kB |
+| Pedidos ao snapshot de notícias na visão geral | 1 | 0 |
+| Cartões montados ao abrir o acervo | 2.000 | 24 |
+| Abertura do acervo, mediana | 919 ms | 615 ms |
+| Aplicação de uma busca no acervo, mediana | 1.080 ms | 15 ms |
+| Amostra de heap após abertura, mediana | 12 MiB | 9 MiB |
+
+- A abertura pós-mudança variou de 611 a 1.051 ms. A redução do custo da busca foi consistente nas três medições. Essas amostras locais não são Core Web Vitals de campo.
+- Studio em 1280 × 800: fixture típica com 6 slides × 60 retângulos abriu em 113 ms, trocou para o último slide em 80 ms e registrou 9 MiB de heap. Fixture de estresse com 20 × 500 retângulos abriu em 406 ms, trocou em 348 ms e registrou 19 MiB. São amostras únicas sem fotografias e medem abertura, troca e disponibilidade das camadas. O limite global de complexidade continua aplicável a grupos, imagens e propriedades serializadas.
+- Limites de uso: o navegador pode encerrar uma gravação ainda pendente. A interface e os backups oferecem recuperação enquanto a edição está na sessão. A inspeção de composição, arraste e seleção gráfica de grupos continuam dependentes da superfície visual. A revisão de acessibilidade usou a WCAG como referência e não certifica conformidade integral.

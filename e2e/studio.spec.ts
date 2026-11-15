@@ -1,5 +1,4 @@
 import { test, expect, type Page } from '@playwright/test'
-import JSZip from 'jszip'
 const consoleErrors = new WeakMap<Page, string[]>()
 test.beforeEach(({ page }) => { const errors: string[] = []; consoleErrors.set(page, errors); page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) }) })
 test.afterEach(({ page }) => { expect(consoleErrors.get(page)).toEqual([]) })
@@ -92,6 +91,7 @@ test('recupera imagens e histórico, restaura backup e exporta PNG e ZIP nas dim
   await page.getByRole('button', { name: 'Salvar', exact: true }).click()
   await expect(page.getByRole('status', { name: '' }).filter({ hasText: /^Salvo$/ })).toBeVisible()
   const backupEvent = page.waitForEvent('download')
+  await page.getByText('Mais ações', { exact: true }).click()
   await page.getByRole('button', { name: 'Backup completo', exact: true }).click()
   const backupFile = await backupEvent; const backup = await readFile(await backupFile.path())
   const parsed = await JSZip.loadAsync(backup)
@@ -145,7 +145,8 @@ test('avisa overflow e mantém o editor usável em 1024, 1280 e 1440', async ({ 
     await page.setViewportSize({ width, height: 1000 })
     await page.getByRole('button', { name: 'Ajustar à tela', exact: true }).click()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    await expect(page.getByRole('img', { name: 'Prévia do slide' }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Slide 1', exact: true }).scrollIntoViewIfNeeded()
+    await expect(page.locator('.slide-thumbnail').first()).toBeVisible()
     await page.screenshot({ path: `test-results/studio-${width}.png`, fullPage: true })
   }
   await page.getByLabel('Texto do elemento').fill('Texto longo que precisa de revisão. '.repeat(50))
@@ -169,6 +170,7 @@ test('fonte WOFF2 local é carregada, incluída no backup e recuperada', async (
   await page.getByRole('button', { name: 'Salvar', exact: true }).click()
   await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
   const download = page.waitForEvent('download')
+  await page.getByText('Mais ações', { exact: true }).click()
   await page.getByRole('button', { name: 'Backup completo', exact: true }).click()
   const bytes = await readFile(await (await download).path())
   await page.reload()

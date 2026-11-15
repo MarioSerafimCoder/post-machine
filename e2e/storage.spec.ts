@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 
 test('limpeza preserva imagens compartilhadas, marca e checkpoints', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', cause => errors.push(cause.message))
   await page.goto('/#/studio')
   await page.getByRole('button', { name: 'Criar projeto vazio' }).waitFor()
   await page.evaluate(async () => {
@@ -50,6 +52,8 @@ test('limpeza preserva imagens compartilhadas, marca e checkpoints', async ({ pa
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click()
   expect((await download).suggestedFilename()).toBe('Projeto-B-01.png')
+  await page.getByText('Mais ações', { exact: true }).click()
   await page.getByRole('button', { name: 'Recuperar versão anterior' }).click()
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Checkpoint')
+  expect(errors).toEqual([])
 })

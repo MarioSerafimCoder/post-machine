@@ -88,3 +88,11 @@ SaveQueue agrupa edições por 350 ms, serializa gravações por ID e retém a �
 - Fontes: Inter regular/negrito latinas distribuídas localmente via pacote @fontsource/inter 5.3.0, SIL OFL 1.1 (licença em public/fonts/Inter-LICENSE.txt). Fontes do sistema são alternativas; WOFF2 próprio até 2 MB/arquivo, máximo oito, incluído em backup. Sem Google Fonts remoto. Usuário deve possuir licença de seus uploads.
 - FontFace carrega uploads por ArrayBuffer; imagens são decodificadas sem fetch(data:) para respeitar connect-src self. A suíte de produção roda pelo Wrangler local com os mesmos cabeçalhos CSP.
 - Custo adicional R$ 0: nenhum novo Worker, serviço, API de IA ou armazenamento remoto.
+
+## Refinamento da Fase 6
+
+- A visão geral carrega a navegação e o shell. Radar, Studio e Auditoria entram sob demanda. Radar e Studio permanecem montados após a primeira visita para conservar filtros, seleção e documentos pendentes. A biblioteca de referências normaliza texto e URLs por edição do acervo e exibe páginas de 24 cartões.
+- A sessão do slide mantém o canvas editável. Miniaturas entram na fila ao aparecer na faixa de slides e usam uma superfície de 10% da escala original. A troca da cena cancela miniaturas pendentes. A exportação renderiza uma vez em canvas isolado, sem seleção ou guias.
+- A fila de salvamento de campanhas compara o registro esperado na mesma transação que grava ou exclui. Conflitos preservam a alteração pendente na sessão e permitem exportar o backup. O Studio já comparava a revisão persistida. No empacotamento e na hidratação de um projeto, ocorrências repetidas de uma imagem ou fonte compartilham sua conversão.
+- Os ZIPs de projeto continuam no contrato v1. A restauração lê as entradas necessárias em blocos, limita o documento e cada arquivo a 20 MB descompactados e a soma a 150 MB, valida o documento com Zod e confere o SHA-256 de cada arquivo referenciado. Entradas extras não são descompactadas. Os dados existentes permanecem disponíveis em caso de falha.
+- A interface usa a [WCAG 2.2](https://www.w3.org/TR/WCAG22/) como referência. A lista de camadas permite selecionar pelo teclado, usar propriedades numéricas, editar texto, duplicar, excluir e alterar ordem. Arrastar objetos, selecionar grupos na superfície e inspecionar composição visual continuam sendo operações gráficas.

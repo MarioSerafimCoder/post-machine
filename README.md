@@ -4,7 +4,7 @@ Plataforma pessoal de criação de conteúdo: **Radar**, **Studio** e **Auditori
 
 ## Estado
 
-Fundação da interface disponível: navegação exclusivamente desktop (1024 px+), links diretos, estados vazios reais, roteiro do produto e design system editorial. **Desktop first, sempre; sem versão mobile.** Radar e campanhas implementados. Studio: Fabric, seis templates, carrosséis, marca, fontes WOFF2 locais, imagens, IndexedDB e exportação PNG/ZIP. Auditoria: regras locais de geometria, texto, imagem, contraste e marca, relatório JSON, revisão antes de exportar e correção segura de posição. O site permanece protegido pelo Cloudflare Access.
+O Post Machine reúne Radar, campanhas, Studio e Auditoria em um fluxo para desktop a partir de 1024 px. O Studio edita imagens, fontes WOFF2 locais e carrosséis com seis templates. A Auditoria verifica geometria, texto, imagem, contraste e marca. O site usa Cloudflare Access e salva seu trabalho no navegador.
 
 ## Executar
 
@@ -21,6 +21,8 @@ npm test
 npm run build
 npx playwright install chromium
 npm run test:e2e
+npm run test:e2e:production
+npm run deploy:check
 ```
 
 ## Auditar uma arte
@@ -37,11 +39,18 @@ Os títulos, favoritos e propostas ficam no documento local. No Studio, **Projet
 
 No Studio, abra **Imagens → Pesquisar imagens** ou use **Buscar imagem para este slide** para preencher o termo com o briefing ou título. Confira a página original e a licença no painel de detalhes. Quando o provedor não permitir a importação direta, baixe o original e use **Importar arquivo com estes créditos**. As imagens salvas aparecem em **Imagens utilizadas**.
 
-**Gerar créditos do projeto** permite copiar e baixar as atribuições. O ZIP das artes inclui `creditos.txt` quando houver metadados de imagens. Confira as condições da fonte antes de publicar, especialmente em imagens adaptadas.
+Em **Mais ações → Gerar créditos do projeto**, copie ou baixe as atribuições. O ZIP das artes inclui `creditos.txt` quando houver metadados de imagens. Confira as condições da fonte antes de publicar, especialmente em imagens adaptadas.
 
 ## Organizar referências criativas
 
 Em **Radar → Virais e formatos**, explore os oito formatos, cadastre links, registre observações e salve favoritos. **Criar pauta com esta referência** envia o link e a análise para o briefing da campanha. Use **Exportar biblioteca** para fazer backup das referências locais. As métricas do YouTube exigem configuração opcional no GitHub Actions. Consulte [SETUP.md](docs/SETUP.md).
+
+## Salvar e recuperar o trabalho
+
+- No Studio, use **Mais ações → Backup completo** para guardar o projeto editável, imagens, fontes e créditos. Restaure em **Projetos → Restaurar projeto ZIP**. A restauração cria uma cópia com outro identificador.
+- Em **Pautas e prompts → Exportar backup**, guarde as campanhas. Restaure em **Restaurar backup JSON**. Campanhas que já existem são mantidas e seus pares importados viram cópias.
+- Em **Virais e formatos → Exportar biblioteca**, guarde as referências. **Restaurar biblioteca JSON** acrescenta entradas e ignora duplicatas.
+- Se outra aba salvar uma versão concorrente, exporte um backup da edição pendente e restaure-o depois de recarregar. Aguarde a confirmação de salvamento antes de fechar o navegador.
 
 ## Documentação
 

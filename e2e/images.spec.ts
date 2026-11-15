@@ -11,12 +11,29 @@ const fixture = (index: number) => ({
   attribution: `Atribuição da fixture ${index}`,
 })
 
-test('Openverse com fixtures: busca, fallback, troca, créditos e backup', async ({ page }) => {
-  await page.goto('/#/studio')
-  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
-  await page.getByLabel('Projeto', { exact: true }).fill('Acervo de teste')
-  await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
+test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup', async ({ page }) => {
+  await page.goto('/#/radar')
+  await page.getByRole('button', { name: 'Criar post', exact: true }).first().click()
+  await page.getByLabel('Quantidade de slides').selectOption('2')
+  await page.getByRole('button', { name: 'Gerar prompt para IA', exact: true }).click()
+  await expect(page.getByLabel('Prompt editorial')).toHaveValue(/Separe fatos verificáveis/)
+  await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
+    schemaVersion: 1, campaign: { title: 'Acervo de teste', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'carousel', caption: '', cta: '' },
+    slides: [{ order: 1, role: 'cover', title: 'Pátios urbanos', body: 'A luz organiza o espaço.', imageBrief: '', layoutType: 'editorial' },
+      { order: 2, role: 'cta', title: 'Leia mais', body: '', imageBrief: '', layoutType: 'editorial' }], sources: [],
+  }))
+  await page.getByRole('button', { name: 'Importar conteúdo', exact: true }).click()
+  await page.getByRole('button', { name: 'Melhorar headline', exact: true }).first().click()
+  const headlines = page.getByRole('region', { name: 'Agente de Headlines' })
+  await headlines.getByRole('button', { name: 'Gerar propostas por regras' }).click()
+  await headlines.getByRole('button', { name: 'Aplicar', exact: true }).first().click()
+  await page.getByRole('button', { name: 'Criar design no Studio' }).click()
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Acervo de teste')
+  await page.getByRole('button', { name: 'Camadas', exact: true }).click()
+  await page.getByRole('button', { name: /^2 ·/ }).click()
   await page.getByLabel('Texto do elemento').fill('Fachadas e pátios')
+  await page.getByLabel('Largura', { exact: true }).fill('700')
+  await page.getByLabel('X', { exact: true }).fill('20')
   const bytes = Buffer.from(await page.evaluate(() => {
     const canvas = document.createElement('canvas')
     canvas.width = 400; canvas.height = 300; canvas.getContext('2d')!.fillRect(0, 0, 400, 300)
@@ -56,9 +73,17 @@ test('Openverse com fixtures: busca, fallback, troca, créditos e backup', async
   await detail.getByLabel('Importar arquivo com estes créditos').setInputFiles({ name: 'fixture.png', mimeType: 'image/png', buffer: bytes })
   await expect(detail).toContainText('Imagem inserida')
   await expect(x).toHaveValue('160')
+  await page.getByText('Mais ações', { exact: true }).click()
   await page.getByRole('button', { name: 'Gerar créditos do projeto' }).click()
   await expect(page.getByLabel('Texto de atribuição')).toHaveValue(/Autor B/)
   await expect(page.getByLabel('Texto de atribuição')).not.toHaveValue(/Autor A/)
+  await page.getByRole('button', { name: 'Auditar design', exact: true }).click()
+  await page.getByRole('button', { name: 'Auditar slide atual', exact: true }).click()
+  const margin = page.getByRole('heading', { name: 'Texto fora da margem segura' })
+  await expect(margin).toBeVisible()
+  page.once('dialog', dialog => void dialog.accept())
+  await margin.locator('..').getByRole('button', { name: 'Propor correção' }).click()
+  await expect(margin).toHaveCount(0)
   await page.getByRole('button', { name: 'Exportar ZIP', exact: true }).click()
   await expect(page.getByRole('alert').filter({ hasText: 'Revise antes de exportar' })).toContainText('Uso comercial restrito')
   const zipEvent = page.waitForEvent('download')
@@ -66,8 +91,10 @@ test('Openverse com fixtures: busca, fallback, troca, créditos e backup', async
   const zip = await JSZip.loadAsync(await readFile(await (await zipEvent).path()))
   expect(await zip.file('creditos.txt')!.async('string')).toContain('Autor B')
   expect((await zip.file('01-Acervo-de-teste.png')!.async('nodebuffer')).readUInt32BE(16)).toBe(1080)
+  expect((await zip.file('02-Acervo-de-teste.png')!.async('nodebuffer')).readUInt32BE(20)).toBe(1350)
   await page.getByRole('button', { name: 'Duplicar slide', exact: true }).click()
   const backupEvent = page.waitForEvent('download')
+  await page.getByText('Mais ações', { exact: true }).click()
   await page.getByRole('button', { name: 'Backup completo' }).click()
   const backup = await readFile(await (await backupEvent).path())
   const backupZip = await JSZip.loadAsync(backup)
@@ -108,4 +135,24 @@ test('Auditoria identifica imagem local ilegível em vez de perder o relatório'
   await page.getByLabel('Projeto para auditar').selectOption({ label: 'Novo projeto' })
   await page.getByRole('button', { name: 'Auditar todos os slides' }).click()
   await expect(page.getByRole('heading', { name: 'Arquivo de imagem ilegível' })).toBeVisible()
+})
+
+test('Openverse mostra falha de rede, permite tentar novamente e explica HTTP 429', async ({ page }) => {
+  await page.goto('/#/studio')
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.getByRole('button', { name: 'Imagens', exact: true }).click()
+  await page.getByRole('button', { name: 'Pesquisar imagens', exact: true }).click()
+  const panel = page.getByRole('region', { name: 'Pesquisa de imagens no Openverse' })
+  let requests = 0
+  await page.route('https://api.openverse.org/v1/images/?*', route => {
+    requests++
+    return requests === 1 ? route.abort('failed') : route.fulfill({ status: 429, headers: { 'retry-after': '60' }, body: '{}' })
+  })
+  await panel.getByLabel('Termo de pesquisa').fill('fotografia de teste')
+  const search = panel.getByRole('button', { name: 'Pesquisar', exact: true })
+  await search.click()
+  await expect(panel.getByRole('alert')).toContainText('Não foi possível conectar ao Openverse')
+  await search.click()
+  await expect(panel.getByRole('alert')).toContainText('Limite de buscas atingido')
+  expect(requests).toBe(2)
 })

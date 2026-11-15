@@ -12,7 +12,7 @@ Fonte de requisitos: PRODUCT_SPEC.md. Evidências e estado corrente: STATE.md.
 | 5 — Inteligência adicional | Openverse, headlines, referências manuais | Atribuição/licenças preservadas; métricas somente reais; heurísticas explícitas; modelos locais opcionais, sem APIs pagas ou scraping não autorizado. |
 | 6 — Refinamento | Testes integrados, performance, acessibilidade e revisão visual | Fluxo Radar → conteúdo importado → Studio → auditoria → exportação/backup verificado e documentação atualizada. |
 
-## Etapa atual: Fase 5 — Ferramentas editoriais
+## Fase 5 — Ferramentas editoriais publicadas
 
 Fases 1 a 4 implementadas e publicadas. O Radar tem publicação agendada ativa e o fluxo de produção foi validado no GitHub Actions. Veja resultados e limites em STATE.md.
 
@@ -21,6 +21,13 @@ Fases 1 a 4 implementadas e publicadas. O Radar tem publicação agendada ativa 
 - 5.2: pesquisa pelo Openverse, importação de originais, acervo local e créditos de imagens.
 - 5.3: catálogo de oito formatos, curadoria local, geração de pauta e métricas opcionais da YouTube Data API.
 
-## Próxima etapa: Fase 6 — Refinamento geral
+## Fase 6 — Refinamento geral
 
-Revisar acessibilidade por teclado, consistência de mensagens e desempenho com bibliotecas maiores. Usar o fluxo de referência criativa → pauta → Headlines → Studio → Auditoria → exportação como cenário integrado. Acompanhar o Radar agendado e a integração opcional do YouTube separadamente.
+- Studio adaptável às quatro resoluções desktop auditadas. Ferramentas e retorno ao contexto editorial revisados.
+- Carregamento sob demanda, biblioteca paginada e miniaturas sob demanda. Salvamento protegido contra gravações concorrentes e restauração com limites durante a leitura.
+- Fluxos integrados de notícia e referência até exportação, backups e falhas simuladas. Resultados e publicação registrados em [STATE.md](STATE.md).
+
+## Propostas futuras
+
+- Avaliar navegação e leitura das camadas complexas com tecnologias assistivas e sessões de uso real.
+- Medir exportações de projetos com fotografias grandes e muitas fontes antes de rever o orçamento de memória ou introduzir renderização em segundo plano.
