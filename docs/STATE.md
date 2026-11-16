@@ -8,6 +8,7 @@
 - As imagens usam o validador existente, com até 30 imagens e 80 MB por preparação, distribuição por ordem e associação manual. A importação por URL exige HTTPS, um dos hosts permitidos pela CSP existente e resposta CORS válida. O envio local fica disponível quando o original remoto falha.
 - Revisão visual da galeria com oito capas renderizadas e da Produção Expressa nas quatro resoluções desktop. Os pares de cores avaliados para ações, seleção e texto tiveram contraste entre 4,90:1 e 18,88:1.
 - Lint, TypeScript, build, dry-run e 89 testes Vitest aprovados. A suíte Chromium no Wrangler local passou em 69 cenários, com uma repetição omitida no perfil laptop. Após o ajuste final de apresentação, os seis cenários de galeria, Produção Expressa e URL externa passaram novamente no Vite.
+- O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43914683027) aprovou `7a541b5`. O [workflow de produção](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43914709478) publicou a versão `1af35800-ffbe-4736-a6d9-2180a5cba0ec` a 100% do tráfego, com Cloudflare Access confirmado antes e depois. No navegador autenticado foram verificados o vermelho oficial, os oito cartões e a prévia de texto na Produção Expressa, sem criar projeto no perfil de produção.
 
 ## Evoluções 01 e 02 — 16/11/2026
 
