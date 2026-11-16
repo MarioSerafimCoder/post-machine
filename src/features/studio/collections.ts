@@ -2,11 +2,12 @@ import { Circle, Rect, Textbox, type FabricImage } from 'fabric'
 import { dimensions, newProject, type Brand, type Format, type Project, type Scene } from './model'
 import { cropImage } from './images'
 import { sceneForCollection } from './collectionPosition'
+import { treatComposition, type Box, type Composition } from './factory/geometry'
+import { fitText, type TextMeasurement } from './factory/typography'
+import type { Treatment } from './factory/planning'
 import './objects'
 
 export const compositionNames = ['Capa', 'Introdução', 'Conteúdo', 'Imagem + texto', 'Destaque', 'Encerramento'] as const
-type Box = [x: number, y: number, width: number, height: number]
-type Composition = { title: Box; body: Box; image: Box; size: number }
 type Art = 'line' | 'photo' | 'block' | 'grid' | 'orbit' | 'column' | 'cards' | 'type'
 export type Collection = {
   version: 1; id: string; name: string; style: string; formats: readonly Format[]; art: Art
@@ -89,6 +90,7 @@ export const collections = [
 export type CollectionSlide = {
   title: string; subtitle?: string; body: string; cta?: string; imageBrief?: string
   role?: 'cover' | 'content' | 'cta'; composition?: number; image?: Record<string, unknown>
+  intent?: 'highlight' | 'comparison'; framing?: 'cover' | 'contain'
   headlines?: import('../headlines/contract').HeadlineSession
 }
 const samples: CollectionSlide[] = [
@@ -109,22 +111,29 @@ export function collectionBrand(style: Collection, brand: Brand): Brand {
     headingFont: style.fonts[0], bodyFont: style.fonts[1] }
 }
 
-export function imageForFrame(source: Record<string, unknown>, frame: Box) {
+export function imageForFrame<T extends Record<string, unknown>>(source: T, frame: Box, framing: 'cover' | 'contain' = 'cover') {
   const [left, top, width, height] = frame
   const ow = Number(source.width), oh = Number(source.height)
+  if (framing === 'contain') {
+    const scale = Math.min(width / ow,height / oh)
+    return { ...source, left:left+(width-ow*scale)/2, top:top+(height-oh*scale)/2,
+      width:ow,height:oh,scaleX:scale,scaleY:scale,cropX:0,cropY:0,semantic:'image' }
+  }
   const scale = Math.max(width / ow, height / oh)
   const cropWidth = width / scale, cropHeight = height / scale
   return { ...source, left, top, width: cropWidth, height: cropHeight, scaleX: scale, scaleY: scale,
     cropX: (ow - cropWidth) / 2, cropY: (oh - cropHeight) / 2, semantic: 'image' }
 }
 
-export function composeCollection(style: Collection, index: number, content: CollectionSlide, brand: Brand, format: Format) {
+export function composeCollection(style: Collection, index: number, content: CollectionSlide, brand: Brand, format: Format, treatment?: Treatment) {
   const [width, height] = dimensions[format]
   const m = brand.margin
   const w = width - m * 2, h = height - m * 2
-  const { title, body, image, size } = style.layouts[index]
+  const ratio = content.image ? Number(content.image.width)/Number(content.image.height) : 0
+  const { title, body, image, size } = treatment ? treatComposition(style.layouts[index],treatment,index,ratio,content.body.length > 280) : style.layouts[index]
   const objects: Scene['objects'] = []
   const issues: string[] = []
+  const measurements: TextMeasurement[] = []
   const box = ([x, y, bw, bh]: Box): Box => [m + x*w, m + y*h, bw*w, bh*h]
   const rect = ([left, top, rw, rh]: Box, fill: string, semantic: string) => {
     objects.push(new Rect({ left, top, width: rw, height: rh, originX: 'left', originY: 'top',
@@ -136,9 +145,15 @@ export function composeCollection(style: Collection, index: number, content: Col
     const item = new Textbox(value, { left, top, width: tw, fontSize, fontFamily: heading ? brand.headingFont : brand.bodyFont,
       fontWeight: heading ? 'bold' : 'normal', fill: brand.primary, semantic, maxHeight, lineHeight: 1.1,
       originX: 'left', originY: 'top' })
-    while ((item.height > maxHeight || item.width > tw + 1) && item.fontSize > min)
-      item.set({ fontSize: Math.max(min, item.fontSize - 2), width: tw })
-    if (item.height > maxHeight + 1 || item.width > tw + 1) issues.push(semantic)
+    if (treatment) {
+      const metrics = fitText(item,tw,maxHeight,fontSize,min)
+      measurements.push(metrics)
+      if (!metrics.fits) issues.push(semantic)
+    } else {
+      while ((item.height > maxHeight || item.width > tw + 1) && item.fontSize > min)
+        item.set({ fontSize: Math.max(min, item.fontSize - 2), width: tw })
+      if (item.height > maxHeight + 1 || item.width > tw + 1) issues.push(semantic)
+    }
     if (semantic === 'title' && content.headlines) item.headlines = content.headlines
     objects.push(item.toObject() as unknown as Scene['objects'][number])
   }
@@ -158,8 +173,10 @@ export function composeCollection(style: Collection, index: number, content: Col
       strokeWidth: 4, semantic: 'collectionAccent' }).toObject() as unknown as Scene['objects'][number])
   }
   if (style.art === 'photo') rect(box([0,.061,1,.008]),brand.secondary,'collectionAccent')
+  if (treatment === 'expressive') rect(box([0,.065,.27,.018]),brand.secondary,'collectionAccent')
+  if (treatment === 'photo' && !content.image) rect(box([0,.088,1,.004]),brand.secondary,'collectionAccent')
   const imageBounds = box(image)
-  if (content.image) objects.push(imageForFrame(content.image,imageBounds))
+  if (content.image) objects.push(imageForFrame(content.image,imageBounds,content.framing))
   else {
     rect(imageBounds, brand.background !== style.palette[0] ? brand.secondary : style.palette[3], 'imageFrame')
     const [left,top,iw,ih] = imageBounds
@@ -177,7 +194,7 @@ export function composeCollection(style: Collection, index: number, content: Col
   text('cta',content.cta ?? '',[0,.885,.94,.058],32,24,true)
   text('brand',[brand.name,brand.handle].filter(Boolean).join(' / '),[0,.955,.8,.043],23,18)
   if (brand.logo) objects.push(logoObject(brand.logo,width,m))
-  return { scene: { objects, background: brand.background }, issues }
+  return { scene: { objects, background: brand.background }, issues, measurements }
 }
 
 function logoObject(src: string, width: number, margin: number) {

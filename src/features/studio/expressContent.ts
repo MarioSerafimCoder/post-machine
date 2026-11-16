@@ -8,7 +8,15 @@ export function fromStructured(content: Content) {
   return content.slides.map(slide => ({
     title: slide.title, body: slide.body, role: slide.role, imageBrief: slide.imageBrief,
     headlines: slide.headlines, cta: slide.role === 'cta' || content.slides.length === 1 ? content.campaign.cta : '',
+    intent: explicitIntent(slide.layoutType),
   }))
+}
+
+function explicitIntent(layout: string): CollectionSlide['intent'] {
+  const label = layout.trim().toLowerCase()
+  if (['comparison','comparativo','comparação'].includes(label)) return 'comparison'
+  if (['highlight','destaque','quote','citação'].includes(label)) return 'highlight'
+  return undefined
 }
 
 export function parseExpress(input: string): { slides: CollectionSlide[]; structured?: Content } {
