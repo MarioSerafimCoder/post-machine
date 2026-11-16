@@ -23,4 +23,4 @@ export async function readFont(file: File) {
   const source = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(`data:font/woff2;base64,${String(reader.result).split(',')[1]}`); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file) })
   return { family: `Marca-${hash.slice(0,12)}`, source, name: file.name.slice(0,100) }
 }
-export function fontChoices(brand: Brand) { return [...['Inter', 'Arial', 'Georgia', 'Verdana', 'Courier New'].map(family => ({ family, name: family })), ...brand.fonts] }
+export function fontChoices(brand: Brand) { return [...['Inter', 'Arial', 'Arial Black', 'Georgia', 'Verdana', 'Courier New'].map(family => ({ family, name: family })), ...brand.fonts] }

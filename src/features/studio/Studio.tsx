@@ -10,17 +10,17 @@ import { measureTitle } from './headlineFit'
 import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
 import { loadFonts } from './fonts'
 import { useDocument } from './useDocument'
-import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject } from './storage'
+import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject, saveProject } from './storage'
 import { download, exportProject } from './export'
 import type { Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
 import { Slides } from './Slides'
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
 import { Properties } from './Properties'
-import { defaultBrand, emptySlide, dimensions, formatNames, newProject, type Format, type Project } from './model'
+import { defaultBrand, emptySlide, dimensions, formatNames, newProject, newProjectBrand, type Format, type Project } from './model'
 import { addObject, duplicate, sceneOf } from './objects'
 import { cropImage, readImage } from './images'
 import './studio.css'
@@ -28,6 +28,11 @@ import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
 import type { Finding } from '../audit/contract'
 import { resolvePage } from '../../lib/navigation'
+import { applyCollectionBrand, buildCollectionProject, demoSlides, type Collection } from './collections'
+import './collections.css'
+
+const Express = lazy(() => import('./Express').then(module => ({ default: module.Express })))
+const CollectionGallery = lazy(() => import('./CollectionGallery').then(module => ({ default: module.CollectionGallery })))
 
 const studioTools: ContextTool[] = [
   { label: 'Templates', icon: 'studio' }, { label: 'Texto', icon: 'text' },
@@ -39,6 +44,9 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const { project, setProject, undo, redo, history, status, flush, getCurrent } = useDocument()
   const [library, setLibrary] = useState<Project[]>([])
   const [brand, setBrand] = useState(defaultBrand)
+  const [entry, setEntry] = useState<'express' | 'collections'>()
+  const [starting, setStarting] = useState(false)
+  const startingRef = useRef(false)
   const [busy, setBusy] = useState(false)
   const [pendingExport, setPendingExport] = useState<Awaited<ReturnType<typeof exportProject>>>()
   const [auditOpen,setAuditOpen]=useState(false)
@@ -47,7 +55,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const [creditStatus, setCreditStatus] = useState('')
   const credits = project ? projectCredits(project) : ''
   const focusPath=useRef<string|null>(null)
-  useEffect(() => { void listProjects().then(setLibrary, () => setError('Não foi possível carregar os projetos.')); void readBrand().then(value => { if (value) setBrand(value) }, () => undefined) }, [])
+  useEffect(() => { void listProjects().then(setLibrary, () => setError('Não foi possível carregar os projetos.')); void readBrand().then(value => { if (value) setBrand(newProjectBrand(value)) }, () => undefined) }, [])
   async function back() {
     try {
       await flush()
@@ -134,7 +142,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   useEffect(()=>{const receive=()=>{if(window.location.hash!=='#/studio')return;const raw=sessionStorage.getItem('post-machine:audit-focus')??sessionStorage.getItem('direto:audit-focus');if(!raw)return;sessionStorage.removeItem('post-machine:audit-focus');sessionStorage.removeItem('direto:audit-focus');queueMicrotask(()=>void receiveAuditFocus(raw))};receive();window.addEventListener('hashchange',receive);return()=>window.removeEventListener('hashchange',receive)},[])
   async function openProject(id: string) { try { await flush(); const value = await loadProject(id); chooseSlide(0); replace(value, true); setError('') } catch (e) { setError(String(e)) } }
   const handleRequest = useEffectEvent(async (draft: Draft) => {
-    try { await flush(); const savedBrand = await readBrand(); await loadFonts(savedBrand ?? brand); chooseSlide(0); replace(fromCampaign(draft, savedBrand ?? brand)) } catch (e) { setError(String(e)) }
+    try { await flush(); const savedBrand = newProjectBrand(await readBrand() ?? brand); await loadFonts(savedBrand); chooseSlide(0); replace(fromCampaign(draft, savedBrand)) } catch (e) { setError(String(e)) }
   })
   const handled = useRef<Draft | null>(null)
   useEffect(() => { if (request && handled.current !== request) { handled.current = request; void handleRequest(request) } }, [request])
@@ -147,7 +155,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
     if (!project) return
     const slides = [...project.slides]
     let next = current
-    if (action === 'add') { slides.push(emptySlide()); next = slides.length - 1 }
+    if (action === 'add') { slides.push(emptySlide(project.brand.background)); next = slides.length - 1 }
     if (action === 'duplicate') { slides.splice(current + 1, 0, { ...structuredClone(slides[current]), id: crypto.randomUUID() }); next++ }
     if (action === 'remove') { if (!window.confirm('Excluir este slide?')) return; slides.splice(current, 1); next = Math.min(current, slides.length - 1) }
     if (action === 'up' || action === 'down') { next += action === 'up' ? -1 : 1; [slides[next], slides[current]] = [slides[current], slides[next]] }
@@ -189,7 +197,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
       const index = frame ? target.getObjects().indexOf(frame) : -1
       if (frame) {
         cropImage(image, frame.getScaledWidth() / frame.getScaledHeight())
-        target.remove(frame, ...target.getObjects().filter(object => object.semantic === 'imageHint'))
+        target.remove(frame, ...target.getObjects().filter(object => object.semantic === 'imageHint' || object.semantic === 'imageDecoration'))
       }
       if (index >= 0) target.insertAt(index, image)
       else target.add(image)
@@ -210,7 +218,39 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
     try { await navigator.clipboard.writeText(credits); setCreditStatus('Créditos copiados.') }
     catch { setCreditStatus('Não foi possível copiar. Selecione o texto dos créditos.') }
   }
-  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand }) }}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
+  async function openCreated(value: Project) {
+    await flush()
+    await saveProject(value)
+    chooseSlide(0)
+    setAuditOpen(false)
+    setPendingExport(undefined)
+    replace(value, true)
+    setEntry(undefined)
+    setError('')
+  }
+  async function createFromCollection(style: Collection) {
+    if (startingRef.current) return
+    startingRef.current = true
+    setStarting(true); setError('')
+    try {
+      await loadFonts(brand)
+      const slides = demoSlides.map((slide, composition) => ({ ...slide, composition }))
+      await openCreated(buildCollectionProject(style,format,brand,slides,style.name))
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
+    finally { startingRef.current = false; setStarting(false) }
+  }
+  if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
+    <Express active={active} brand={brand} format={format} cancel={() => setEntry(undefined)} open={openCreated} />
+  </Suspense>
+  if (!project && entry === 'collections') return <section className="studio-welcome">
+    <div className="studio-entry"><h2>Biblioteca de templates</h2><button className="button button-outline" disabled={starting} onClick={() => setEntry(undefined)}>Voltar aos projetos</button></div>
+    {error && <p role="alert">{error}</p>}
+    {starting && <p role="status">Salvando projeto…</p>}
+    <Suspense fallback={<p role="status">Abrindo a biblioteca…</p>}>
+      <CollectionGallery format={format} setFormat={setFormat} use={style => void createFromCollection(style)} />
+    </Suspense>
+  </section>
+  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => setEntry('express')}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand, slides:[emptySlide(brand.background)] }) }}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => { if (window.confirm('Excluir este projeto local?')) void removeProject(item.id).then(() => listProjects()).then(setLibrary, error => setError(String(error))) }}>Excluir {item.name}</button></article>)}</div></section>
@@ -303,9 +343,9 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
       <ContextRail label="Ferramentas do Studio" tools={studioTools} selected={panel} choose={name => setPanel(panel === name ? null : name)} />
       <aside className="studio-tools" hidden={!panel}>{panel && <ContextHeader title={panel} close={() => setPanel(null)} />}
       {panel === 'Templates' && <><h3>Templates originais</h3>{Object.entries(templates).map(([key, name]) => <button key={key} onClick={() => template(key as Template)}>{name}</button>)}</>}
-      {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar marca e recompor os templates de todos os slides?')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
-      {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title'); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text'); changed() } }}>Adicionar texto</button></>}
-      {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, type); changed() } }}>{name}</button>)}</>}
+      {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar a marca em todos os slides? Os layouts legados serão recompostos.')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: s.layout.startsWith('collection-v1:') ? applyCollectionBrand(s.scene, project.brand, project.format) : compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
+      {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title', project.brand.primary); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text', project.brand.primary); changed() } }}>Adicionar texto</button></>}
+      {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, type, project.brand.primary); changed() } }}>{name}</button>)}</>}
       {panel === 'Imagens' && <><h3>Imagens</h3><div className="image-tabs" role="group" aria-label="Origem da imagem">
         <button aria-pressed={imagePanel?.tab === 'search' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('search')}>Pesquisar imagens</button>
         <button onClick={() => openImages('search', true)}>Buscar imagem para este slide</button>

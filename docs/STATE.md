@@ -1,5 +1,14 @@
 # Estado real — 13/11/2026
 
+## Evoluções 03 e 04 — 16/11/2026
+
+- Interface branca, preta e vermelha. Projetos existentes mantêm as cenas e marcas gravadas. A preferência antiga idêntica ao padrão provisório é substituída pelo novo padrão apenas ao criar projetos.
+- Oito coleções, 48 composições e três formatos. As prévias são renderizadas a partir dos objetos Fabric e guardadas em cache de sessão. Os seis layouts legados continuam disponíveis no editor.
+- Produção Expressa aceita JSON, Markdown de campanha, texto com ou sem separadores e campanhas locais já importadas. Permite editar e reordenar slides, carregar e distribuir imagens, escolher coleção e conferir prévia e avisos. Projetos seguem o contrato v1 do Studio. A aplicação de marca nas coleções recolore objetos existentes sem recompor suas posições.
+- As imagens usam o validador existente, com até 30 imagens e 80 MB por preparação, distribuição por ordem e associação manual. A importação por URL exige HTTPS, um dos hosts permitidos pela CSP existente e resposta CORS válida. O envio local fica disponível quando o original remoto falha.
+- Revisão visual da galeria com oito capas renderizadas e da Produção Expressa nas quatro resoluções desktop. Os pares de cores avaliados para ações, seleção e texto tiveram contraste entre 4,90:1 e 18,88:1.
+- Lint, TypeScript, build, dry-run e 89 testes Vitest aprovados. A suíte Chromium no Wrangler local passou em 69 cenários, com uma repetição omitida no perfil laptop. Após o ajuste final de apresentação, os seis cenários de galeria, Produção Expressa e URL externa passaram novamente no Vite.
+
 ## Evoluções 01 e 02 — 16/11/2026
 
 - Cabeçalho horizontal com Início, Radar, Studio e Auditoria. Barras contextuais, filtros recolhíveis do Radar, painel de ferramentas recolhível do Studio e atalhos para projetos, diagnóstico, correções e resultados. Rotas por hash, carregamento sob demanda, o editor Fabric e os bancos locais foram preservados.

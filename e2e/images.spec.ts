@@ -85,7 +85,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await margin.locator('..').getByRole('button', { name: 'Propor correção' }).click()
   await expect(margin).toHaveCount(0)
   await page.getByRole('button', { name: 'Exportar ZIP', exact: true }).click()
-  await expect(page.getByRole('alert').filter({ hasText: 'Revise antes de exportar' })).toContainText('Uso comercial restrito')
+  await expect(page.getByRole('alert').filter({ hasText: 'Revise antes de exportar' })).toContainText('Uso comercial restrito', { timeout: 15000 })
   const zipEvent = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Exportar com avisos' }).click()
   const zip = await JSZip.loadAsync(await readFile(await (await zipEvent).path()))

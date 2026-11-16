@@ -15,7 +15,7 @@ function Preview({ image }: { image: ImageResult }) {
 const dimensions = (image: ImageResult) => image.width && image.height ? `${image.width} × ${image.height} px` : 'Dimensões desconhecidas'
 const defaults = (query: string): Search => ({ query, page: 1, license: '', commercial: false, ratio: '', source: '' })
 
-export function ImageSearch({ initialTerm, insert }: { initialTerm: string; insert: InsertImage }) {
+export function ImageSearch({ initialTerm, insert, insertLabel = 'Inserir no Studio' }: { initialTerm: string; insert: InsertImage; insertLabel?: string }) {
   const [form, setForm] = useState(() => defaults(initialTerm))
   const [submitted, setSubmitted] = useState<Search>()
   const [results, setResults] = useState<ImageResult[]>()
@@ -119,7 +119,7 @@ export function ImageSearch({ initialTerm, insert }: { initialTerm: string; inse
           {selected.foreign_landing_url && <a href={selected.foreign_landing_url} target="_blank" rel="noreferrer">Abrir fonte original</a>}
           {selected.url && <a href={selected.url} target="_blank" rel="noreferrer">Abrir arquivo original</a>}
           <button onClick={() => void copy(selected)}>Copiar atribuição</button>
-          {automaticOriginal(selected) && <button className="button button-dark" disabled={importing} onClick={() => void add(selected)}>Inserir no Studio</button>}
+          {automaticOriginal(selected) && <button className="button button-dark" disabled={importing} onClick={() => void add(selected)}>{insertLabel}</button>}
         </div>
         {!automaticOriginal(selected) && <p>Para esta fonte ou formato, baixe o original e importe um PNG, JPEG ou WebP com os créditos selecionados.</p>}
         <label>Importar arquivo com estes créditos<input type="file" disabled={importing} accept="image/png,image/jpeg,image/webp" onChange={event => {

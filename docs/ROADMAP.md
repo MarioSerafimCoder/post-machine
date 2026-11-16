@@ -1,5 +1,11 @@
 # Roteiro por fases
 
+## Evoluções 03 e 04
+
+- Evolução 03 introduz a identidade branca, preta e vermelha e oito coleções visuais com seis composições editáveis em três formatos.
+- Evolução 04 permite preparar texto e imagens no Studio, escolher uma coleção, conferir o encaixe e salvar um projeto editável.
+- A Evolução 05 poderá usar a mesma composição determinística e seus avisos para avaliar novas propostas de fabricação.
+
 ## Evoluções 01 e 02
 
 - Evolução 01 reorganiza a navegação principal no cabeçalho e as ferramentas por área, com painéis recolhíveis e manutenção das rotas e dos dados locais.

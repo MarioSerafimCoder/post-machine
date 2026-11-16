@@ -1,0 +1,52 @@
+.collection-gallery, .express, .express-content, .express-panel { display: grid; gap: 16px; min-width: 0; }
+.studio-welcome > .collection-gallery { width: 100%; }
+.collection-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.collection-grid article, .express-slides article, .express-review-list article, .express-photos article {
+  min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+}
+.collection-grid article[data-selected=true] { border-color: var(--accent); }
+.collection-card-copy { display: grid; gap: 5px; padding-top: 10px; }
+.collection-card-copy h3, .express-panel h3 { font-size: 15px; font-weight: 650; }
+.collection-card-copy p, .collection-card-copy small { font-size: 12px; color: var(--muted); }
+.collection-thumb { height: clamp(154px, 17vw, 222px); display: grid; place-items: center; overflow: hidden; background: var(--surface-muted); border-radius: 5px; }
+.collection-thumb img { display: block; width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+.collection-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; }
+.collection-actions [aria-pressed=true], .express-photo[aria-pressed=true], .express-review-list [aria-pressed=true] {
+  color: var(--accent); background: var(--accent-soft); border-color: var(--accent);
+}
+.collection-actions .button-outline, .express .button-outline { border: 1px solid var(--line); }
+.collection-dialog { width: min(660px, calc(100% - 36px)); max-height: calc(100dvh - 40px); margin: auto; padding: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.collection-dialog::backdrop { background: #11111199; }
+.collection-dialog header, .express > header, .express-slides article header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.collection-dialog .collection-thumb { aspect-ratio: auto; height: min(52vh, 460px); margin: 12px 0; }
+.collection-dialog nav { margin-bottom: 12px; }
+.express > header h2 { font-size: 22px; font-weight: 650; }
+.express-panel { padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-muted); }
+.collection-gallery label, .collection-dialog label, .express label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+.collection-gallery select, .collection-dialog select, .express :is(input:not([type=file]), textarea, select) {
+  width: 100%; padding: 8px 10px; font: inherit; font-weight: 400; border: 1px solid #a8a8a8; border-radius: 5px; background: var(--surface);
+}
+.express textarea { resize: vertical; }
+.express-paste { display: grid; gap: 8px; }
+.express-slides { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.express-slides article { display: grid; align-content: start; gap: 8px; }
+.express-drop { padding: 17px; border: 1px dashed #999; background: var(--surface); border-radius: 6px; }
+.express-photos { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 9px; }
+.express-photo { display: grid; width: 100%; gap: 6px; padding: 4px; border: 1px solid var(--line); overflow-wrap: anywhere; text-align: left; }
+.express-photo img { width: 100%; aspect-ratio: 4/3; object-fit: contain; background: var(--surface-muted); }
+.express-photos small { display: block; margin-block: 5px; color: var(--muted); }
+.express-assignment, .express-review { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.express-assignment img { max-height: 360px; width: 100%; object-fit: contain; background: var(--surface); }
+.express-assignment label + label { margin-top: 8px; }
+.express-preview, .express-review-list { min-width: 0; }
+.express-preview img { display: block; max-height: min(57vh,650px); max-width: 100%; margin: 0 auto; object-fit: contain; }
+.express-review-list { display: grid; align-content: start; gap: 8px; max-height: min(57vh,650px); overflow: auto; }
+.express-review-list article { display: grid; justify-items: start; gap: 6px; overflow-wrap: anywhere; }
+.express-review-list p { white-space: pre-wrap; }
+.express-warning, .express-warnings { padding: 8px 10px; color: #741709; background: #fff0e9; border-radius: 5px; }
+.express-warnings { padding-left: 30px; list-style: disc; }
+.express button:disabled { opacity: .5; cursor: default; }
+.studio-welcome .studio-entry { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.studio-welcome .studio-entry .express-entry { background: var(--accent); color: var(--surface); }
+.express-panel > .button-dark { justify-self: start; background: var(--accent); color: var(--surface); }
+.express-panel > .button-dark:hover { background: var(--accent-hover); }

@@ -1,0 +1,83 @@
+import { expect, test } from '@playwright/test'
+
+test('galeria renderiza capas diferentes e abre uma coleção de seis slides', async ({ page }) => {
+  await page.goto('/#/studio')
+  await page.getByRole('button', {name:'Biblioteca de templates'}).click()
+  const gallery = page.getByRole('region', {name:'Coleções de templates'})
+  await expect(gallery.getByRole('article')).toHaveCount(8)
+  const first = gallery.getByRole('article').first()
+  const other = gallery.getByRole('article').nth(1)
+  await expect(first.getByRole('img')).toBeVisible()
+  await expect(other.getByRole('img')).toBeVisible()
+  expect(await first.getByRole('img').getAttribute('src')).not.toBe(await other.getByRole('img').getAttribute('src'))
+  await first.getByRole('button', {name:'Visualizar'}).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('button', {name:'Destaque',exact:true}).click()
+  await expect(dialog.getByRole('img', {name:/Destaque/})).toBeVisible()
+  await dialog.getByRole('button', {name:'Usar coleção'}).click()
+  await expect(page.getByRole('region', {name:'Slides',exact:true}).getByRole('button', {name:/^Slide [1-6]$/})).toHaveCount(6)
+  await expect(page.getByRole('status').filter({ hasText:'Salvo' })).toBeVisible()
+})
+
+test('preparação com texto, lote, associação e prévia persiste projeto editável', async ({ page }) => {
+  await page.goto('/#/studio')
+  await page.getByRole('button', {name:'Produção Expressa',exact:true}).click()
+  await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill('Slide 1 — Uma capa\nPrimeira ideia.\nSlide 2 — Fechamento\nSegunda ideia.')
+  await page.getByRole('button', {name:'Organizar slides'}).click()
+  await page.getByLabel('Nome do projeto').fill('Projeto Expressa QA')
+  await page.getByRole('article').nth(1).getByLabel('Título', {exact:true}).fill('Fechamento editado')
+  const tools = page.getByRole('navigation', {name:'Etapas da Produção Expressa'})
+  await tools.getByRole('button', {name:'Imagens'}).click()
+  const pngs = await page.evaluate(() => ['#aa2233','#646688'].map(color => {
+    const canvas = document.createElement('canvas'); canvas.width=120; canvas.height=100
+    const ctx=canvas.getContext('2d')!; ctx.fillStyle=color; ctx.fillRect(0,0,120,100)
+    return canvas.toDataURL().split(',')[1]
+  }))
+  await page.getByLabel('Adicionar imagens').setInputFiles(pngs.map((encoded,index) =>
+    ({ name:`foto-${index+1}.png`,mimeType:'image/png',buffer:Buffer.from(encoded,'base64') })))
+  await expect(page.getByText('2 imagem(ns) adicionada(s).')).toBeVisible()
+  await page.getByRole('button', {name:'Adiar imagem 1'}).click()
+  await page.getByRole('button', {name:'Distribuir na ordem'}).click()
+  await tools.getByRole('button', {name:'Templates'}).click()
+  await page.getByRole('article').filter({hasText:'Swiss Grid'}).getByRole('button', {name:'Usar coleção'}).click()
+  await tools.getByRole('button', {name:'Prévia'}).click()
+  await expect(page.getByRole('img', {name:'Prévia do slide 1'})).toBeVisible()
+  await expect(page.getByText('Fechamento editado')).toBeVisible()
+  await expect(page.getByText('foto-2.png')).toBeVisible()
+  await page.getByRole('button', {name:'Criar meu carrossel'}).click()
+  await expect(page.getByLabel('Projeto',{exact:true})).toHaveValue('Projeto Expressa QA')
+  await page.getByRole('navigation', {name:'Ferramentas do Studio'}).getByRole('button', {name:'Camadas'}).click()
+  await expect(page.getByRole('button', {name:/· Uma capa$/})).toBeVisible()
+  await expect(page.getByRole('button', {name:/· image$/i})).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', {name:'Abrir Projeto Expressa QA'}).click()
+  await expect(page.getByRole('region', {name:'Editor Studio'})).toBeVisible()
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', {name:'Exportar PNG',exact:true}).click()
+  const warning = page.getByRole('button', {name:'Exportar com avisos',exact:true})
+  if (await Promise.race([download.then(() => false),warning.waitFor({state:'visible'}).then(() => true)])) await warning.click()
+  expect((await download).suggestedFilename()).toMatch(/\.png$/)
+})
+
+test('importa link compatível e orienta envio local quando o provedor falha', async ({ page }) => {
+  await page.goto('/#/studio')
+  await page.getByRole('button', {name:'Produção Expressa',exact:true}).click()
+  await page.getByRole('button', {name:'Imagens',exact:true}).click()
+  await page.getByRole('button', {name:'Link externo',exact:true}).click()
+  const pixel = await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width=80; canvas.height=80
+    return canvas.toDataURL().split(',')[1]
+  })
+  await page.route('https://upload.wikimedia.org/**/express-ok.png', route =>
+    route.fulfill({ contentType:'image/png', headers:{'access-control-allow-origin':'*'},body:Buffer.from(pixel,'base64') }))
+  await page.route('https://upload.wikimedia.org/**/express-block.png', route => route.abort())
+  const url = page.getByLabel('URL externa da imagem')
+  await url.fill('https://upload.wikimedia.org/wikipedia/commons/express-ok.png')
+  await page.getByRole('button', {name:'Importar imagem',exact:true}).click()
+  await expect(page.getByText('1 imagem(ns) adicionada(s).')).toBeVisible()
+  await url.fill('https://upload.wikimedia.org/wikipedia/commons/express-block.png')
+  await page.getByRole('button', {name:'Importar imagem',exact:true}).click()
+  await expect(page.getByRole('alert')).toContainText('não liberou o original')
+  await page.getByRole('button', {name:'Arquivos locais',exact:true}).click()
+  await expect(page.getByLabel('Adicionar imagens')).toBeVisible()
+})

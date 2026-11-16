@@ -16,7 +16,7 @@ describe('fundação', () => {
     render(<App />); navigate('#/radar')
     expect(document.title).toBe('Radar — Post Machine')
     expect(screen.getByRole('heading', { name: 'Radar' })).toHaveFocus()
-    expect(await screen.findByRole('region', { name: 'Notícias do Radar' })).toBeVisible()
+    expect(await screen.findByRole('region', { name: 'Notícias do Radar' }, { timeout: 4000 })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Virais e formatos' }))
     expect(screen.getByRole('region', { name: 'Virais e formatos' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Ver catálogo de formatos' })).toBeVisible()

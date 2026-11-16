@@ -18,7 +18,7 @@ function LocalPreview({ asset }: { asset: string }) {
     : <span className="image-placeholder">{broken ? 'Imagem indisponível' : 'Carregando prévia…'}</span>
 }
 
-export function ImageLibrary({ flush, insert }: { flush: () => Promise<void>; insert: InsertImage }) {
+export function ImageLibrary({ flush, insert, success = 'Imagem reutilizada no Studio.' }: { flush: () => Promise<void>; insert: InsertImage; success?: string }) {
   const [items, setItems] = useState<UsedImage[]>()
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -34,7 +34,7 @@ export function ImageLibrary({ flush, insert }: { flush: () => Promise<void>; in
     try {
       const blob = await readImageAsset(item.asset)
       await insert(new File([blob], item.credit?.title || 'imagem-local', { type: blob.type }), item.credit)
-      setNotice('Imagem reutilizada no Studio.')
+      setNotice(success)
     } catch (cause) { setError(String(cause)) }
     finally { setPending(false) }
   }

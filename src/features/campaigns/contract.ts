@@ -197,7 +197,7 @@ function parseMarkdown(text: string) {
   }
 }
 
-export function importContent(input: string, draft: Draft): Content {
+export function importContent(input: string, draft?: Draft): Content {
   if (input.length > maxImport) throw Error('O conteúdo excede o limite de 250 mil caracteres.')
   const text = input.trim().replace(/^```(?:json|md|markdown)?[ \t]*\r?\n([\s\S]*?)\r?\n```$/i, '$1').replace(/\r\n/g, '\n')
   let data: unknown
@@ -215,11 +215,11 @@ export function importContent(input: string, draft: Draft): Content {
     slides.some(slide => !slide.title.trim() || !slide.layoutType.trim())) {
     throw Error('Preencha o título, objetivo e tom da campanha, além do título e layout de cada slide.')
   }
-  if (campaign.format !== draft.briefing.format || slides.length !== slideCount(draft.briefing)) {
+  if (draft && (campaign.format !== draft.briefing.format || slides.length !== slideCount(draft.briefing))) {
     throw Error(`Ajuste o briefing ou a resposta para ${formats[draft.briefing.format]} com ${slideCount(draft.briefing)} peça(s).`)
   }
-  const originals = draft.opportunity ? draft.opportunity.articles.map(originalSource) :
-    draft.article ? [originalSource(draft.article)] : draft.creativeOrigin ? [creativeSource(draft.creativeOrigin)] : []
+  const originals = draft?.opportunity ? draft.opportunity.articles.map(originalSource) :
+    draft?.article ? [originalSource(draft.article)] : draft?.creativeOrigin ? [creativeSource(draft.creativeOrigin)] : []
   if (!originals.length) return parsed.data
   const uniqueSources = new Map(sources.map(source => [source.url, source]))
   for (const original of originals) uniqueSources.delete(original.url)

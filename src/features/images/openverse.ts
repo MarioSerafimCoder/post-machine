@@ -62,6 +62,18 @@ export function thumbnailUrl(result: ImageResult) {
 export async function fetchOriginal(result: ImageResult, signal: AbortSignal) {
   const url = automaticOriginal(result)
   if (!url) throw Error('Baixe o original na fonte e importe o arquivo com os créditos selecionados.')
+  return fetchImageFile(url, 'openverse-' + result.id, signal)
+}
+
+export async function fetchExternalImage(value: string, signal: AbortSignal) {
+  const url = safeWebUrl(value.trim())
+  if (!url || url.protocol !== 'https:' || url.port) throw Error('Informe uma URL HTTPS de imagem sem credenciais.')
+  if (!originalHosts.includes(url.hostname)) throw Error('O endereço não pertence a um provedor de importação direta. Baixe o arquivo e use o envio local.')
+  const filename = url.pathname.split('/').at(-1) || 'Imagem externa'
+  return fetchImageFile(url, filename, signal)
+}
+
+async function fetchImageFile(url: URL, filename: string, signal: AbortSignal) {
   const response = await fetch(url, {
     mode: 'cors', credentials: 'omit', redirect: 'error', referrerPolicy: 'no-referrer',
     signal: AbortSignal.any([signal, AbortSignal.timeout(25_000)]),
@@ -85,5 +97,5 @@ export async function fetchOriginal(result: ImageResult, signal: AbortSignal) {
     }
   } finally { reader.releaseLock() }
   if (!length) throw Error('O original está vazio.')
-  return new File(chunks, 'openverse-' + result.id, { type })
+  return new File(chunks, filename, { type })
 }
