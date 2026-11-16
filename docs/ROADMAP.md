@@ -1,10 +1,14 @@
 # Roteiro por fases
 
+## Evolução 05
+
+- A Produção Expressa gera três propostas editáveis dentro da coleção escolhida, com avaliação de tipografia e enquadramento, revisão de cada slide e salvamento apenas da versão selecionada.
+- A fabricação usa o navegador, preserva texto e créditos e reaproveita o Studio, a Auditoria e a exportação existentes.
+
 ## Evoluções 03 e 04
 
 - Evolução 03 introduz a identidade branca, preta e vermelha e oito coleções visuais com seis composições editáveis em três formatos.
 - Evolução 04 permite preparar texto e imagens no Studio, escolher uma coleção, conferir o encaixe e salvar um projeto editável.
-- A Evolução 05 poderá usar a mesma composição determinística e seus avisos para avaliar novas propostas de fabricação.
 
 ## Evoluções 01 e 02
 
@@ -42,6 +46,7 @@ Fases 1 a 4 implementadas e publicadas. O Radar tem publicação agendada ativa 
 
 - Taxonomia de sete áreas, curadoria bilíngue, prioridade para branding, design gráfico e publicidade e equilíbrio entre criação e contexto.
 - O coletor mantém fontes públicas brasileiras e internacionais e reclassifica o histórico de origens ativas. A verificação de disponibilidade e publicação está em [STATE.md](STATE.md).
+- A interface mostra a última coleta bem-sucedida. O diagnóstico por fonte fica no registro da coleta.
 
 ## Propostas futuras
 

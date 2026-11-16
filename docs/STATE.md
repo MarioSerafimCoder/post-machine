@@ -1,4 +1,12 @@
-# Estado real — 13/11/2026
+# Estado real — 16/11/2026
+
+## Evolução 05 — Fabricação na Produção Expressa
+
+- O Studio gera propostas Equilibrada, Fotográfica e Expressiva na coleção escolhida. O motor avalia até 18 candidatos por slide usando medidas de texto do Fabric, papel editorial, área de foto, recorte, margens e contraste. Texto excedente fica editável, com aviso e opção de dividir por parágrafos quando possível.
+- Imagens manuais têm precedência sobre as vinculadas e a ordem dos arquivos. Créditos são preservados e a prévia permite verificar recorte e resolução. O processo é cancelável e grava apenas a versão escolhida, no contrato local v1 existente. Sem serviços novos ou custo adicional.
+- Inspeção em Chromium: 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080, sem rolagem horizontal. Em uma execução local de 1/6/10/20 slides com três imagens de teste de até 1800 px de lado, a fabricação levou 52/478/991/2303 ms; renderizar as três capas levou 25/23/72/12 ms. O heap JS observado foi 68/45/44/51 MiB; não inclui a memória nativa de imagens e canvas.
+- Lint, TypeScript, build e dry-run do Wrangler aprovados; Vitest: 95 testes. Playwright no build servido pelo Wrangler local: 71 aprovados e uma repetição deliberadamente omitida no perfil laptop.
+- Radar: removido da interface o painel de diagnóstico fonte a fonte. A data da última coleta bem-sucedida, os links originais e o aviso se a edição não carregar continuam visíveis. O diagnóstico por fonte permanece no registro da coleta.
 
 ## Evoluções 03 e 04 — 16/11/2026
 
