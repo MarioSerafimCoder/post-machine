@@ -8,14 +8,14 @@
 .campaign-library { align-self: start; }
 .campaign-library ul, .campaign-slides { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 .campaign-library-item { width: 100%; text-align: left; border: 1px solid #e5e5df; border-radius: 8px; background: white; padding: 10px; cursor: pointer; }
-.campaign-library-item[aria-pressed=true] { background: #f2f5e9; border-color: #859267; }
+.campaign-library-item[aria-pressed=true] { background: #f2f5e9; border-color: #7f7f7f; }
 .campaign-library-item span { display: block; margin-top: 5px; font-size: .75rem; }
 .campaign-backup, .campaign-editor { display: grid; gap: 12px; min-width: 0; }
 .campaign-backup { border-top: 1px solid #e5e5df; padding-top: 14px; }
 .campaign-backup p, .campaign-example p { font-size: .875rem; margin: 0; }
 .campaign-panel h3 { margin: 0 0 10px; font-size: 20px; }
 .campaign-panel p { margin: 6px 0 12px; }
-.campaign-panel a:not(.button) { color: #334522; text-decoration: underline; }
+.campaign-panel a:not(.button) { color: #111111; text-decoration: underline; }
 .campaign-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .campaign-wide { grid-column: 1 / -1; }
 .campaigns label { display: grid; gap: 5px; font-size: .875rem; font-weight: 650; min-width: 0; }

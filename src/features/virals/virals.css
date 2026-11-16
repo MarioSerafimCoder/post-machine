@@ -8,16 +8,16 @@
 .viral-controls { display:flex; flex-wrap:wrap; align-items:end; gap:10px; }
 .viral-controls label { display:grid; gap:4px; }
 .viral-controls :is(input[type=search],select), .viral-fields :is(input, select, textarea), .viral-detail textarea {
-  border: 1px solid #cdd3c7; border-radius: 6px; padding: 7px 9px; background: #fff; color: var(--green); font: inherit;
+  border: 1px solid #cdcdcd; border-radius: 6px; padding: 7px 9px; background: #fff; color: var(--ink); font: inherit;
 }
 .viral-controls input[type=search] { width: min(230px, 100%); }
 .viral-controls label:has(input[type=checkbox]) { display: flex; align-items: center; min-height: 38px; gap: 6px; }
-.viral-controls button:not(.button) { border: 1px solid #cdd3c7; border-radius: 6px; padding: 7px 9px; background: #fff; }
-.viral-controls button[aria-pressed=true]:not(.button) { border-color: #82986a; background: #e9efdb; }
+.viral-controls button:not(.button) { border: 1px solid #cdcdcd; border-radius: 6px; padding: 7px 9px; background: #fff; }
+.viral-controls button[aria-pressed=true]:not(.button) { border-color: #818181; background: #e6e6e6; }
 .viral-controls button:disabled { opacity: .55; }
 .viral-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .viral-fields label { display:grid; gap:4px; }
 .viral-fields input,.viral-fields select,.viral-fields textarea { min-width:0; width:100%; }
-.viral-placeholder { aspect-ratio:16/5; display:grid; place-items:center; color:var(--green); border-radius:6px; background:#edf1e5; font-weight:650; }
+.viral-placeholder { aspect-ratio:16/5; display:grid; place-items:center; color:var(--ink); border-radius:6px; background:#ececec; font-weight:650; }
 .viral-card img { aspect-ratio:16/9; width:100%; object-fit:cover; border-radius:6px; }
 .viral-detail textarea { width:100%; }
