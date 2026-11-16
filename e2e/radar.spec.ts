@@ -11,6 +11,8 @@ test('Radar carrega notícias reais, filtra e mantém favorito após recarregar'
   await expect(page.getByRole('combobox', { name: 'Recorte', exact: true })).toBeVisible()
   const cards = page.getByRole('article')
   await expect(cards.first()).toBeVisible()
+  await expect(page.getByText('Última coleta bem-sucedida:', { exact: false })).toBeVisible()
+  await expect(page.getByText(/fontes (indisponíveis na última tentativa|consultadas)|itens pertinentes na última coleta/)).toHaveCount(0)
   const title = await cards.first().getByRole('heading').innerText()
   await page.getByRole('searchbox', { name: 'Buscar notícias' }).fill(title)
   await expect(cards.first().getByRole('link',{ name:title, exact:true })).toHaveAttribute('href', /^https?:\/\//)

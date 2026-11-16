@@ -134,7 +134,7 @@ Implementar:
 - Favoritos.
 - Histórico de notícias recentes.
 - Indicação da última atualização.
-- Estado de erro quando uma fonte estiver indisponível.
+- Falhas por fonte registradas no diagnóstico da coleta, sem painel técnico na interface. A interface informa se não conseguir abrir a edição.
 
 A classificação usa expressões normalizadas em português e inglês, com fronteiras de palavra. Uma correspondência vale oito pontos no título e quatro no resumo ou nas categorias do RSS, com até duas por campo. Etiquetas editoriais específicas verificadas podem contribuir com cinco pontos. Adequação à especialidade da fonte vale dois. A classificação legada pode desempatar evidências do artigo. Branding, design gráfico e publicidade recebem três pontos de prioridade. Fontes especializadas com categoria definida podem sinalizar a categoria quando o artigo não tem termos explícitos. A pontuação fica no coletor.
 

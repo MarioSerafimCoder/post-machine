@@ -100,7 +100,6 @@ export function News({ onCreatePost, favoritesView, opportunitiesView, onCreateO
     (!language || item.language === language) && (!period || (item.publishedAt && Date.parse(item.publishedAt) >= cutoff)) &&
     (!kind || item.trend) && (!scope || item.editorial?.scope === scope) && (!(onlyFavorites || favoritesView) || favorites?.includes(item.id)) &&
     terms.every(term => normalize([item.title,item.summary,item.category,item.source,item.trend,...(item.feedTags ?? [])].join(' ')).includes(term)))
-  const failures = data?.sources.filter(item => item.error) ?? []
   const select = (label: string, value: string, update: (value: string) => void, choices: [string,string][]) =>
     <label>{label}<select value={value} onChange={event => { update(event.target.value); setLimit(pageSize) }}><option value="">Todos</option>{choices.map(([key,text]) => <option key={key} value={key}>{text}</option>)}</select></label>
 
@@ -112,11 +111,6 @@ export function News({ onCreatePost, favoritesView, opportunitiesView, onCreateO
     {storageError && <p role="alert" className="info-strip">Não foi possível acessar os favoritos neste navegador.</p>}
     {data && <div hidden={!opportunitiesView}><Opportunities items={data.opportunities} editionAt={data.attemptedAt} favorites={favorites} saving={saving} save={id => void toggle(id)} create={onCreateOpportunity} /></div>}
     {data && <div hidden={opportunitiesView} className="news">
-      <details className="news-sources" open={failures.length > 0 || undefined}>
-        <summary>{failures.length ? `${failures.length} de ${data.sources.length} fontes indisponíveis na última tentativa` : `${data.sources.length} fontes consultadas`}</summary>
-        <p className="muted">Tentativa: {format(data.attemptedAt)} (Brasília). Notícias já coletadas podem continuar visíveis.</p>
-        <ul>{data.sources.map(item => <li key={item.id}><a href={item.url} target="_blank" rel="noreferrer">{item.name}</a> — {item.error ?? `${item.count} itens pertinentes na última coleta`}</li>)}</ul>
-      </details>
       {!filtersOpen && <button className="button button-outline" onClick={() => setFiltersOpen(true)}>Mostrar filtros de notícias</button>}
       <div hidden={!filtersOpen} className="context-panel news-filter-panel">
         <ContextHeader title="Filtros de notícias" close={() => setFiltersOpen(false)} />
