@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { articleSchema, webUrl, type Article } from '../radar/contract'
+import { articleSchema, opportunitySchema, webUrl, type Article, type Opportunity } from '../radar/contract'
 import { headlineSessionSchema } from '../headlines/contract'
 import { creativeOriginSchema, type CreativeOrigin, type Reference } from '../virals/contract'
 import { editorialFormat } from '../virals/catalog'
@@ -37,8 +37,8 @@ const legacyDraftSchema = z.object({
   briefing: briefingSchema, prompt: z.string().max(maxImport), promptBriefing: briefingSchema.nullable().default(null), content: contentSchema.nullable(),
 })
 export const draftSchema = z.union([legacyDraftSchema.extend({
-  schemaVersion: z.literal(2), article: articleSchema.nullable(), title: short, creativeOrigin: creativeOriginSchema.optional(),
-}), legacyDraftSchema.transform(value => ({ ...value, schemaVersion: 2 as const, title: value.article.title, creativeOrigin: undefined }))])
+  schemaVersion: z.literal(2), article: articleSchema.nullable(), title: short, creativeOrigin: creativeOriginSchema.optional(), opportunity: opportunitySchema.optional(),
+}), legacyDraftSchema.transform(value => ({ ...value, schemaVersion: 2 as const, title: value.article.title, creativeOrigin: undefined, opportunity: undefined }))])
 export const backupSchema = z.object({
   schemaVersion: z.union([z.literal(1), z.literal(2)]).transform(() => 2 as const), campaigns: z.array(draftSchema), preferences: preferencesSchema,
 }).refine(({ campaigns }) => new Set(campaigns.map(item => item.id)).size === campaigns.length, 'O backup contém IDs duplicados.')
@@ -52,11 +52,15 @@ export type Backup = z.infer<typeof backupSchema>
 export const defaultPreferences: Preferences = { audience: '', tone: tones[0] }
 export const slideCount = (briefing: Briefing) => briefing.format === 'carousel' ? briefing.slideCount : 1
 
-export function newDraft(article: Article | null, preferences: Preferences): Draft {
+export function newDraft(article: Article | null, preferences: Preferences, opportunity?: Opportunity): Draft {
   const now = new Date().toISOString()
   return {
-    schemaVersion: 2, id: crypto.randomUUID(), article, title: article?.title ?? 'Nova campanha', createdAt: now, updatedAt: now, prompt: '', promptBriefing: null, content: null,
-    briefing: { ...preferences, objective: objectives[0], format: 'carousel', slideCount: 6, approach: approaches[0], notes: '' },
+    schemaVersion: 2, id: crypto.randomUUID(), article, title: article?.title ?? 'Nova campanha', createdAt: now, updatedAt: now, prompt: '', promptBriefing: null, content: null, opportunity,
+    briefing: {
+      ...preferences, objective: objectives[0], format: 'carousel', slideCount: 6,
+      approach: opportunity?.approach ?? approaches[0],
+      notes: opportunity ? [opportunity.reason, opportunity.angle].join('\n\n') : '',
+    },
   }
 }
 
@@ -79,7 +83,7 @@ export function draftFromReference(reference: Reference, preferences: Preference
     briefing: { ...draft.briefing, approach, notes: `Referência de formato: ${format.name}. ${format.slides}` } }
 }
 
-export function createPrompt({ article, briefing, title, creativeOrigin }: Draft) {
+export function createPrompt({ article, briefing, title, creativeOrigin, opportunity }: Draft) {
   const count = slideCount(briefing)
   const example: Content = {
     schemaVersion: 1,
@@ -87,7 +91,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin }: Draft
       title: '', objective: briefing.objective, audience: briefing.audience.trim(), tone: briefing.tone,
       format: briefing.format, caption: '', cta: '',
     },
-    sources: article ? [originalSource(article)] : creativeOrigin ? [creativeSource(creativeOrigin)] : [],
+    sources: opportunity ? opportunity.articles.map(originalSource) : article ? [originalSource(article)] : creativeOrigin ? [creativeSource(creativeOrigin)] : [],
     slides: Array.from({ length: count }, (_, index) => ({
       order: index + 1, role: index === 0 ? (count === 1 ? 'content' : 'cover') : index === count - 1 ? 'cta' : 'content',
       title: '', body: '', imageBrief: '', layoutType: 'editorial',
@@ -214,9 +218,10 @@ export function importContent(input: string, draft: Draft): Content {
   if (campaign.format !== draft.briefing.format || slides.length !== slideCount(draft.briefing)) {
     throw Error(`Ajuste o briefing ou a resposta para ${formats[draft.briefing.format]} com ${slideCount(draft.briefing)} peça(s).`)
   }
-  const original = draft.article ? originalSource(draft.article) : draft.creativeOrigin ? creativeSource(draft.creativeOrigin) : undefined
-  if (!original) return parsed.data
+  const originals = draft.opportunity ? draft.opportunity.articles.map(originalSource) :
+    draft.article ? [originalSource(draft.article)] : draft.creativeOrigin ? [creativeSource(draft.creativeOrigin)] : []
+  if (!originals.length) return parsed.data
   const uniqueSources = new Map(sources.map(source => [source.url, source]))
-  uniqueSources.delete(original.url)
-  return { ...parsed.data, sources: [original, ...Array.from(uniqueSources.values()).slice(0, 49)] }
+  for (const original of originals) uniqueSources.delete(original.url)
+  return { ...parsed.data, sources: [...originals, ...Array.from(uniqueSources.values())].slice(0, 50) }
 }

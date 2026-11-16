@@ -1,5 +1,13 @@
 # Arquitetura e decisões
 
+## Evoluções 01 e 02
+
+O cabeçalho usa as rotas por hash existentes. A barra contextual reutiliza os controles de cada área. Após a primeira visita, Radar e Studio permanecem montados para preservar filtros, briefing e edição. O Fabric continua usando o mesmo modelo de projeto e armazenamento.
+
+O coletor gera até 48 oportunidades a partir da edição do Radar e até quatro artigos por oportunidade. O agrupamento exige proximidade de publicação, categoria e termos específicos em comum. Nome e domínio ajudam a evitar a repetição do mesmo veículo. Isso não comprova independência societária nem autoria independente.
+
+O snapshot v1 aceita os campos opcionais `opportunities` e `observations`. O coletor compara com a edição anterior e guarda até 120 observações da edição atual. “Em alta” exige aumento do patamar aproximado do mesmo tema, feed e episódio do Google Trends, observado entre uma e 24 horas depois. Sem evidência compatível, o motor usa critérios editoriais e de publicação. O navegador exibe as recomendações já calculadas. A pauta usa o contrato v2 e preserva o conjunto de fontes na importação.
+
 Decisões registradas em 13/11/2026. Escopo implementado: fundação, Radar e campanhas. Fase 3 em andamento. Especificação integral em PRODUCT_SPEC.md.
 
 ## Estrutura

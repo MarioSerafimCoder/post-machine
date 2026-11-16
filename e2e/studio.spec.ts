@@ -46,6 +46,7 @@ test('post editável com texto, ferramentas, teclado e upload local', async ({ p
 
 test('campanha gera carrossel editável, troca template e organiza slides', async ({ page }) => {
   await page.goto('/#/radar')
+  await page.getByRole('button', { name: 'Pautas e prompts', exact: true }).click()
   await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
   await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
   await page.getByLabel('Quantidade de slides').selectOption('3')

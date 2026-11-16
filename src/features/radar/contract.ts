@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { editorialCategories } from './categories.ts'
 
 const date = z.iso.datetime()
+const observation = z.object({ query: z.string().min(1), feed: z.string(), startedAt: date, at: date, bucket: z.number().int().positive() })
 export const webUrl = z.url().refine(value => {
   const url = new URL(value)
   return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password
@@ -25,11 +26,21 @@ export const articleSchema = z.object({
   }).optional(),
   feedTags: z.array(z.string().max(100)).max(12).optional(),
 })
+export const opportunityTypes = ['Em alta', 'Boa oportunidade de pauta', 'Assunto do momento', 'Conteúdo atemporal'] as const
+export const opportunitySchema = z.object({
+  type: z.enum(opportunityTypes), reason: z.string(), angle: z.string(),
+  approach: z.enum(['Explicação', 'Análise crítica', 'Comparação', 'Contextualização']),
+  articles: z.array(articleSchema).min(1).max(4),
+})
 export const snapshotSchema = z.object({
   version: z.literal(1), attemptedAt: date, collectedAt: date.nullable(),
   sources: z.array(z.object({ id: z.string(), name: z.string(), url: webUrl, count: z.number().int().nonnegative(), error: z.string().optional() })),
   items: z.array(articleSchema).max(600),
+  observations: z.array(observation).max(120).optional(),
+  opportunities: z.array(opportunitySchema).max(48).optional(),
 })
 export type Snapshot = z.infer<typeof snapshotSchema>
 export type Article = z.infer<typeof articleSchema>
+export type Observation = z.infer<typeof observation>
+export type Opportunity = z.infer<typeof opportunitySchema>
 export const normalize = (text: string) => text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()

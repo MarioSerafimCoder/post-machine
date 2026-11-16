@@ -1,0 +1,40 @@
+import { test, expect } from '@playwright/test'
+
+test('oportunidade real mantém filtros e favoritos e preenche briefing editável', async ({ page }) => {
+  await page.goto('/#/radar')
+  const nav = page.getByRole('navigation', { name: 'Seções do Radar' })
+  await nav.getByRole('button', { name: 'Oportunidades', exact: true }).click()
+  const region = page.getByRole('region', { name: 'Oportunidades editoriais' })
+  await expect(region.getByRole('heading', { name: 'O que postar hoje?' })).toBeVisible()
+  const card = region.getByRole('article').first()
+  const title = await card.getByRole('heading').innerText()
+  await card.getByText(/Fontes e datas/).click()
+  await expect(card.getByRole('link').first()).toHaveAttribute('href', /^https:\/\//)
+  await card.getByRole('button', { name: 'Salvar', exact: true }).click()
+  await expect(card.getByRole('button', { name: 'Salva', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await region.getByText('Filtrar oportunidades').click()
+  await region.getByLabel('Só favoritos').check()
+  await expect(region.getByRole('article')).toHaveCount(1)
+  await nav.getByRole('button', { name: 'Notícias e pautas' }).click()
+  await nav.getByRole('button', { name: 'Oportunidades', exact: true }).click()
+  await expect(region.getByLabel('Só favoritos')).toBeChecked()
+  await card.getByRole('button', { name: 'Criar pauta' }).click()
+  await expect(page.getByLabel('Orientações adicionais')).not.toHaveValue('')
+  await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible()
+})
+
+test('workspace desktop mantém navegação e ferramentas em quatro resoluções', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'As quatro resoluções são verificadas no perfil desktop.')
+  for (const [width, height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]) {
+    await page.setViewportSize({ width, height })
+    await page.goto('/#/studio')
+    await page.reload()
+    await page.getByRole('button', { name: 'Criar projeto vazio', exact: true }).click()
+    const tools = page.getByRole('navigation', { name: 'Ferramentas do Studio' })
+    await tools.getByRole('button', { name: 'Templates' }).press('Enter')
+    await expect(page.getByRole('heading', { name: 'Templates originais' })).toBeVisible()
+    await page.getByRole('button', { name: 'Recolher Templates' }).click()
+    await expect(tools.getByRole('button', { name: 'Templates' })).toBeFocused()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})

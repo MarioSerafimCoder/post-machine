@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Evoluções 01 e 02
+
+- Evolução 01 reorganiza a navegação principal no cabeçalho e as ferramentas por área, com painéis recolhíveis e manutenção das rotas e dos dados locais.
+- Evolução 02 adiciona oportunidades editoriais justificadas, fontes originais, filtros, favoritos e criação de pauta no briefing existente. O sinal “Em alta” depende de observações comparáveis do Google Trends.
+
 Fonte de requisitos: PRODUCT_SPEC.md. Evidências e estado corrente: STATE.md.
 
 | Fase | Entrega | Critérios de conclusão |

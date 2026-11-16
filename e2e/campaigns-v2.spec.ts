@@ -3,6 +3,7 @@ import { newDraft, defaultPreferences } from '../src/features/campaigns/contract
 
 test('campanha independente preserva edições rápidas após navegação e recarga', async ({ page }) => {
   await page.goto('/#/radar')
+  await page.getByRole('button', { name: 'Pautas e prompts', exact: true }).click()
   await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
   await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
   await page.getByLabel('Título do briefing').fill('Ideia independente')
@@ -50,6 +51,7 @@ test('migra IndexedDB v1 e restaura backup v1 sem substituir campanhas', async (
 
 test('protege a campanha de uma gravação concorrente e oferece backup da edição local', async ({ page, context }) => {
   await page.goto('/#/radar')
+  await page.getByRole('button', { name: 'Pautas e prompts', exact: true }).click()
   await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
   await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
   await page.getByLabel('Título do briefing').fill('Pauta compartilhada')

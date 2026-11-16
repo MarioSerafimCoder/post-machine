@@ -1,3 +1,4 @@
+import type { Opportunity } from '../radar/contract'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { SaveQueue } from '../../lib/saveQueue'
@@ -22,7 +23,7 @@ const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
 const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imageBrief: '', layoutType: 'editorial' }
 
 export function Campaigns({ request, active, onBack, onDesign }: {
-  request: { article: Article | null; reference?: Reference } | null
+  request: { article: Article | null; reference?: Reference; opportunity?: Opportunity } | null
   active: boolean
   onBack: (references: boolean) => void
   onDesign: (draft: Draft) => void
@@ -97,7 +98,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     const timer = window.setTimeout(() => {
       handledRequest.current = request
       const preferences = backup?.preferences ?? defaultPreferences
-      const item = request.reference ? draftFromReference(request.reference, preferences) : newDraft(request.article, preferences)
+      const item = request.reference ? draftFromReference(request.reference, preferences) : newDraft(request.article, preferences, request.opportunity)
       if (!backup) setBackup({ schemaVersion: 2, campaigns: [], preferences })
       setSelected(item.id)
       persist(item)

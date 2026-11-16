@@ -1,24 +1,25 @@
 import { useRef, useState } from 'react'
-import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
+import type { CampaignStartMode } from '../campaigns/CampaignStart'
 import { Campaigns } from '../campaigns/Campaigns'
 import type { Draft } from '../campaigns/contract'
 import { Virals } from '../virals/Virals'
 import type { Reference } from '../virals/contract'
-import { Icon } from '../../components/Icon'
+import { ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
 import { News } from './News'
-import type { Article } from './contract'
+import type { Article, Opportunity } from './contract'
 
-const radarSections = [
-  { title: 'Notícias e pautas' },
-  { title: 'Pautas e prompts' },
-  { title: 'Virais e formatos' },
+const radarSections: ContextTool[] = [
+  { label: 'Notícias e pautas', icon: 'news' },
+  { label: 'Pautas e prompts', icon: 'text' },
+  { label: 'Virais e formatos', icon: 'book' },
+  { label: 'Oportunidades', icon: 'spark' }, { label: 'Favoritos', icon: 'star' },
 ]
 export function Radar({ active, start, onDesign }: { active: boolean; start?: { mode: CampaignStartMode }; onDesign: (draft: Draft) => void }) {
   const [section, setSection] = useState(0)
-  const [request, setRequest] = useState<{ article: Article | null; reference?: Reference } | null>(null)
-  const newsTab = useRef<HTMLButtonElement>(null)
-  const draftsTab = useRef<HTMLButtonElement>(null)
-  const referencesTab = useRef<HTMLButtonElement>(null)
+  const [request, setRequest] = useState<{ article: Article | null; reference?: Reference; opportunity?: Opportunity } | null>(null)
+  const rail = useRef<HTMLDivElement>(null)
+
+
   const [handledStart, setHandledStart] = useState<typeof start>()
   const [viralsVisited, setViralsVisited] = useState(false)
   if (start && start !== handledStart) {
@@ -27,34 +28,29 @@ export function Radar({ active, start, onDesign }: { active: boolean; start?: { 
     if (start.mode !== 'radar') setRequest({ article: null })
   }
 
+  function focusTool(index: number) { rail.current?.querySelectorAll<HTMLButtonElement>("nav button")[index]?.focus() }
   function selectArticle(article: Article) {
     setRequest({ article })
     setSection(1)
-    draftsTab.current?.focus()
+    focusTool(1)
   }
   function showSection(index: number) {
     setSection(index)
     if (index === 2) setViralsVisited(true)
   }
 
-  return <>
-    <CampaignStart choose={mode => {
-      if (mode === 'radar') { showSection(0); newsTab.current?.focus() }
-      else { setRequest({ article: null }); showSection(1); draftsTab.current?.focus() }
-    }} />
-    <div className="segmented" role="group" aria-label="Seções do Radar">
-      {radarSections.map((item, index) => <button key={item.title}
-        ref={index === 0 ? newsTab : index === 1 ? draftsTab : referencesTab}
-        aria-pressed={section === index} onClick={() => showSection(index)}>{item.title}</button>)}
-    </div>
-    <div hidden={section !== 0}><News onCreatePost={selectArticle} /></div>
+  return <div ref={rail}><ContextWorkspace rail={
+    <ContextRail label="Seções do Radar" tools={radarSections} selected={radarSections[section].label}
+      choose={label => showSection(radarSections.findIndex(item => item.label === label))} />
+  }>
+    <div hidden={section === 1 || section === 2}><News favoritesView={section === 4} opportunitiesView={section === 3} onCreatePost={selectArticle}
+      onCreateOpportunity={opportunity => { setRequest({ article: opportunity.articles[0], opportunity }); showSection(1); focusTool(1) }} /></div>
     <div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1}
-      onBack={references => { showSection(references ? 2 : 0); (references ? referencesTab : newsTab).current?.focus() }} /></div>
+      onBack={references => { const destination = references ? 2 : request?.opportunity ? 3 : 0; showSection(destination); focusTool(destination) }} /></div>
     {viralsVisited && <div hidden={section !== 2}><Virals createCampaign={reference => {
       setRequest({ article: null, reference })
       showSection(1)
-      draftsTab.current?.focus()
+      focusTool(1)
     }} /></div>}
-    <div className="info-strip"><Icon name="shield" /><p>Fontes verificáveis, links originais e datas reais. Sem conteúdo inventado.</p></div>
-  </>
+  </ContextWorkspace></div>
 }

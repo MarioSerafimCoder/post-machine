@@ -1,5 +1,12 @@
 # Estado real — 13/11/2026
 
+## Evoluções 01 e 02 — 16/11/2026
+
+- Cabeçalho horizontal com Início, Radar, Studio e Auditoria. Barras contextuais, filtros recolhíveis do Radar, painel de ferramentas recolhível do Studio e atalhos para projetos, diagnóstico, correções e resultados. Rotas por hash, carregamento sob demanda, o editor Fabric e os bancos locais foram preservados.
+- A coleta local reuniu 80 notícias elegíveis, 48 oportunidades e dez observações do Google Trends. Design Week retornou HTTP 403 e as demais fontes responderam. A edição não mostrou “Em alta” sem histórico comparável. Justificativas, fontes, datas e abordagens aparecem nos cartões.
+- A ação Criar pauta abre o briefing existente com abordagem e orientações editáveis. As fontes são preservadas no prompt, no backup e na importação. Favoritos compartilham o IndexedDB das notícias.
+- ESLint, TypeScript, build e dry-run do Wrangler aprovados. Vitest passou em 84 testes. Playwright passou em 63 cenários, com uma repetição deliberadamente omitida no perfil laptop porque o mesmo teste já percorre as quatro resoluções. Radar e Studio inspecionados em 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080, sem overflow horizontal.
+
 ## Fase 1 — Radar
 
 - Coleta inicial real em 13/11/2026 às 15:47 (Brasília): **161 notícias únicas, nove fontes sem falha, 20 itens associados ao Google Trends e 128 com resumo**. O snapshot v1 está em `public/radar.json`. Fontes e classificação configuráveis em `radar/sources.json`.

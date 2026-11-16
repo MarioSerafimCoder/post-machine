@@ -4,6 +4,7 @@ test('compara, aplica, preserva a arte e reabre headlines', async ({ page }) => 
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/#/radar')
+  await page.getByRole('button', { name: 'Pautas e prompts', exact: true }).click()
   await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
   await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
   await page.getByLabel('Formato', { exact: true }).selectOption('post')

@@ -1,3 +1,4 @@
+import { buildOpportunities } from './opportunities.ts'
 import { createHash } from 'node:crypto'
 import { resolve4 } from 'node:dns/promises'
 import { get } from 'node:https'
@@ -6,7 +7,7 @@ import { readFile, writeFile, rename } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { SaxesParser } from 'saxes'
 import { z } from 'zod'
-import { articleSchema, normalize, snapshotSchema, sourceSchema, type Article, type Snapshot } from '../src/features/radar/contract.ts'
+import { articleSchema, normalize, snapshotSchema, sourceSchema, type Article, type Observation, type Snapshot } from '../src/features/radar/contract.ts'
 import { classifyArticle, orderEdition } from './editorial.ts'
 
 type Source = z.infer<typeof sourceSchema>
@@ -86,7 +87,7 @@ function publicationDate(raw: string) {
   return Number.isFinite(date) ? new Date(date).toISOString() : null
 }
 
-export function parseFeed(xml: string, source: Source, collectedAt: string): Article[] {
+export function parseFeed(xml: string, source: Source, collectedAt: string, observations: Observation[] = []): Article[] {
   const tree: Element = { name: '', attributes: {}, children: [], text: '' }
   const stack = [tree]
   const parser = new SaxesParser()
@@ -108,6 +109,14 @@ export function parseFeed(xml: string, source: Source, collectedAt: string): Art
   const entries = (root.name === 'rdf' ? root : child(root,'channel') ?? root).children.filter(node => ['item','entry'].includes(node.name))
   return entries.slice(0,60).flatMap(entry => {
     const trend = source.kind === 'trends' ? plain(value(entry,'title')) : undefined
+    if (trend) {
+      const startedAt = publicationDate(value(entry, 'pubdate') ?? '')
+      const traffic = (value(entry, 'approx_traffic') ?? '').match(/^(\d+)\+$/)
+      const bucket = Number(traffic?.[1])
+      if (startedAt && Number.isSafeInteger(bucket) && bucket > 0 && startedAt <= collectedAt) {
+        observations.push({ query: trend, startedAt, bucket, feed: source.url, at: collectedAt })
+      }
+    }
     const related = trend ? entry.children.filter(node => node.name === 'news_item').slice(0,2) : [entry]
     return related.flatMap(node => {
       const title = plain(value(node, trend ? 'news_item_title' : 'title')).slice(0,500)
@@ -135,13 +144,14 @@ export async function collect(sources: Source[], previous: Snapshot | null, fetc
   const results = await Promise.all(sources.map(async source => {
     const info = { id: source.id, name: source.name, url: source.url }
     try {
-      const items = parseFeed(await fetcher(source), source, attemptedAt)
+      const observations: Observation[] = []
+      const items = parseFeed(await fetcher(source), source, attemptedAt, observations)
       if (!items.length) throw Error('Feed sem itens válidos')
       const eligible = items.filter(item => classifyArticle(item, source))
-      return { items: eligible, status: { ...info, count: eligible.length, error: undefined } }
+      return { items: eligible, observations, status: { ...info, count: eligible.length, error: undefined } }
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
-      return { items: [], status: { ...info, count: 0, error: /^HTTP \d+$/.test(message) ? message : 'Feed indisponível ou inválido' } }
+      return { items: [], observations: [], status: { ...info, count: 0, error: /^HTTP \d+$/.test(message) ? message : 'Feed indisponível ou inválido' } }
     }
   }))
   const success = results.some(result => !result.status.error)
@@ -164,7 +174,17 @@ export async function collect(sources: Source[], previous: Snapshot | null, fetc
     const result = classify(item)
     return result ? [result] : []
   })
-  return snapshotSchema.parse({ version: 1, attemptedAt, collectedAt: success ? attemptedAt : previous?.collectedAt ?? null, sources: results.map(r => r.status), items: orderEdition(ranked) })
+  const edition = orderEdition(ranked)
+  const observations = results.flatMap(result => result.observations).slice(0,120)
+  const freshEvidence = results.flatMap(result => result.items).flatMap(item => {
+    const classified = classify(item)
+    return classified ? [classified.article] : []
+  })
+  const opportunities = buildOpportunities(edition, freshEvidence, observations, previous?.observations ?? [], now)
+  return snapshotSchema.parse({
+    version: 1, attemptedAt, collectedAt: success ? attemptedAt : previous?.collectedAt ?? null,
+    sources: results.map(r => r.status), items: edition, observations, opportunities,
+  })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
