@@ -40,16 +40,18 @@ export function App() {
   }, [label])
   return <><section className="desktop-required" aria-label="Disponível somente para desktop"><span className="brand-mark" aria-hidden="true">PM</span><h1>Um espaço para criar no desktop.</h1><p>O Post Machine foi feito exclusivamente para computadores. Abra em um desktop ou amplie a janela para pelo menos 1024 px.</p><span className="badge badge-green">Desktop first. Sempre.</span></section><div className="app-shell">
     <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus() }}>Pular para o conteúdo</a>
-    <aside className="sidebar">
-      <a className="brand" href="#/inicio" aria-label="Post Machine — início"><span className="brand-mark">PM</span><span>Post Machine<span className="brand-subtitle">SEU ESPAÇO DE CRIAÇÃO</span></span></a>
-      <div className="workspace-label">POST MACHINE <span>PESSOAL</span></div>
-      <nav aria-label="Navegação principal">{nav.map(item => <a key={item.id} className={`nav-link ${page === item.id ? 'active' : ''}`} href={`#/${item.id}`} aria-current={page === item.id ? 'page' : undefined}><Icon name={item.icon} /><span>{item.label}</span>{page === item.id && <span className="active-dot" />}</a>)}</nav>
-      <div className="sidebar-bottom"><div className="foundation-note"><span className="status-dot" /><strong>Da pauta ao design.</strong><p>Radar, campanhas e Studio no seu espaço de criação.</p><button onClick={() => setRoadmap(true)}>Ver roteiro do produto <Icon name="arrow" /></button></div><div className="profile"><span className="avatar">MS</span><div><strong>Meu espaço</strong><span>Uso pessoal · versão 0.1</span></div></div></div>
-    </aside>
     <div className="main-shell">
-      <header className="topbar"><div className="breadcrumb">Workspace <span>/</span> <strong>{label}</strong></div><button className="text-button" onClick={() => setRoadmap(true)}><Icon name="book" /><span>Roteiro do produto</span></button></header>
-      <main id="main-content" tabIndex={-1}>
-        <div className="page-heading"><div><p className="eyebrow">SEU PROCESSO CRIATIVO, EM UM SÓ LUGAR</p><h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'Ideias boas merecem espaço.' : label}</h1></div><span className="badge badge-outline"><span className="status-dot" /> Fase 6 · Refinamento geral</span></div>
+      <header className="topbar">
+        <a className="brand" href="#/inicio" aria-label="Post Machine — início"><span className="brand-mark">PM</span><span>Post Machine</span></a>
+        <nav className="primary-nav" aria-label="Navegação principal">{nav.map(item =>
+          <a key={item.id} className="nav-link" href={`#/${item.id}`} aria-current={page === item.id ? 'page' : undefined}>
+            <Icon name={item.icon} /><span>{item.id === 'inicio' ? 'Início' : item.label}</span>
+          </a>
+        )}</nav>
+        <button className="text-button" onClick={() => setRoadmap(true)}><Icon name="book" /><span>Roteiro do produto</span></button>
+      </header>
+      <main id="main-content" className={page === 'inicio' ? 'home-workspace' : 'active-workspace'} tabIndex={-1}>
+        <h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'Ideias boas merecem espaço.' : label}</h1>
         {page === 'inicio' && <Overview onRoadmap={() => setRoadmap(true)} />}
         {(page === 'radar' || visited.radar) && <div hidden={page !== 'radar'}><Suspense fallback={<p role="status">Carregando o Radar…</p>}>
           <Radar active={page === 'radar'} start={radarStart} onDesign={draft => { setDesignRequest(draft); window.location.hash = '/studio' }} />
@@ -57,7 +59,6 @@ export function App() {
         {(page === 'studio' || visited.studio) && <div hidden={page !== 'studio'}><Suspense fallback={<p>Carregando Studio…</p>}><Studio request={designRequest} active={page === 'studio'} onStartCampaign={mode => { setRadarStart({ mode }); window.location.hash = '/radar' }} /></Suspense></div>}
         {page === 'auditoria' && <Suspense fallback={<p>Carregando auditoria…</p>}><AuditPage /></Suspense>}
         {page === 'not-found' && <section className="empty-state"><Icon name="home" /><h2>Este caminho ainda não existe.</h2><p>Volte à visão geral para explorar seu espaço.</p><a className="button button-dark" href="#/inicio">Voltar ao início</a></section>}
-        <footer className="footer"><span>POST MACHINE <span className="footer-divider">/</span> Da referência à publicação.</span><span>Feito para o seu processo.</span></footer>
       </main>
     </div>
     {roadmap && <Roadmap onClose={() => setRoadmap(false)} />}

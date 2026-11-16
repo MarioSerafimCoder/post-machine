@@ -3,6 +3,7 @@ import { listProjects, loadProject, saveProject } from '../studio/storage'
 import type { Project } from '../studio/model'
 import { AuditPanel } from './AuditPanel'
 import type { Finding } from './contract'
+import { ContextHeader, ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
 
 export function AuditPage() {
   const [library, setLibrary] = useState<Project[]>([])
@@ -10,6 +11,7 @@ export function AuditPage() {
   const [selection, setSelection] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [panel, setPanel] = useState<string | null>('Projetos')
   const active = useRef<Project | undefined>(undefined)
   const checkpoint = useRef<{ before: Project; after: Project } | undefined>(undefined)
   const generation = useRef(0)
@@ -57,13 +59,22 @@ export function AuditPage() {
     window.location.hash = '/studio'
   }
 
-  return <section className="audit-page">
-    <p className="page-description">Verifique problemas técnicos e revise cada arte antes de exportar.</p>
+  const tools: ContextTool[] = [{ label: 'Projetos', icon: 'folder' }]
+  if (project) tools.push({ label: 'Diagnóstico', icon: 'audit' }, { label: 'Correções', icon: 'shape' }, { label: 'Resultados', icon: 'layers' })
+  return <ContextWorkspace rail={<ContextRail label="Ferramentas da Auditoria" tools={tools} selected={panel}
+    choose={value => {
+      setPanel(value === panel ? null : value)
+      if (value !== panel && value !== 'Projetos') requestAnimationFrame(() =>
+        document.getElementById(`audit-${value}`)?.focus())
+    }} />}><section className="audit-page">
+    {panel === 'Projetos' && <div className="context-panel"><ContextHeader title="Projetos" close={() => setPanel(null)} />
     <label>Projeto<select aria-label="Projeto para auditar" value={selection} disabled={busy} onChange={event => void select(event.target.value)}>
       <option value="">Selecione um projeto</option>
       {library.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select></label>
+    </select></label></div>}
     {error && <p role="alert">{error}</p>}
-    {project ? <AuditPanel key={project.id} project={project} onFocus={focus} onChange={change} onUndo={undo} /> : <p>Selecione um projeto salvo neste navegador ou crie um no Studio.</p>}
-  </section>
+    {project ? <div hidden={!panel}><AuditPanel key={project.id} project={project} onFocus={focus} onChange={change} onUndo={undo}
+      view={panel === 'Correções' ? 'corrections' : panel === 'Resultados' ? 'results' : 'diagnosis'} /></div>
+      : <p>Selecione um projeto salvo neste navegador ou <a className="text-button" href="#/studio">abra o Studio</a>.</p>}
+  </section></ContextWorkspace>
 }

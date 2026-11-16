@@ -1,3 +1,4 @@
+import { ContextHeader, ContextRail, type ContextTool } from '../../components/ContextRail'
 import { ImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
 import { projectCredits } from '../images/credits'
@@ -28,6 +29,11 @@ import { AuditPanel } from '../audit/AuditPanel'
 import type { Finding } from '../audit/contract'
 import { resolvePage } from '../../lib/navigation'
 
+const studioTools: ContextTool[] = [
+  { label: 'Templates', icon: 'studio' }, { label: 'Texto', icon: 'text' },
+  { label: 'Imagens', icon: 'image' }, { label: 'Elementos', icon: 'shape' },
+  { label: 'Minha marca', icon: 'shield' }, { label: 'Camadas', icon: 'layers' },
+]
 export function Studio({ request, active, onStartCampaign }: { request: Draft | null; active: boolean; onStartCampaign: (mode: CampaignStartMode) => void }) {
   const [error, setError] = useState('')
   const { project, setProject, undo, redo, history, status, flush, getCurrent } = useDocument()
@@ -71,7 +77,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const [format, setFormat] = useState<Format>('portrait')
   const [zoom, setZoom] = useState(.32)
   const [guides, setGuides] = useState(true)
-  const [panel, setPanel] = useState('Texto')
+  const [panel, setPanel] = useState<string | null>('Texto')
   const [, refresh] = useState(0)
   const canvas = useRef<Canvas | null>(null)
   const canvasStage = useRef<HTMLDivElement>(null)
@@ -293,7 +299,9 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
     {auditOpen&&<AuditPanel project={project} currentSlide={current} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setPendingExport(undefined);setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
     {error && <p role="alert">{error}</p>}
     {!readyCanvas && !error && <p className="studio-loading" role="status">Carregando o slide…</p>}
-    <div className="studio-layout" ref={canvasStage}><aside className="studio-tools"><nav aria-label="Ferramentas do Studio">{['Templates', 'Texto', 'Imagens', 'Elementos', 'Minha marca', 'Camadas'].map(name => <button key={name} aria-pressed={panel === name} onClick={() => setPanel(name)}>{name}</button>)}</nav>
+    <div className="studio-layout context-workspace" data-collapsed={!panel} ref={canvasStage}>
+      <ContextRail label="Ferramentas do Studio" tools={studioTools} selected={panel} choose={name => setPanel(panel === name ? null : name)} />
+      <aside className="studio-tools" hidden={!panel}>{panel && <ContextHeader title={panel} close={() => setPanel(null)} />}
       {panel === 'Templates' && <><h3>Templates originais</h3>{Object.entries(templates).map(([key, name]) => <button key={key} onClick={() => template(key as Template)}>{name}</button>)}</>}
       {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar marca e recompor os templates de todos os slides?')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
       {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title'); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text'); changed() } }}>Adicionar texto</button></>}
