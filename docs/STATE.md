@@ -6,6 +6,7 @@
 - A coleta local reuniu 80 notícias elegíveis, 48 oportunidades e dez observações do Google Trends. Design Week retornou HTTP 403 e as demais fontes responderam. A edição não mostrou “Em alta” sem histórico comparável. Justificativas, fontes, datas e abordagens aparecem nos cartões.
 - A ação Criar pauta abre o briefing existente com abordagem e orientações editáveis. As fontes são preservadas no prompt, no backup e na importação. Favoritos compartilham o IndexedDB das notícias.
 - ESLint, TypeScript, build e dry-run do Wrangler aprovados. Vitest passou em 84 testes. Playwright passou em 63 cenários, com uma repetição deliberadamente omitida no perfil laptop porque o mesmo teste já percorre as quatro resoluções. Radar e Studio inspecionados em 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080, sem overflow horizontal.
+- O [workflow de produção](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43909844590) publicou `d8169f6` como versão `6a7a3c1d-6e3f-4061-b6c2-5af7cabe8464` a 100% do tráfego. A coleta do GitHub teve 87 notícias elegíveis e a sessão autenticada mostrou 48 oportunidades e o mesmo `collectedAt` do workflow, `2026-11-16T16:39:21.571Z`. Página, snapshots e favicon redirecionaram sessões anônimas ao Cloudflare Access. A publicação reutilizou os recursos existentes, sem custo adicional.
 
 ## Fase 1 — Radar
 
