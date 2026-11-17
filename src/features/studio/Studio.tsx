@@ -76,6 +76,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const [fitZoom, setFitZoom] = useState(.1)
   const zoom = manualZoom ?? fitZoom
   const [guides, setGuides] = useState(true)
+  const [framesOpen, setFramesOpen] = useState(true)
   const [panel, setPanel] = useState<string | null>('Texto')
   const [, refresh] = useState(0)
   const canvas = useRef<Canvas | null>(null)
@@ -170,6 +171,14 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
     if (!project) return
     if (project.slides[current].scene.objects.length && !window.confirm('Trocar template preserva textos e imagem, mas recompõe os ajustes gráficos. Continuar?')) return
     replace({ ...project, slides: project.slides.map((s, i) => i === current ? { ...s, layout, scene: compose(layout, semantics(s.scene), project.brand, project.format, s.role) } : s) })
+  }
+  function reorderFrame(from: number, to: number) {
+    if (!project || from === to || !project.slides[from] || !project.slides[to]) return
+    const slides = [...project.slides]
+    const [moved] = slides.splice(from,1)
+    slides.splice(to,0,moved)
+    chooseSlide(to)
+    setProject({ ...project, slides })
   }
   function slideAction(action: 'add' | 'duplicate' | 'remove' | 'up' | 'down') {
     if (!project) return
@@ -350,11 +359,11 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
       <p><strong>{guidance.finding.message}.</strong> {guidance.finding.suggestion}</p>
       <button onClick={() => setGuidance(undefined)}>Dispensar orientação</button>
     </div>}
-    <div className="studio-layout context-workspace" data-collapsed={!panel} data-selection={!!selectedObject}>
+    <div className="studio-layout context-workspace" data-collapsed={!panel} data-selection={!!selectedObject} data-frames={framesOpen}>
       <ContextRail label="Ferramentas do Studio" tools={studioTools} selected={panel} choose={name => setPanel(panel === name ? null : name)} />
-      <aside className="studio-tools" hidden={!panel}>{panel && <ContextHeader title={panel} close={() => setPanel(null)} />}
+      <div className="studio-left"><aside className="studio-tools" hidden={!panel}>{panel && <ContextHeader title={panel} close={() => setPanel(null)} />}
       {panel === 'Templates' && <><h3>Templates originais</h3>{Object.entries(templates).map(([key, name]) => <button key={key} onClick={() => template(key as Template)}>{name}</button>)}</>}
-      {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar a marca em todos os slides? Os layouts legados serão recompostos.')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: s.layout.startsWith('collection-v1:') ? applyCollectionBrand(s.scene, project.brand, project.format) : compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
+      {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar a marca em todos os slides? Os layouts legados serão recompostos.')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: s.layout.startsWith('collection-v1:') ? applyCollectionBrand(s.scene, project.brand, project.format, /^(collection-v1:)(impacto|cartao|narrativa):/.test(s.layout)) : compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
       {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title', project.brand.primary); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text', project.brand.primary); changed() } }}>Adicionar texto</button></>}
       {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, type, project.brand.primary); changed() } }}>{name}</button>)}</>}
       {panel === 'Imagens' && <><h3>Imagens</h3><div className="image-tabs" role="group" aria-label="Origem da imagem">
@@ -364,7 +373,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
         {imagePanel && <button onClick={() => setImagePanel(undefined)}>Fechar painel de imagens</button>}
       </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input id="studio-image-upload" type="file" accept="image/png,image/jpeg,image/webp" disabled={!readyCanvas} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
       {panel === 'Camadas' && readyCanvas?.getObjects().map((o, i) => {
-        const label = o instanceof Textbox ? o.text.slice(0, 32) || 'Texto vazio' : o.label || ({ image:'Imagem', rect:'Retângulo', circle:'Círculo', line:'Linha', group:'Grupo' }[o.type.toLowerCase()] ?? 'Elemento')
+        const label = o instanceof Textbox ? o.text.slice(0, 32) || 'Texto vazio' : (o.semantic === 'editorialGradient' ? 'Gradiente editorial' : o.label) || ({ image:'Imagem', rect:'Retângulo', circle:'Círculo', line:'Linha', group:'Grupo' }[o.type.toLowerCase()] ?? 'Elemento')
         return <button key={i} aria-pressed={readyCanvas.getActiveObjects().includes(o)} onClick={event => {
           const selection = readyCanvas.getActiveObjects()
           readyCanvas.discardActiveObject()
@@ -374,10 +383,12 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
           readyCanvas.requestRenderAll(); refresh(n => n + 1)
         }}>{i + 1} · {label}{!o.visible && ' (oculta)'}</button>
       }).reverse()}
-    </aside><CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties brand={project.brand} canvas={readyCanvas} changed={changed} replaceImage={() => { setPanel('Imagens'); requestAnimationFrame(() => document.getElementById('studio-image-upload')?.focus()) }}>
+    </aside><Properties brand={project.brand} canvas={readyCanvas} changed={changed} replaceImage={() => { setPanel('Imagens'); requestAnimationFrame(() => document.getElementById('studio-image-upload')?.focus()) }}>
     {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
     </Properties></div>
-    <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} />
+      <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} />
+      <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame} open={framesOpen} toggle={() => setFramesOpen(value => !value)} />
+    </div>
     {project.campaignId && <p>Design vinculado à campanha. Alterações editoriais posteriores não substituem este design: gere uma nova versão pela campanha.</p>}
     <p className="muted">Ctrl+Z desfaz · Ctrl+Shift+Z refaz · Ctrl+D duplica · Delete exclui · Salvamento local automático. Faça backups: limpar dados do navegador remove projetos.</p>
   </section>
