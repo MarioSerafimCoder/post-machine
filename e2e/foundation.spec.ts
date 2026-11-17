@@ -24,7 +24,7 @@ test('roteiro acessível fecha com Escape e devolve foco', async ({ page }) => {
   await trigger.click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  await expect(dialog.getByText('Radar funcional')).toBeVisible()
+  await expect(dialog.getByText('Produção Expressa', { exact:true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(dialog).not.toBeVisible()
   await expect(trigger).toBeFocused()

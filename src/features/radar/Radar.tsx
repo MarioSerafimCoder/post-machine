@@ -14,7 +14,7 @@ const radarSections: ContextTool[] = [
   { label: 'Virais e formatos', icon: 'book' },
   { label: 'Oportunidades', icon: 'spark' }, { label: 'Favoritos', icon: 'star' },
 ]
-export function Radar({ active, start, onDesign }: { active: boolean; start?: { mode: CampaignStartMode }; onDesign: (draft: Draft) => void }) {
+export function Radar({ active, start, onDesign }: { active: boolean; start?: { mode: CampaignStartMode }; onDesign: (draft: Draft, mode?: 'express') => void }) {
   const [section, setSection] = useState(0)
   const [request, setRequest] = useState<{ article: Article | null; reference?: Reference; opportunity?: Opportunity } | null>(null)
   const rail = useRef<HTMLDivElement>(null)

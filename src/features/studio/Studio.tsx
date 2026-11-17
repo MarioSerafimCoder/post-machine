@@ -5,6 +5,7 @@ import type { ImageCredit } from '../images/contract'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { readCampaign } from '../campaigns/storage'
+import { replaceTextboxText } from './editText'
 import { measureTitle } from './headlineFit'
 import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
 import { loadFonts } from './fonts'
@@ -40,7 +41,8 @@ const studioTools: ContextTool[] = [
   { label: 'Imagens', icon: 'image' }, { label: 'Elementos', icon: 'shape' },
   { label: 'Minha marca', icon: 'shield' }, { label: 'Camadas', icon: 'layers' },
 ]
-export function Studio({ request, active, onStartCampaign }: { request: Draft | null; active: boolean; onStartCampaign: (mode: CampaignStartMode) => void }) {
+export function Studio({ request, active, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; onStartCampaign: (mode: CampaignStartMode) => void }) {
+  const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
   const { project, setProject, undo, redo, history, status, flush, getCurrent } = useDocument()
   const [library, setLibrary] = useState<Project[]>([])
@@ -99,7 +101,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   }, [campaignId])
   const selectedObject = readyCanvas?.getActiveObject()
   const selectedTitle = selectedObject instanceof Textbox && selectedObject.semantic === 'title' ? selectedObject : undefined
-  const campaign = request?.id === campaignId ? request : linkedCampaign?.id === campaignId ? linkedCampaign : undefined
+  const campaign = request?.draft.id === campaignId ? request?.draft : linkedCampaign?.id === campaignId ? linkedCampaign : undefined
   function moveHistory(redoAction: boolean) {
     const id = getCurrent()?.slides[currentRef.current]?.id
     const next = redoAction ? redo() : undo()
@@ -162,10 +164,22 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const receiveAuditFocus=useEffectEvent(async(raw:string)=>{try{const target=JSON.parse(raw) as {projectId:string;slideId:string;objectId:string|null};await flush();const value=await loadProject(target.projectId);const index=value.slides.findIndex(slide=>slide.id===target.slideId);focusPath.current=target.objectId;chooseSlide(Math.max(0,index));replace(value, true);setAuditOpen(true)}catch(cause){setError(String(cause))}})
   useEffect(()=>{const receive=()=>{if(window.location.hash!=='#/studio')return;const raw=sessionStorage.getItem('post-machine:audit-focus')??sessionStorage.getItem('direto:audit-focus');if(!raw)return;sessionStorage.removeItem('post-machine:audit-focus');sessionStorage.removeItem('direto:audit-focus');queueMicrotask(()=>void receiveAuditFocus(raw))};receive();window.addEventListener('hashchange',receive);return()=>window.removeEventListener('hashchange',receive)},[])
   async function openProject(id: string) { try { await flush(); const value = await loadProject(id); chooseSlide(0); replace(value, true); setError('') } catch (e) { setError(String(e)) } }
-  const handleRequest = useEffectEvent(async (draft: Draft) => {
-    try { await flush(); const savedBrand = newProjectBrand(await readBrand() ?? brand); await loadFonts(savedBrand); chooseSlide(0); replace(fromCampaign(draft, savedBrand)) } catch (e) { setError(String(e)) }
+  const handleRequest = useEffectEvent(async ({draft,mode}: NonNullable<typeof request>) => {
+    try {
+      await flush()
+      if (mode === 'express' && draft.content) {
+        setExpressDraft(draft)
+        setProject(undefined)
+        setEntry('express')
+      } else {
+        const savedBrand = newProjectBrand(await readBrand() ?? brand)
+        await loadFonts(savedBrand)
+        chooseSlide(0)
+        replace(fromCampaign(draft,savedBrand))
+      }
+    } catch (e) { setError(String(e)) }
   })
-  const handled = useRef<Draft | null>(null)
+  const handled = useRef<typeof request>(null)
   useEffect(() => { if (request && handled.current !== request) { handled.current = request; void handleRequest(request) } }, [request])
   function template(layout: Template) {
     if (!project) return
@@ -177,7 +191,8 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
     const slides = [...project.slides]
     const [moved] = slides.splice(from,1)
     slides.splice(to,0,moved)
-    chooseSlide(to)
+    const selectedId = project.slides[current].id
+    chooseSlide(slides.findIndex(slide => slide.id === selectedId))
     setProject({ ...project, slides })
   }
   function slideAction(action: 'add' | 'duplicate' | 'remove' | 'up' | 'down') {
@@ -262,7 +277,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
     finally { startingRef.current = false; setStarting(false) }
   }
   if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
-    <Express active={active} brand={brand} format={format} cancel={() => setEntry(undefined)} open={openCreated} />
+    <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format} cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} />
   </Suspense>
   if (!project && entry === 'collections') return <section className="studio-welcome">
     <div className="studio-entry"><h2>Biblioteca de templates</h2><button className="button button-outline" disabled={starting} onClick={() => setEntry(undefined)}>Voltar aos projetos</button></div>
@@ -272,7 +287,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
       <CollectionGallery format={format} setFormat={setFormat} use={style => void createFromCollection(style)} />
     </Suspense>
   </section>
-  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => setEntry('express')}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand, slides:[emptySlide(brand.background)] }) }}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
+  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => { setExpressDraft(undefined); setEntry('express') }}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand, slides:[emptySlide(brand.background)] }) }}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => { if (window.confirm('Excluir este projeto local?')) void removeProject(item.id).then(() => listProjects()).then(setLibrary, error => setError(String(error))) }}>Excluir {item.name}</button></article>)}</div></section>
@@ -344,9 +359,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
       save={(headlines, text) => {
         if (canvas.current?.getActiveObject() !== selectedTitle) return
         if (text !== undefined) {
-          selectedTitle.set({ text })
-          selectedTitle.initDimensions()
-          selectedTitle.setCoords()
+          replaceTextboxText(selectedTitle,text)
           canvas.current.requestRenderAll()
         }
         selectedTitle.set({ headlines })

@@ -25,7 +25,7 @@ export function Slides({ project, current, select, action, issues, reorder, open
   }, [current,open,project.slides.length])
   return <section className="studio-slides" aria-label="Slides">
     <header><strong>Frames</strong><button aria-expanded={open} onClick={toggle}>{open ? 'Recolher frames' : 'Mostrar frames'}</button></header>
-    {open && <><div className="slide-list" ref={list}>{project.slides.map((slide, index) => {
+    {open && <><div className="slide-list" ref={list} aria-label="Setas navegam. Alt e setas movem o frame ativo.">{project.slides.map((slide, index) => {
       const review = issues.get(slide.id)
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]
       const label = composition === undefined ? templates[slide.layout as keyof typeof templates] ?? 'Livre' : compositionNames[Number(composition)] ?? 'Livre'
@@ -55,11 +55,23 @@ export function Slides({ project, current, select, action, issues, reorder, open
           if (drag.current !== null) reorder(drag.current,index)
           drag.current = null
         }} onClick={() => select(index)} onKeyDown={event => {
-          if (!event.altKey || current !== index || !['ArrowLeft','ArrowRight'].includes(event.key)) return
-          const offset = event.key === 'ArrowLeft' ? -1 : 1
-          if (index + offset < 0 || index + offset >= project.slides.length) return
+          const arrows: Record<string,number> = { ArrowLeft:-1, ArrowRight:1, ArrowUp:-1, ArrowDown:1 }
+          const direction = arrows[event.key]
+          if (!direction && !['Home','End'].includes(event.key)) return
+          const columns = list.current ? getComputedStyle(list.current).gridTemplateColumns.split(' ').length : 1
+          const vertical = ['ArrowUp','ArrowDown'].includes(event.key)
+          const destination = direction ? index + direction * (vertical ? columns : 1)
+            : event.key === 'Home' ? 0 : project.slides.length-1
+          if (event.altKey && (!direction || current !== index)) return
           event.preventDefault()
-          action(offset < 0 ? 'up' : 'down')
+          if (destination < 0 || destination >= project.slides.length) return
+          if (event.altKey) {
+            reorder(index,destination)
+            requestAnimationFrame(() => list.current?.querySelectorAll('button')[destination]?.focus())
+          } else {
+            select(destination)
+            list.current?.querySelectorAll('button')[destination]?.focus()
+          }
         }}>
         <Thumbnail scene={slide.scene} format={project.format} />
         <span className="slide-caption"><b>{String(index+1).padStart(2,'0')}</b> {label}</span>
@@ -82,6 +94,7 @@ function Thumbnail({ scene, format }: { scene: Scene; format: Format }) {
   const [url, setUrl] = useState('')
   const [seen, setSeen] = useState(false)
   const element = useRef<HTMLSpanElement>(null)
+  const rendered = useRef(false)
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) { setSeen(true); observer.disconnect() }
@@ -92,19 +105,21 @@ function Thumbnail({ scene, format }: { scene: Scene; format: Format }) {
   useEffect(() => {
     if (!seen) return
     const controller = new AbortController()
+    const delay = thumbnails.get(scene)?.has(format) || !rendered.current ? 0 : 650
     const timer = window.setTimeout(() => {
       const cache = thumbnails.get(scene) ?? new Map<Format,Blob>()
       const existing = cache.get(format)
-      if (existing) { setUrl(URL.createObjectURL(existing)); return }
+      if (existing) { rendered.current = true; setUrl(URL.createObjectURL(existing)); return }
       const [width, height] = dimensions[format]
       void renderScene(scene, width, height, { scale: .1, signal: controller.signal }).then(({ blob }) => {
         if (!controller.signal.aborted) {
+          rendered.current = true
           cache.set(format,blob)
           thumbnails.set(scene,cache)
           setUrl(URL.createObjectURL(blob))
         }
       }, () => undefined)
-    }, 650)
+    }, delay)
     return () => { controller.abort(); window.clearTimeout(timer) }
   }, [scene, format, seen])
   useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])

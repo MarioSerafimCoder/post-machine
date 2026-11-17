@@ -29,18 +29,18 @@ const maxImageBytes = 80_000_000
 const key = () => crypto.randomUUID()
 const entry = (data: CollectionSlide = { title:'', body:'' }): Entry => ({ ...data, key:key() })
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : String(cause)
-export function Express({ active, brand, format: initialFormat, cancel, open }: {
-  active: boolean; brand: Brand; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
+export function Express({ active, brand, campaign, format: initialFormat, cancel, open }: {
+  active: boolean; brand: Brand; campaign?: Draft; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
 }) {
   const [step, setStep] = useState<Step>('Conteúdo')
   const [text, setText] = useState('')
-  const [slides, setSlides] = useState<Entry[]>(() => [entry()])
+  const [slides, setSlides] = useState<Entry[]>(() => campaign?.content ? fromStructured(campaign.content).map(entry) : [entry()])
   const [campaigns, setCampaigns] = useState<Draft[]>()
-  const [linked, setLinked] = useState<Draft>()
-  const [name, setName] = useState('')
-  const [caption, setCaption] = useState<string>()
+  const [linked, setLinked] = useState(campaign)
+  const [name, setName] = useState(campaign?.content?.campaign.title.slice(0,100) ?? '')
+  const [caption, setCaption] = useState(campaign?.content?.campaign.caption)
   const [style, setStyle] = useState(collections[0])
-  const [format, setFormat] = useState(initialFormat)
+  const [format, setFormat] = useState(campaign?.content?.campaign.format === 'story' ? 'story' : initialFormat)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [photoId, setPhotoId] = useState('')
   const [origin, setOrigin] = useState<'local' | 'openverse' | 'library' | 'url'>('local')
