@@ -6,6 +6,8 @@
 - Gradiente linear é uma camada Fabric independente, com cor, intensidade, direção e intervalos ajustáveis. O destaque usa uma faixa de caracteres no próprio título e acompanha o PNG e o backup. A Produção Expressa continua avaliando seis papéis em três propostas da coleção selecionada.
 - Frames à direita em uma ou duas colunas, com rolagem própria, miniaturas sob demanda, reordenação por arraste ou teclado e indicadores da Auditoria. As propriedades ficam junto às ferramentas à esquerda.
 - Lint, TypeScript, build e dry-run do Wrangler aprovados, além de 97 testes Vitest e 74 cenários Playwright no Wrangler local. Quatro repetições ficaram de fora do perfil laptop. Foram conferidos quatro viewports desktop e 18 PNGs com amostras fotográficas claras e escuras, retrato e paisagem. As imagens das referências e as amostras de teste ficam fora do repositório.
+- O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44079969742) publicou `42318da` como versão `b0359e50-e31b-40a1-8a0b-efc75842c795` a 100% do tráfego. Cloudflare Access confirmado antes e depois da publicação. O conteúdo do Studio e a exportação foram verificados no build local.
+- O [CI do GitHub](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44079968579) aprovou `42318da`.
 ## Evolução 07 — Auditoria e Finalização
 
 - Miniaturas mostram erros, avisos e estado da análise. A localização abre a arte e as propriedades do elemento identificável. Correções seguras mantêm confirmação, reanálise e opção de desfazer.
