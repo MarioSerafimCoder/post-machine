@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Evolução 07 — Auditoria e Finalização
+
+- Revisão no Studio com contadores por slide, indicação de resultados desatualizados e acesso ao elemento com orientação para corrigir.
+- A ação Finalizar e exportar salva o projeto, reaproveita a última revisão válida e reúne PNG, ZIP, legenda e créditos.
+
 ## Evolução 06
 
 - Studio com canvas ajustável à janela, zoom manual persistido durante a edição e propriedades conforme a seleção.
