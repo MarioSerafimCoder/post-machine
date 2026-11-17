@@ -38,6 +38,7 @@ export function Express({ active, brand, format: initialFormat, cancel, open }: 
   const [campaigns, setCampaigns] = useState<Draft[]>()
   const [linked, setLinked] = useState<Draft>()
   const [name, setName] = useState('')
+  const [caption, setCaption] = useState<string>()
   const [style, setStyle] = useState(collections[0])
   const [format, setFormat] = useState(initialFormat)
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -89,6 +90,7 @@ export function Express({ active, brand, format: initialFormat, cancel, open }: 
       const result = parseExpress(text)
       organize(result.slides)
       setLinked(undefined)
+      setCaption(result.structured?.campaign.caption)
       if (result.structured) {
         setName(result.structured.campaign.title.slice(0,100))
         if (result.structured.campaign.format === 'story') setFormat('story')
@@ -99,7 +101,7 @@ export function Express({ active, brand, format: initialFormat, cancel, open }: 
   function loadCampaign(id: string) {
     const item = campaigns?.find(draft => draft.id === id)
     if (!item?.content) return
-    organize(fromStructured(item.content)); setLinked(item); setName(item.content.campaign.title.slice(0,100))
+    organize(fromStructured(item.content)); setLinked(item); setCaption(item.content.campaign.caption); setName(item.content.campaign.title.slice(0,100))
     if (item.content.campaign.format === 'story') setFormat('story')
     setError('')
   }
@@ -214,7 +216,7 @@ export function Express({ active, brand, format: initialFormat, cancel, open }: 
     try {
       await open({
         ...proposal.project, name:(name.trim() || slides[0]?.title.trim() || 'Produção Expressa').slice(0,100),
-        campaignId:linked?.id ?? null, campaignUpdatedAt:linked?.updatedAt ?? null,
+        caption, campaignId:linked?.id ?? null, campaignUpdatedAt:linked?.updatedAt ?? null,
       })
     } catch (cause) { setError(errorText(cause)) }
     finally { operation.current = false; if (live.current) setBusy(false) }

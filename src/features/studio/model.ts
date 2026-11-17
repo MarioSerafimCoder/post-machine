@@ -16,6 +16,6 @@ export function newProjectBrand(saved?: Brand): Brand {
     saved.primary === '#163f35' && saved.secondary === '#d8ed91' && saved.background === '#f7f5ec'
   return legacyDefault ? defaultBrand : saved
 }
-export type Project = { schemaVersion: 1; id: string; name: string; format: Format; slides: VisualSlide[]; brand: Brand; auditSettings?: AuditSettings; campaignId: string | null; campaignUpdatedAt: string | null; updatedAt: string }
+export type Project = { schemaVersion: 1; id: string; name: string; format: Format; slides: VisualSlide[]; brand: Brand; auditSettings?: AuditSettings; caption?: string; campaignId: string | null; campaignUpdatedAt: string | null; updatedAt: string }
 export function emptySlide(background = defaultBrand.background): VisualSlide { return { id: crypto.randomUUID(), scene: { objects: [], background }, layout: 'blank', role: 'content', imageBrief: '' } }
 export function newProject(format: Format = 'portrait'): Project { return { schemaVersion: 1, id: crypto.randomUUID(), name: 'Novo projeto', format, slides: [emptySlide()], brand: { ...defaultBrand }, campaignId: null, campaignUpdatedAt: null, updatedAt: new Date().toISOString() } }

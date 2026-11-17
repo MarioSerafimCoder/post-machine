@@ -49,7 +49,7 @@ export function compose(layout: Template, content: Semantic, brand: Brand, forma
 export function fromCampaign(draft: Draft, brand: Brand) {
   if (!draft.content) throw Error('Importe e revise o conteúdo antes de criar o design.')
   const project = newProject(draft.content.campaign.format === 'story' ? 'story' : 'portrait')
-  project.name = draft.content.campaign.title; project.brand = brand; project.campaignId = draft.id; project.campaignUpdatedAt = draft.updatedAt
+  project.name = draft.content.campaign.title; project.caption = draft.content.campaign.caption; project.brand = brand; project.campaignId = draft.id; project.campaignUpdatedAt = draft.updatedAt
   project.slides = draft.content.slides.map((s): VisualSlide => {
     const layout = s.role === 'cover' ? 'editorial' : s.role === 'cta' ? 'cta' : 'text'
     const scene = compose(layout, { title: s.title, body: s.body, cta: s.role === 'cta' ? draft.content!.campaign.cta : '' }, brand, project.format, s.role)
