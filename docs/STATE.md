@@ -1,5 +1,11 @@
 # Estado real — 17/11/2026
 
+## Evolução 07.1 — Coleções editoriais e frames
+
+- Impacto Fotográfico, Cartão Editorial e Narrativa Visual adicionam 18 composições editáveis em retrato, quadrado e story. As 48 composições anteriores e os layouts legados permanecem disponíveis.
+- Gradiente linear é uma camada Fabric independente, com cor, intensidade, direção e intervalos ajustáveis. O destaque usa uma faixa de caracteres no próprio título e acompanha o PNG e o backup. A Produção Expressa continua avaliando seis papéis em três propostas da coleção selecionada.
+- Frames à direita em uma ou duas colunas, com rolagem própria, miniaturas sob demanda, reordenação por arraste ou teclado e indicadores da Auditoria. As propriedades ficam junto às ferramentas à esquerda.
+- Lint, TypeScript, build e dry-run do Wrangler aprovados, além de 97 testes Vitest e 74 cenários Playwright no Wrangler local. Quatro repetições ficaram de fora do perfil laptop. Foram conferidos quatro viewports desktop e 18 PNGs com amostras fotográficas claras e escuras, retrato e paisagem. As imagens das referências e as amostras de teste ficam fora do repositório.
 ## Evolução 07 — Auditoria e Finalização
 
 - Miniaturas mostram erros, avisos e estado da análise. A localização abre a arte e as propriedades do elemento identificável. Correções seguras mantêm confirmação, reanálise e opção de desfazer.

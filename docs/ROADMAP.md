@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Evolução 07.1 — Coleções editoriais e frames
+
+- Impacto Fotográfico, Cartão Editorial e Narrativa Visual acrescentam 18 composições. A fabricação segue limitada a 18 candidatos por slide na coleção escolhida.
+- Frames verticais reúnem miniaturas reais, papel editorial e estado da Auditoria. O canvas recalcula o encaixe quando o painel é recolhido.
+
 ## Evolução 07 — Auditoria e Finalização
 
 - Revisão no Studio com contadores por slide, indicação de resultados desatualizados e acesso ao elemento com orientação para corrigir.
