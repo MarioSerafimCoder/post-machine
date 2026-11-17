@@ -57,7 +57,7 @@ test('preparação com texto, lote, associação e prévia persiste projeto edit
   await expect(page.getByLabel('Projeto',{exact:true})).toHaveValue('Projeto Expressa QA')
   await page.getByRole('navigation', {name:'Ferramentas do Studio'}).getByRole('button', {name:'Camadas'}).click()
   await expect(page.getByRole('button', {name:/· Uma capa$/})).toBeVisible()
-  await expect(page.getByRole('button', {name:/· image$/i})).toBeVisible()
+  await expect(page.getByRole('button', {name:/· imagem$/i})).toBeVisible()
   await page.getByRole('button', {name:/· Uma capa$/}).click()
   await page.getByLabel('Texto do elemento').fill('Capa refinada')
   await expect(page.getByRole('button', {name:/· Capa refinada$/})).toBeVisible()

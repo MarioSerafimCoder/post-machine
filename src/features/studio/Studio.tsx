@@ -17,7 +17,7 @@ import { templates, compose, semantics, fromCampaign, type Template } from './te
 import { BrandPanel } from './BrandPanel'
 import { Slides } from './Slides'
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
-import { Canvas, FabricImage, Textbox } from 'fabric'
+import { ActiveSelection, Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
 import { Properties } from './Properties'
 import { defaultBrand, emptySlide, dimensions, formatNames, newProject, newProjectBrand, type Format, type Project } from './model'
@@ -50,6 +50,7 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const [busy, setBusy] = useState(false)
   const [pendingExport, setPendingExport] = useState<Awaited<ReturnType<typeof exportProject>>>()
   const [auditOpen,setAuditOpen]=useState(false)
+  const [reviewedSlides, setReviewedSlides] = useState<Map<Project['slides'][number]['scene'], boolean>>(() => new Map())
   const [imagePanel, setImagePanel] = useState<{ tab: 'search' | 'library'; slideId: string; term: string; request: number }>()
   const [showCredits, setShowCredits] = useState(false)
   const [creditStatus, setCreditStatus] = useState('')
@@ -83,12 +84,13 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const [revision, setRevision] = useState(0)
   const currentRef = useRef(0)
   const [format, setFormat] = useState<Format>('portrait')
-  const [zoom, setZoom] = useState(.32)
+  const [manualZoom, setManualZoom] = useState<number>()
+  const [fitZoom, setFitZoom] = useState(.1)
+  const zoom = manualZoom ?? fitZoom
   const [guides, setGuides] = useState(true)
   const [panel, setPanel] = useState<string | null>('Texto')
   const [, refresh] = useState(0)
   const canvas = useRef<Canvas | null>(null)
-  const canvasStage = useRef<HTMLDivElement>(null)
   const [readyCanvas, setReadyCanvas] = useState<Canvas | null>(null)
   const snapshotCanvas = useCallback((record: boolean) => {
     if (!canvas.current) return
@@ -296,13 +298,12 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
       </div>
       <div className="studio-toolbar-row">
         <span className="muted">{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span>
-        <label className="studio-inline-field">Zoom<select aria-label="Zoom" value={zoom} onChange={event => setZoom(Number(event.target.value))}>
-          {[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1])].sort((a,b) => a - b).map(value => <option key={value} value={value}>{Math.round(value * 100)}%</option>)}
+        <label className="studio-inline-field">Zoom<select aria-label="Zoom" value={zoom} onChange={event => setManualZoom(Number(event.target.value))}>
+          {[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1, 1.25, 1.5, 2])].sort((a,b) => a - b).map(value => <option key={value} value={value}>{Math.round(value * 100)}%</option>)}
         </select></label>
-        <button onClick={() => {
-          const stage = canvasStage.current?.querySelector('.canvas-stage')
-          if (stage) setZoom(Math.max(.1, Math.min(1, (stage.clientWidth - 40) / 1080, (stage.clientHeight - 40) / dimensions[project.format][1])))
-        }}>Ajustar à tela</button>
+        <button aria-label="Reduzir zoom" disabled={zoom <= .1} onClick={() => setManualZoom(Math.max(.1, Math.round(zoom * 80) / 100))}>−</button>
+        <button aria-label="Ampliar zoom" disabled={zoom >= 2} onClick={() => setManualZoom(Math.min(2, Math.round(zoom * 125) / 100))}>+</button>
+        <button aria-pressed={manualZoom === undefined} onClick={() => setManualZoom(undefined)}>Ajustar à tela</button>
         <label className="studio-inline-field"><input type="checkbox" checked={guides} onChange={event => setGuides(event.target.checked)} />Área segura</label>
         <div className="studio-actions studio-output" role="group" aria-label="Revisão e exportação" aria-busy={busy}>
           <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Auditar design</button>
@@ -321,7 +322,6 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
     {panel === 'Imagens' && imagePanel?.slideId === project.slides[current].id && (imagePanel.tab === 'search'
       ? <ImageSearch key={imagePanel.request} initialTerm={imagePanel.term} insert={insertImage} />
       : <ImageLibrary key={imagePanel.request} flush={flush} insert={insertImage} />)}
-    {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
     {selectedTitle && headlineTarget === selectedTitle && <div className="studio-headlines"><HeadlinePanel title={selectedTitle.text} stored={selectedTitle.headlines}
       context={{ ...(campaign ? campaignHeadlineContext(campaign) : { sources: [] }), format: formatNames[project.format], selectedSlide: current + 1, slides: project.slides.map(slide => semantics(slide.scene)) }}
       measure={text => measureTitle(selectedTitle, text, dimensions[project.format])}
@@ -336,10 +336,16 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
         selectedTitle.set({ headlines })
         snapshotCanvas(text !== undefined)
       }} /></div>}
-    {auditOpen&&<AuditPanel project={project} currentSlide={current} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setPendingExport(undefined);setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
+    {auditOpen&&<AuditPanel project={project} currentSlide={current} onReport={(report, source, index) => setReviewedSlides(previous => {
+      const next = new Map(source.slides.flatMap((slide, i) => {
+        if (index === undefined || index === i) return [[slide.scene, report.findings.some(f => f.slideId === slide.id && f.severity !== 'info')] as const]
+        return previous.has(slide.scene) ? [[slide.scene, previous.get(slide.scene)!] as const] : []
+      }))
+      return next
+    })} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setPendingExport(undefined);setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
     {error && <p role="alert">{error}</p>}
     {!readyCanvas && !error && <p className="studio-loading" role="status">Carregando o slide…</p>}
-    <div className="studio-layout context-workspace" data-collapsed={!panel} ref={canvasStage}>
+    <div className="studio-layout context-workspace" data-collapsed={!panel} data-selection={!!selectedObject}>
       <ContextRail label="Ferramentas do Studio" tools={studioTools} selected={panel} choose={name => setPanel(panel === name ? null : name)} />
       <aside className="studio-tools" hidden={!panel}>{panel && <ContextHeader title={panel} close={() => setPanel(null)} />}
       {panel === 'Templates' && <><h3>Templates originais</h3>{Object.entries(templates).map(([key, name]) => <button key={key} onClick={() => template(key as Template)}>{name}</button>)}</>}
@@ -351,10 +357,22 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
         <button onClick={() => openImages('search', true)}>Buscar imagem para este slide</button>
         <button aria-pressed={imagePanel?.tab === 'library' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('library')}>Imagens utilizadas</button>
         {imagePanel && <button onClick={() => setImagePanel(undefined)}>Fechar painel de imagens</button>}
-      </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input type="file" accept="image/png,image/jpeg,image/webp" disabled={!readyCanvas} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
-      {panel === 'Camadas' && <><h3>Camadas</h3>{readyCanvas?.getObjects().map((o, i) => <button key={i} aria-pressed={selectedObject === o} onClick={() => { canvas.current?.setActiveObject(o); canvas.current?.requestRenderAll(); refresh(n => n + 1) }}>{i + 1} · {o instanceof Textbox ? o.text.slice(0, 32) || ({ title: 'Título', body: 'Corpo', cta: 'Chamada para ação', brand: 'Marca' }[o.semantic ?? ''] ?? 'Texto vazio') : o.type}</button>).reverse()}</>}
-    </aside><CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties brand={project.brand} canvas={readyCanvas} changed={changed} /></div>
-    <Slides project={project} current={current} select={chooseSlide} action={slideAction} />
+      </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input id="studio-image-upload" type="file" accept="image/png,image/jpeg,image/webp" disabled={!readyCanvas} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
+      {panel === 'Camadas' && readyCanvas?.getObjects().map((o, i) => {
+        const label = o instanceof Textbox ? o.text.slice(0, 32) || 'Texto vazio' : o.label || ({ image:'Imagem', rect:'Retângulo', circle:'Círculo', line:'Linha', group:'Grupo' }[o.type.toLowerCase()] ?? 'Elemento')
+        return <button key={i} aria-pressed={readyCanvas.getActiveObjects().includes(o)} onClick={event => {
+          const selection = readyCanvas.getActiveObjects()
+          readyCanvas.discardActiveObject()
+          const next = event.shiftKey ? selection.includes(o) ? selection.filter(item => item !== o) : [...selection,o] : [o]
+          if (next.length > 1) readyCanvas.setActiveObject(new ActiveSelection(next,{ canvas:readyCanvas }))
+          else if (next[0]) readyCanvas.setActiveObject(next[0])
+          readyCanvas.requestRenderAll(); refresh(n => n + 1)
+        }}>{i + 1} · {label}{!o.visible && ' (oculta)'}</button>
+      }).reverse()}
+    </aside><CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} /><Properties brand={project.brand} canvas={readyCanvas} changed={changed} replaceImage={() => { setPanel('Imagens'); requestAnimationFrame(() => document.getElementById('studio-image-upload')?.focus()) }}>
+    {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
+    </Properties></div>
+    <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} />
     {project.campaignId && <p>Design vinculado à campanha. Alterações editoriais posteriores não substituem este design: gere uma nova versão pela campanha.</p>}
     <p className="muted">Ctrl+Z desfaz · Ctrl+Shift+Z refaz · Ctrl+D duplica · Delete exclui · Salvamento local automático. Faça backups: limpar dados do navegador remove projetos.</p>
   </section>

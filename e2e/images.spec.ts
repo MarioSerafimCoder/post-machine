@@ -32,6 +32,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
   await page.getByRole('button', { name: /^2 ·/ }).click()
   await page.getByLabel('Texto do elemento').fill('Fachadas e pátios')
+  await page.getByText('Propriedades avançadas', { exact: true }).click()
   await page.getByLabel('Largura', { exact: true }).fill('700')
   await page.getByLabel('X', { exact: true }).fill('20')
   const bytes = Buffer.from(await page.evaluate(() => {
@@ -63,6 +64,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await detail.getByRole('button', { name: 'Inserir no Studio' }).click()
   await expect(detail).toContainText('Imagem inserida')
   const x = page.getByLabel('X', { exact: true })
+  if (!await x.isVisible()) await page.getByText('Propriedades avançadas', { exact: true }).click()
   await x.fill('160')
   await page.getByRole('button', { name: 'Próxima página' }).click()
   await page.getByRole('button', { name: 'Ver detalhes' }).click()

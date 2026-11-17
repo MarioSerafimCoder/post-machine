@@ -6,8 +6,8 @@ import { defaultSettings, type AuditReport, type Category, type Finding, type Se
 import { prepareSafeMove } from './fix'
 import './audit.css'
 
-type Props = { view?: 'diagnosis' | 'corrections' | 'results'; project: Project; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => void | Promise<void>; onUndo?: () => void | Promise<void> }
-export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo,view='diagnosis'}: Props) {
+type Props = { view?: 'diagnosis' | 'corrections' | 'results'; project: Project; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => void | Promise<void>; onReport?: (report: AuditReport, project: Project, index?: number) => void; onUndo?: () => void | Promise<void> }
+export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo,onReport,view='diagnosis'}: Props) {
   const [report,setReport] = useState<AuditReport>()
   const [source,setSource] = useState<Project>()
   const [busy,setBusy] = useState(false)
@@ -38,6 +38,7 @@ export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo,view='d
     try {
       const result=await auditProject({project:value,slideIndex:index,signal:abort.signal,progress:(done,total)=>{if(!abort.signal.aborted)setProgress(`${done} de ${total} slides`)}})
       if(abort.signal.aborted)return
+      onReport?.(result,value,index)
       setReport({...result,corrections});setSource(value);setReviewed(new Set());setProgress('')
     } catch (cause) {if(!abort.signal.aborted){setProgress('');setError(cause instanceof Error?cause.message:String(cause))}}
     finally {if(controller.current===abort){controller.current=null;setBusy(false)}}

@@ -36,6 +36,7 @@ test('compara, aplica, preserva a arte e reabre headlines', async ({ page }) => 
   await layer.click()
   const text = page.getByLabel('Texto do elemento')
   const size = page.getByLabel('Tamanho da fonte')
+  await page.getByText('Propriedades avançadas', { exact: true }).click()
   const position = page.getByLabel('X', { exact: true })
   const originalSize = await size.inputValue()
   const originalPosition = await position.inputValue()

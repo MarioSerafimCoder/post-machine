@@ -20,3 +20,10 @@ export function cropImage(image: FabricImage, ratio: number) {
   image.set({ cropX: (original.width - w) / 2, cropY: (original.height - h) / 2, width: w, height: h, scaleX: displayed / w, scaleY: displayed / w })
   image.setCoords()
 }
+
+export function restoreFraming(image: FabricImage) {
+  const { width, height } = image.getOriginalSize()
+  const scale = Math.min(image.width * image.scaleX / width, image.height * image.scaleY / height)
+  image.set({ cropX: 0, cropY: 0, width, height, scaleX: scale, scaleY: scale })
+  image.setCoords()
+}

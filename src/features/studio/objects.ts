@@ -7,7 +7,8 @@ declare module 'fabric' {
   interface FabricObject { semantic?: string; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession; imageCredit?: ImageCredit }
   interface SerializedObjectProps { semantic?: string; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession; imageCredit?: ImageCredit }
 }
-FabricObject.customProperties = ['semantic', 'assetId', 'maxHeight', 'label', 'headlines', 'imageCredit']
+FabricObject.customProperties = ['semantic', 'assetId', 'maxHeight', 'label', 'headlines', 'imageCredit',
+  'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation']
 export const sceneOf = (canvas: Canvas): Scene => canvas.toObject() as Scene
 export function addObject(canvas: Canvas, type: 'title' | 'text' | 'rect' | 'circle' | 'line', color = '#111111') {
   const common = { left: 100, top: 120, originX: 'left' as const, originY: 'top' as const, fill: color }
@@ -22,9 +23,17 @@ export async function duplicate(canvas: Canvas) {
   copy.set({ left: source.left + 24, top: source.top + 24 }); canvas.add(copy); canvas.setActiveObject(copy); canvas.requestRenderAll()
 }
 export function groupSelection(canvas: Canvas) {
-  const selected = canvas.getActiveObjects()
-  if (selected.length > 1) { canvas.discardActiveObject(); canvas.remove(...selected); const group = new Group(selected); canvas.add(group); canvas.setActiveObject(group) }
-  else if (selected[0] instanceof Group && !(selected[0] instanceof ActiveSelection)) { const group = selected[0]; const children = group.removeAll(); canvas.remove(group); canvas.add(...children); canvas.setActiveObject(new ActiveSelection(children, { canvas })) }
+  const stack = canvas.getObjects()
+  const selected = stack.filter(object => canvas.getActiveObjects().includes(object))
+  if (selected.length > 1) {
+    const index = stack.indexOf(selected[0])
+    canvas.discardActiveObject()
+    canvas.remove(...selected)
+    const group = new Group(selected)
+    canvas.insertAt(index,group)
+    canvas.setActiveObject(group)
+  }
+  else if (selected[0] instanceof Group && !(selected[0] instanceof ActiveSelection)) { const group = selected[0]; const index = stack.indexOf(group); const children = group.removeAll(); canvas.remove(group); canvas.insertAt(index,...children); canvas.setActiveObject(new ActiveSelection(children, { canvas })) }
   canvas.requestRenderAll()
 }
 export function align(canvas: Canvas, direction: 'left' | 'center' | 'top' | 'distribute') {
@@ -34,5 +43,8 @@ export function align(canvas: Canvas, direction: 'left' | 'center' | 'top' | 'di
     const first = sorted[0].left; const step = (sorted.at(-1)!.left - first) / (sorted.length - 1)
     sorted.forEach((o, i) => o.set({ left: first + i * step }))
   } else selected.forEach(o => { if (direction === 'left') o.set({ left: 80 }); if (direction === 'top') o.set({ top: 80 }); if (direction === 'center') o.set({ left: (1080 - o.getScaledWidth()) / 2 }) })
-  selected.forEach(o => o.setCoords()); canvas.requestRenderAll()
+  selected.forEach(o => o.setCoords())
+  if (selected.length > 1) canvas.setActiveObject(new ActiveSelection(selected,{ canvas }))
+  else if (selected[0]) canvas.setActiveObject(selected[0])
+  canvas.requestRenderAll()
 }
