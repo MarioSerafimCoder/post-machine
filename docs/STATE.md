@@ -7,6 +7,8 @@
 - Camadas acompanham a seleção no canvas. Shift + clique permite alinhar e agrupar vários elementos. Bloqueio e visibilidade gravam no projeto local. Slides têm miniaturas e avisos da última auditoria válida, e podem ser reordenados com os botões ou Alt + setas no slide ativo.
 - Inspeção visual em 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080, com encaixe da arte e sem rolagem horizontal da página. Em 1024 px o painel de propriedades tem rolagem própria. Passaram lint, TypeScript, build, dry-run do Wrangler e 95 testes Vitest.
 - Playwright no Wrangler local aprovou 72 cenários, com duas repetições omitidas no perfil laptop. Os testes cobriram edição de projeto fabricado, créditos na substituição de imagens, histórico, reabertura, auditoria, backup e exportação PNG/ZIP.
+- O [workflow de publicação](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44073911218) publicou `f931fa3` como versão `baef9bad-4bca-49d0-b09a-c3f19dee0527` a 100% do tráfego. O Cloudflare Access respondeu antes e depois do deploy. A rota do Studio abriu na sessão autenticada. A interação com o editor e o salvamento foram verificados no build local.
+- O [CI do GitHub](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44073910413) também aprovou `f931fa3`.
 
 ## Evolução 05 — Fabricação na Produção Expressa
 
