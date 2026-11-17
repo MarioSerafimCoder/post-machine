@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Evolução 08 — Integração e estabilidade
+
+- Pautas importadas podem abrir diretamente na Produção Expressa. A edição preserva os destaques dos caracteres que permaneceram no título.
+- Frames podem ser navegados e reordenados por teclado. A publicação exige CI aprovado para o mesmo commit e mantém o Cloudflare Access.
+
 ## Evolução 07.1 — Coleções editoriais e frames
 
 - Impacto Fotográfico, Cartão Editorial e Narrativa Visual acrescentam 18 composições. A fabricação segue limitada a 18 candidatos por slide na coleção escolhida.

@@ -1,5 +1,11 @@
 # Estado real — 17/11/2026
 
+## Evolução 08 — Integração e estabilidade
+
+- Base `11076f2`: 97 testes Vitest e 74 cenários Playwright aprovados. A revisão reproduziu a remoção de destaques ao editar pelo painel lateral, a redução de quebras no texto simples, cortes altos em retratos inseridos em janelas largas e cinco avisos de encaixe em páginas quadradas densas sem fotografia. A edição agora usa os índices de grafemas do Fabric e mantém os estilos dos trechos preservados. A importação preserva as quebras internas e as composições quadradas densas dão prioridade ao texto.
+- O fluxo integrado passou de uma oportunidade real do Radar até briefing, prompt, importação de uma resposta de teste, três propostas, edição, histórico, Auditoria, ZIP e restauração. O ChatGPT faz parte do fluxo editorial externo e não foi automatizado no teste. Frames aceitam setas, Home, End e Alt + setas. A primeira miniatura deixa de aguardar o debounce reservado às atualizações.
+- Matriz local com 198 PNGs de prévia, 66 composições em três formatos, incluindo duas marcas, CTA, imagens claras e escuras e composição sem imagem. A amostra densa coube após o ajuste. Doze pares de prévia e PNG em resolução original foram comparados em 60 pontos fora do texto, com diferença máxima de 1 nível por canal. Textos extremos continuam editáveis e podem exigir ajuste manual, com aviso de encaixe.
+- ESLint, TypeScript, build e dry-run do Wrangler aprovados. Vitest aprovou 104 testes e Playwright no Wrangler local aprovou 75 cenários, com cinco repetições omitidas no perfil laptop. A cobertura inclui os quatro viewports desktop, arquivos de exportação, créditos, fontes locais, IndexedDB e recuperação de backup.
 ## Evolução 07.1 — Coleções editoriais e frames
 
 - Impacto Fotográfico, Cartão Editorial e Narrativa Visual adicionam 18 composições editáveis em retrato, quadrado e story. As 48 composições anteriores e os layouts legados permanecem disponíveis.
