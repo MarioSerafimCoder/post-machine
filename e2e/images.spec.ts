@@ -18,7 +18,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await page.getByRole('button', { name: 'Gerar prompt para IA', exact: true }).click()
   await expect(page.getByLabel('Prompt editorial')).toHaveValue(/Separe fatos verificáveis/)
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
-    schemaVersion: 1, campaign: { title: 'Acervo de teste', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'carousel', caption: '', cta: '' },
+    schemaVersion: 1, campaign: { title: 'Acervo de teste', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'carousel', caption: 'Legenda original da campanha.', cta: '' },
     slides: [{ order: 1, role: 'cover', title: 'Pátios urbanos', body: 'A luz organiza o espaço.', imageBrief: '', layoutType: 'editorial' },
       { order: 2, role: 'cta', title: 'Leia mais', body: '', imageBrief: '', layoutType: 'editorial' }], sources: [],
   }))
@@ -75,8 +75,9 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await detail.getByLabel('Importar arquivo com estes créditos').setInputFiles({ name: 'fixture.png', mimeType: 'image/png', buffer: bytes })
   await expect(detail).toContainText('Imagem inserida')
   await expect(x).toHaveValue('160')
-  await page.getByText('Mais ações', { exact: true }).click()
-  await page.getByRole('button', { name: 'Gerar créditos do projeto' }).click()
+  await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
+  await expect(page.getByRole('textbox', {name:'Legenda', exact:true})).toHaveValue('Legenda original da campanha.')
+  await page.getByText('Créditos das imagens', { exact: true }).click()
   await expect(page.getByLabel('Texto de atribuição')).toHaveValue(/Autor B/)
   await expect(page.getByLabel('Texto de atribuição')).not.toHaveValue(/Autor A/)
   await page.getByRole('button', { name: 'Auditar design', exact: true }).click()
@@ -104,6 +105,8 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await page.getByRole('button', { name: 'Projetos', exact: true }).click()
   await page.getByLabel('Restaurar projeto ZIP').setInputFiles({ name: 'arquivo.zip', mimeType: 'application/zip', buffer: backup })
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue(/restaurado/)
+  await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
+  await page.getByText('Créditos das imagens', { exact: true }).click()
   await expect(page.getByLabel('Texto de atribuição')).toHaveValue(/Slides: 1, 2[\s\S]+Autor B/)
   await page.getByRole('button', { name: 'Imagens utilizadas' }).click()
   await expect(page.getByRole('region', { name: 'Imagens utilizadas' })).toContainText('Pátio da fixture')

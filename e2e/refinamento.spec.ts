@@ -64,6 +64,7 @@ for (const [format, height] of [['square', 1080], ['story', 1920]] as const) {
         callback(null)
       }
     })
+    await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
     await studioButton(page, 'Exportar PNG').click()
     await expect(page.getByRole('alert')).toContainText('Não foi possível exportar a imagem.')
     const download = page.waitForEvent('download')

@@ -50,6 +50,7 @@ test('limpeza preserva imagens compartilhadas, marca e checkpoints', async ({ pa
   await page.getByRole('button', { name: 'Abrir Projeto B' }).click()
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Projeto B')
   const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
   await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click()
   expect((await download).suggestedFilename()).toBe('Projeto-B-01.png')
   await page.getByText('Mais ações', { exact: true }).click()

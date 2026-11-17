@@ -76,3 +76,27 @@
 .slide-thumbnail { height: 53px; }
 .slide-issue { position: absolute; inset: 5px 5px auto auto; min-width: 17px; border-radius: 20px; text-align: center; background: #fff1e9; color: #862800; font-weight: 700; }
 .canvas-stage { padding: 16px; min-width: 0; min-height: 0; }
+
+.studio .export-primary { color: #fff; background: #111; border-color: #111; }
+.studio .export-primary:hover { color: #fff; background: #333; }
+.studio-export { display: grid; gap: 10px; margin: 10px 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.studio-export header, .studio-export-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.studio-export header h3 { font-size: 15px; font-weight: 700; }
+.studio-export-copy { grid-template-columns: 1fr 1fr; }
+.studio-export-copy > * { min-width: 0; }
+.studio-export-copy textarea { min-height: 64px; resize: vertical; }
+.studio-export-copy label + button, .studio-export-copy label + .studio-actions { margin-top: 5px; }
+.studio-export summary { cursor: pointer; font-weight: 600; padding: 5px 0; }
+.studio .studio-export-check { display: flex; align-items: center; gap: 6px; }
+.studio-export .export-warnings { margin: 0; padding: 10px 12px; border-radius: 7px; }
+.studio-export .export-warnings h4 { font-weight: 700; }
+.studio-export .export-warnings ul { margin: 5px 0; max-height: 160px; overflow: auto; }
+
+.studio-export-review { padding: 7px 10px; background: #f5f6f5; border-radius: 6px; }
+.studio-export-review ul { max-height: 130px; overflow: auto; }
+.studio-guidance { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: #fff1d8; }
+.slide-issue { padding: 0 4px; }
+.slide-issue[data-level="error"] { color: #a40018; background: #ffe4e9; }
+.slide-issue[data-level="stale"] { color: #383838; background: #eee; }
+.slide-issue[data-level="clear"] { color: #21583f; background: #e4f2eb; }
+.slide-issue[data-level="unknown"] { color: #414141; background: #efefef; }

@@ -90,6 +90,7 @@ test('cria pauta com origem criativa e abre o resultado no Studio', async ({ pag
   await page.getByRole('button', { name: 'Criar design no Studio' }).click()
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Design da referência')
   const exportEvent = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
   await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click()
   const warning = page.getByRole('button', { name: 'Exportar com avisos' })
   const result = await Promise.race([exportEvent, warning.waitFor().then(async () => { await warning.click(); return exportEvent })])

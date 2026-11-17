@@ -80,6 +80,7 @@ test('preparação com texto, lote, associação e prévia persiste projeto edit
     if (await Promise.race([pending.then(() => false),warning.waitFor({state:'visible'}).then(() => true)])) await warning.click()
     return readFile(await (await pending).path())
   }
+  await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
   const png = await download('Exportar PNG')
   expect([png.readUInt32BE(16),png.readUInt32BE(20)]).toEqual([1080,1350])
   const zip = await JSZip.loadAsync(await download('Exportar ZIP'))

@@ -120,6 +120,7 @@ test('recupera imagens e histórico, restaura backup e exporta PNG e ZIP nas dim
   await expect(page.getByRole('button', { name: /2 · imagem/i })).toBeVisible()
   await page.getByLabel('Zoom', { exact: true }).selectOption('0.2')
   const pngEvent = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
   await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click()
   const exported = await readFile(await (await pngEvent).path())
   expect([exported.readUInt32BE(16), exported.readUInt32BE(20)]).toEqual([1080,1350])
@@ -168,6 +169,7 @@ test('avisa overflow e mantém o editor usável em 1024, 1280 e 1440', async ({ 
     await page.screenshot({ path: `test-results/studio-${width}.png`, fullPage: true })
   }
   await page.getByLabel('Texto do elemento').fill('Texto longo que precisa de revisão. '.repeat(50))
+  await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
   await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('Texto excede a área')
   await page.getByRole('button', { name: 'Voltar para corrigir' }).click()

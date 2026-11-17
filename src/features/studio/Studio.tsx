@@ -1,7 +1,6 @@
 import { ContextHeader, ContextRail, type ContextTool } from '../../components/ContextRail'
 import { ImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
-import { projectCredits } from '../images/credits'
 import type { ImageCredit } from '../images/contract'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
@@ -11,11 +10,12 @@ import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStar
 import { loadFonts } from './fonts'
 import { useDocument } from './useDocument'
 import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject, saveProject } from './storage'
-import { download, exportProject } from './export'
+import { download } from './export'
+import { ExportPanel } from './ExportPanel'
 import type { Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
-import { Slides } from './Slides'
+import { Slides, type SlideReview } from './Slides'
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { ActiveSelection, Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
@@ -26,7 +26,8 @@ import { cropImage, readImage } from './images'
 import './studio.css'
 import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
-import type { Finding } from '../audit/contract'
+import type { AuditReport, Finding } from '../audit/contract'
+import { sameReviewSettings, sameReviewVersion, type Review } from '../audit/review'
 import { resolvePage } from '../../lib/navigation'
 import { applyCollectionBrand, buildCollectionProject, demoSlides, type Collection } from './collections'
 import './collections.css'
@@ -47,14 +48,14 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   const [entry, setEntry] = useState<'express' | 'collections'>()
   const [starting, setStarting] = useState(false)
   const startingRef = useRef(false)
-  const [busy, setBusy] = useState(false)
-  const [pendingExport, setPendingExport] = useState<Awaited<ReturnType<typeof exportProject>>>()
+  const [exportProjectId, setExportProjectId] = useState<string>()
+  const exportToggle = useRef<HTMLButtonElement>(null)
+  const exportOpen = !!project && project.id === exportProjectId
   const [auditOpen,setAuditOpen]=useState(false)
-  const [reviewedSlides, setReviewedSlides] = useState<Map<Project['slides'][number]['scene'], boolean>>(() => new Map())
+  const [reviewedSlides, setReviewedSlides] = useState<Map<string, SlideReview>>(() => new Map())
+  const [fullReview, setFullReview] = useState<Review>()
+  const [guidance, setGuidance] = useState<{ finding: Finding; project: Project }>()
   const [imagePanel, setImagePanel] = useState<{ tab: 'search' | 'library'; slideId: string; term: string; request: number }>()
-  const [showCredits, setShowCredits] = useState(false)
-  const [creditStatus, setCreditStatus] = useState('')
-  const credits = project ? projectCredits(project) : ''
   const focusPath=useRef<string|null>(null)
   useEffect(() => { void listProjects().then(setLibrary, () => setError('Não foi possível carregar os projetos.')); void readBrand().then(value => { if (value) setBrand(newProjectBrand(value)) }, () => undefined) }, [])
   async function back() {
@@ -62,23 +63,10 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
       await flush()
       setLibrary(await listProjects())
       await flush()
-      setPendingExport(undefined)
+      setExportProjectId(undefined)
       setError('')
       setProject(undefined)
     } catch { setError('Falha ao salvar. Faça um backup antes de sair ou tente salvar novamente.') }
-  }
-  async function exportDesign(all: boolean) {
-    if (!project) return
-    setBusy(true); setError(''); setPendingExport(undefined)
-    try {
-      const result = await exportProject(project, all ? undefined : current)
-      const latest = getCurrent()
-      if (latest?.id !== project.id) return
-      if (latest !== project) { setError('O projeto mudou durante a exportação. Exporte novamente para incluir as últimas edições.'); return }
-      if (result.warnings.length) { setPendingExport(result); setAuditOpen(true) }
-      else download(result.blob, result.name)
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível exportar o design. Tente novamente.') }
-    finally { setBusy(false) }
   }
   const [current, setCurrent] = useState(0)
   const [revision, setRevision] = useState(0)
@@ -139,7 +127,37 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   function replace(value: Project, fromStorage = false) { setProject(value, !fromStorage, fromStorage); setRevision(n => n + 1) }
   function chooseSlide(index: number) { currentRef.current = index; setCurrent(index) }
   function selectPath(path:string|null){if(!path||!canvas.current)return;const object=canvas.current.getObjects()[Number(path.split('.')[0])];if(object){canvas.current.setActiveObject(object);canvas.current.requestRenderAll();refresh(n=>n+1)}}
-  function focusFinding(finding:Finding){const index=project?.slides.findIndex(slide=>slide.id===finding.slideId)??-1;if(index<0)return;setAuditOpen(true);focusPath.current=finding.objectId;chooseSlide(index);if(index===current){selectPath(finding.objectId);focusPath.current=null}document.querySelector('.canvas-stage')?.scrollIntoView({block:'center',behavior:'smooth'})}
+  function focusFinding(finding: Finding) {
+    if (!project) return
+    const index = project.slides.findIndex(slide => slide.id === finding.slideId)
+    if (index < 0) return
+    setGuidance({ finding, project })
+    setAuditOpen(true)
+    focusPath.current = finding.objectId
+    chooseSlide(index)
+    if (index === current) {
+      selectPath(finding.objectId)
+      focusPath.current = null
+    }
+    requestAnimationFrame(() => {
+      const stage = document.querySelector<HTMLElement>('.canvas-stage')
+      stage?.focus({ preventScroll: true })
+      stage?.scrollIntoView({ block:'center' })
+    })
+  }
+  function receiveReview(report: AuditReport, source: Project, index?: number) {
+    if (index === undefined) setFullReview({ project: source, report })
+    setReviewedSlides(previous => new Map(source.slides.flatMap((slide, i) => {
+      if (index !== undefined && index !== i) {
+        const existing = previous.get(slide.id)
+        return existing && sameReviewSettings(existing.project,source) ? [[slide.id,existing] as const] : []
+      }
+      const findings = report.findings.filter(finding => finding.slideId === slide.id)
+      return [[slide.id, { project:source, scene:slide.scene,
+        errors:findings.filter(f => f.severity === 'error').length,
+        warnings:findings.filter(f => f.severity === 'warning').length }] as const]
+    })))
+  }
   const receiveAuditFocus=useEffectEvent(async(raw:string)=>{try{const target=JSON.parse(raw) as {projectId:string;slideId:string;objectId:string|null};await flush();const value=await loadProject(target.projectId);const index=value.slides.findIndex(slide=>slide.id===target.slideId);focusPath.current=target.objectId;chooseSlide(Math.max(0,index));replace(value, true);setAuditOpen(true)}catch(cause){setError(String(cause))}})
   useEffect(()=>{const receive=()=>{if(window.location.hash!=='#/studio')return;const raw=sessionStorage.getItem('post-machine:audit-focus')??sessionStorage.getItem('direto:audit-focus');if(!raw)return;sessionStorage.removeItem('post-machine:audit-focus');sessionStorage.removeItem('direto:audit-focus');queueMicrotask(()=>void receiveAuditFocus(raw))};receive();window.addEventListener('hashchange',receive);return()=>window.removeEventListener('hashchange',receive)},[])
   async function openProject(id: string) { try { await flush(); const value = await loadProject(id); chooseSlide(0); replace(value, true); setError('') } catch (e) { setError(String(e)) } }
@@ -213,19 +231,12 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
   async function upload(file?: File) {
     if (file) try { await insertImage(file) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Falha ao abrir imagem.') }
   }
-  function exportCredits(value = credits) {
-    if (value) download(new Blob([value], { type: 'text/plain;charset=utf-8' }), 'creditos.txt')
-  }
-  async function copyCredits() {
-    try { await navigator.clipboard.writeText(credits); setCreditStatus('Créditos copiados.') }
-    catch { setCreditStatus('Não foi possível copiar. Selecione o texto dos créditos.') }
-  }
   async function openCreated(value: Project) {
     await flush()
     await saveProject(value)
     chooseSlide(0)
     setAuditOpen(false)
-    setPendingExport(undefined)
+    setExportProjectId(undefined)
     replace(value, true)
     setEntry(undefined)
     setError('')
@@ -282,7 +293,6 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
             menu.open = false
             menu.querySelector('summary')?.focus()
           }}>
-            <button onClick={() => setShowCredits(value => !value)}>Gerar créditos do projeto</button>
             <button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), () => setError('Não foi possível gerar o backup deste projeto.'))}>Backup completo</button>
             <button onClick={() => {
               if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) {
@@ -305,20 +315,17 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
         <button aria-label="Ampliar zoom" disabled={zoom >= 2} onClick={() => setManualZoom(Math.min(2, Math.round(zoom * 125) / 100))}>+</button>
         <button aria-pressed={manualZoom === undefined} onClick={() => setManualZoom(undefined)}>Ajustar à tela</button>
         <label className="studio-inline-field"><input type="checkbox" checked={guides} onChange={event => setGuides(event.target.checked)} />Área segura</label>
-        <div className="studio-actions studio-output" role="group" aria-label="Revisão e exportação" aria-busy={busy}>
+        <div className="studio-actions studio-output" role="group" aria-label="Revisão e exportação">
           <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Auditar design</button>
-          <button disabled={busy} onClick={() => void exportDesign(false)}>Exportar PNG</button>
-          <button disabled={busy} onClick={() => void exportDesign(true)}>Exportar ZIP</button>
+          <button ref={exportToggle} className="export-primary" aria-expanded={exportOpen} aria-controls={exportOpen ? 'studio-export' : undefined}
+            onClick={() => setExportProjectId(exportOpen ? undefined : project.id)}>Finalizar e exportar</button>
         </div>
       </div>
     </header>
-    {pendingExport?.source.id === project.id && <div className="export-warnings" role="alert"><h3>Revise antes de exportar</h3><ul>{pendingExport.findings.filter(f=>f.severity!=='info').map(f => <li key={f.id}><button onClick={()=>focusFinding(f)}>Slide {f.slideNumber}: {f.message} — localizar</button></li>)}</ul>{pendingExport.credits && <button onClick={() => exportCredits(pendingExport.credits)}>Exportar créditos desta arte</button>}<button disabled={pendingExport.source!==project} onClick={() => { download(pendingExport.blob, pendingExport.name); setPendingExport(undefined) }}>Exportar com avisos</button><button onClick={() => setPendingExport(undefined)}>Voltar para corrigir</button>{pendingExport.source!==project&&<p>O projeto mudou. Exporte novamente para revisar a versão atual.</p>}</div>}
-    {showCredits && <section className="image-workspace" aria-label="Créditos do projeto">
-      <h3>Créditos do projeto</h3>
-      {credits ? <><label>Texto de atribuição<textarea readOnly rows={8} value={credits} /></label>
-        <div className="image-actions"><button onClick={() => void copyCredits()}>Copiar créditos</button><button onClick={() => exportCredits()}>Exportar créditos</button></div>
-        {creditStatus && <p role="status">{creditStatus}</p>}</> : <p>Este projeto ainda não tem imagens com créditos registrados.</p>}
-    </section>}
+    {exportOpen && <ExportPanel key={project.id} project={project} current={current} active={active} getCurrent={getCurrent} flush={flush} review={fullReview} onReport={receiveReview}
+      caption={project.caption ?? campaign?.content?.campaign.caption ?? ''}
+      changeCaption={caption => setProject(value => value && { ...value, caption, updatedAt: new Date().toISOString() })}
+      locate={focusFinding} close={() => { setExportProjectId(undefined); exportToggle.current?.focus({ preventScroll:true }) }} />}
     {panel === 'Imagens' && imagePanel?.slideId === project.slides[current].id && (imagePanel.tab === 'search'
       ? <ImageSearch key={imagePanel.request} initialTerm={imagePanel.term} insert={insertImage} />
       : <ImageLibrary key={imagePanel.request} flush={flush} insert={insertImage} />)}
@@ -336,15 +343,13 @@ export function Studio({ request, active, onStartCampaign }: { request: Draft | 
         selectedTitle.set({ headlines })
         snapshotCanvas(text !== undefined)
       }} /></div>}
-    {auditOpen&&<AuditPanel project={project} currentSlide={current} onReport={(report, source, index) => setReviewedSlides(previous => {
-      const next = new Map(source.slides.flatMap((slide, i) => {
-        if (index === undefined || index === i) return [[slide.scene, report.findings.some(f => f.slideId === slide.id && f.severity !== 'info')] as const]
-        return previous.has(slide.scene) ? [[slide.scene, previous.get(slide.scene)!] as const] : []
-      }))
-      return next
-    })} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setPendingExport(undefined);setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
+    {auditOpen&&<AuditPanel project={project} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
     {error && <p role="alert">{error}</p>}
     {!readyCanvas && !error && <p className="studio-loading" role="status">Carregando o slide…</p>}
+    {guidance && sameReviewVersion(guidance.project,project) && guidance.finding.slideId === project.slides[current].id && <div className="studio-guidance" role="status">
+      <p><strong>{guidance.finding.message}.</strong> {guidance.finding.suggestion}</p>
+      <button onClick={() => setGuidance(undefined)}>Dispensar orientação</button>
+    </div>}
     <div className="studio-layout context-workspace" data-collapsed={!panel} data-selection={!!selectedObject}>
       <ContextRail label="Ferramentas do Studio" tools={studioTools} selected={panel} choose={name => setPanel(panel === name ? null : name)} />
       <aside className="studio-tools" hidden={!panel}>{panel && <ContextHeader title={panel} close={() => setPanel(null)} />}

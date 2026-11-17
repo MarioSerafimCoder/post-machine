@@ -4,6 +4,7 @@ import { download } from '../studio/export'
 import { auditProject } from './engine'
 import { defaultSettings, type AuditReport, type Category, type Finding, type Severity } from './contract'
 import { prepareSafeMove } from './fix'
+import { sameReviewVersion } from './review'
 import './audit.css'
 
 const categories: Record<Category,string> = {
@@ -32,8 +33,7 @@ export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo,onRepor
   const [undoSource, setUndoSource] = useState<Project>()
   const [proposing, setProposing] = useState(false)
   const processing = useRef(false)
-  const stale = !!source && (source.id !== project.id || source.format !== project.format ||
-    source.slides !== project.slides || source.brand !== project.brand || source.auditSettings !== project.auditSettings)
+  const stale = !!source && !sameReviewVersion(source,project)
   const contextual = currentSlide !== undefined
   useLayoutEffect(() => {
     latest.current = project
@@ -66,7 +66,7 @@ export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo,onRepor
       await onChange(proposal.project, project, true)
       fixes.current = [...fixes.current, `${finding.id}: ${proposal.description}`]
       setUndoSource(proposal.project)
-      await run(undefined, proposal.project)
+      await run(scope, proposal.project)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {

@@ -54,5 +54,5 @@ export function CanvasView({ format, initial, zoom, onFit, guides, brand, onRead
     const [width, height] = dimensions[format]
     canvas.setDimensions({ width: Math.round(width * zoom), height: Math.round(height * zoom) }); canvas.setZoom(zoom); canvas.requestRenderAll()
   }, [format, zoom])
-  return <div className="canvas-stage" ref={stage}><div className={`canvas-paper ${guides ? 'show-guides' : ''}`} style={{ '--safe-x': `${brand.margin / 1080 * 100}%`, '--safe-y': `${brand.margin / dimensions[format][1] * 100}%` } as React.CSSProperties}><canvas ref={element} aria-label="Canvas editável do Studio" /></div></div>
+  return <div className="canvas-stage" ref={stage} tabIndex={-1}><div className={`canvas-paper ${guides ? 'show-guides' : ''}`} style={{ '--safe-x': `${brand.margin / 1080 * 100}%`, '--safe-y': `${brand.margin / dimensions[format][1] * 100}%` } as React.CSSProperties}><canvas ref={element} aria-label="Canvas editável do Studio" /></div></div>
 }
