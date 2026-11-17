@@ -4,11 +4,13 @@ import { fontChoices } from './fonts'
 import type { Brand } from './model'
 import { cropImage, restoreFraming } from './images'
 import { editorialGradient } from './premium'
+import { replaceTextboxText } from './editText'
 import { align, duplicate, groupSelection } from './objects'
 
 export function Properties({ canvas, changed, brand, replaceImage, children }: {
   brand: Brand; canvas: Canvas | null; changed: () => void; replaceImage: () => void; children?: ReactNode
 }) {
+  const textSelection = useRef<{ object: Textbox; value: string; start: number; end: number }>(null)
   const textField = useRef<HTMLTextAreaElement>(null)
   const drag = useRef<{ x: number; y: number; cropX: number; cropY: number }>(null)
   const object = canvas?.getActiveObject()
@@ -62,7 +64,21 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
   return <aside className="studio-properties" aria-label="Propriedades do elemento">
     <h3>{multi ? canvas.getActiveObjects().length + ' elementos selecionados' : text ? 'Editar texto' : image ? 'Editar imagem' : 'Editar elemento'}</h3>
     {text && <>
-      <label>Texto do elemento<textarea ref={textField} value={text.text} maxLength={8000} onChange={event => { text.removeStyle('fill'); set({ text: event.target.value }) }} /></label>
+      <label>Texto do elemento<textarea ref={textField} value={text.text} maxLength={8000} onSelect={event => {
+        textSelection.current = { object:text,value:text.text,start:event.currentTarget.selectionStart,end:event.currentTarget.selectionEnd }
+      }} onChange={event => {
+        const current = textSelection.current
+        const input = event.nativeEvent as InputEvent
+        const caret = event.currentTarget.selectionStart
+        const selected = current?.object === text && current.value === text.text ? current : undefined
+        const range = selected && selected.start === selected.end && input.inputType === 'deleteContentBackward'
+          ? {start:caret,end:selected.end}
+          : selected && selected.start === selected.end && input.inputType === 'deleteContentForward'
+            ? {start:caret,end:caret+Math.max(0,text.text.length-event.target.value.length)}
+            : selected
+        act(() => replaceTextboxText(text,event.target.value,range))
+        textSelection.current = null
+      }} /></label>
       {text.maxHeight !== undefined && text.height * text.scaleY > text.maxHeight && <p className="context-warning">O texto excede o espaço previsto.</p>}
       {text.semantic === 'title' && <details className="studio-advanced"><summary>Destaque do título</summary>
         <p>Selecione um trecho no campo de texto e aplique a cor de acento.</p>

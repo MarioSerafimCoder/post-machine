@@ -97,3 +97,12 @@ describe('coleções premium', () => {
     expect(issues).toContain('title')
   })
 })
+
+it('mantém separadores de parágrafo e títulos citados no corpo da importação simples', () => {
+  expect(parseExpress('Título livre\n\nPrimeiro.\n\n\nSegundo.').slides[0]).toEqual({
+    title:'Título livre',body:'Primeiro.\n\n\nSegundo.',
+  })
+  expect(parseExpress('Slide 1 — Abertura\nTítulo: um exemplo citado\nTexto original.').slides[0]).toEqual({
+    title:'Abertura',body:'Título: um exemplo citado\nTexto original.',
+  })
+})

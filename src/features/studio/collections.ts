@@ -134,6 +134,7 @@ export function composeCollection(style: Collection, index: number, content: Col
   const w = width - m * 2, h = height - m * 2
   const ratio = content.image ? Number(content.image.width)/Number(content.image.height) : 0
   const { title, body, image, size } = treatment ? treatComposition(style.layouts[index],treatment,index,ratio,content.body.length > 280) : style.layouts[index]
+  const readingPage = format === 'square' && index === 2 && !content.image && content.body.length > 350
   const objects: Scene['objects'] = []
   const issues: string[] = []
   const measurements: TextMeasurement[] = []
@@ -167,7 +168,7 @@ export function composeCollection(style: Collection, index: number, content: Col
   if (style.art === 'column') rect(box([.535,.38,.003,.44]),brand.secondary,'collectionAccent')
   if (style.art === 'cards') {
     rect(box([0,.06,1,.022]),brand.secondary,'collectionAccent')
-    const [x,y,bw,bh] = body
+    const [x,y,bw,bh] = readingPage ? [.025,.438,.95,.421] : body
     rect(box([x-.018,y-.016,bw+.036,bh+.032]),style.palette[3],'collectionPanel')
   }
   if (style.art === 'type') rect(box([0,.065,.66,.012]),brand.secondary,'collectionAccent')
@@ -179,8 +180,8 @@ export function composeCollection(style: Collection, index: number, content: Col
   if (treatment === 'expressive') rect(box([0,.065,.27,.018]),brand.secondary,'collectionAccent')
   if (treatment === 'photo' && !content.image) rect(box([0,.088,1,.004]),brand.secondary,'collectionAccent')
   const imageBounds = box(image)
-  if (content.image) objects.push(imageForFrame(content.image,imageBounds,content.framing))
-  else {
+  if (content.image) objects.push(imageForFrame(content.image,imageBounds,content.framing,ratio < .9 && imageBounds[2] > imageBounds[3]*1.2 ? .23 : .5))
+  else if (!readingPage) {
     rect(imageBounds, brand.background !== style.palette[0] ? brand.secondary : style.palette[3], 'imageFrame')
     const [left,top,iw,ih] = imageBounds
     if (Math.min(iw,ih) >= 100) {
@@ -191,9 +192,9 @@ export function composeCollection(style: Collection, index: number, content: Col
       rect([left+iw*.1,top+ih*.8,iw*.5,ih*.016],brand.primary,'imageDecoration')
     }
   }
-  text('title',content.title,title,size,42,true)
+  text('title',content.title,readingPage ? [.04,.11,.92,.29] : title,size,42,true)
   text('subtitle',content.subtitle ?? '',[0,.01,.76,.05],27,21)
-  text('body',content.body,body,38,26)
+  text('body',content.body,readingPage ? [.04,.455,.92,.39] : body,38,26)
   text('cta',content.cta ?? '',[0,.885,.94,.058],32,24,true)
   text('brand',[brand.name,brand.handle].filter(Boolean).join(' / '),[0,.955,.8,.043],23,18)
   if (brand.logo) objects.push(logoObject(brand.logo,width,m))

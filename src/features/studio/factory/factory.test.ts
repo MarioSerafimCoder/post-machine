@@ -105,3 +105,16 @@ describe('tipografia e propostas', () => {
     await expect(fabricate(input,controller.signal,()=>controller.abort())).rejects.toMatchObject({name:'AbortError'})
   })
 })
+
+it.each([1,6,10,20])('mantém campos completos e orçamento de seleção em %i slides', async count => {
+  const style = collections.find(item => item.premium === 'narrative')!
+  const slides = Array.from({length:count},(_,index) => ({
+    ...copy, title:copy.title+' '+index, body:index%4===0 ? copy.body.repeat(8) : copy.body,
+    imageId:index===0 ? 'b' : undefined,
+  }))
+  const result = await fabricate({style,brand:defaultBrand,format:'portrait',slides,assets},new AbortController().signal,vi.fn())
+  expect(result.candidates).toBe(count*candidateLimitPerSlide)
+  expect(result.proposals).toHaveLength(3)
+  expect(result.slides[0].picture?.name).toBe('B')
+  for (const proposal of result.proposals) expect(proposal.project.slides.map(slide => slide.scene.objects.find(object=>object.semantic==='body')?.text)).toEqual(slides.map(slide=>slide.body))
+})
