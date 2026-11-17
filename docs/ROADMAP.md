@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Evolução 06
+
+- Studio com canvas ajustável à janela, zoom manual persistido durante a edição e propriedades conforme a seleção.
+- Revisão de texto e imagem, organização de camadas e slides e integração com os projetos da Produção Expressa.
+
 ## Evolução 05
 
 - A Produção Expressa gera três propostas editáveis dentro da coleção escolhida, com avaliação de tipografia e enquadramento, revisão de cada slide e salvamento apenas da versão selecionada.

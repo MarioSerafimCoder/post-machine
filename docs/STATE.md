@@ -1,4 +1,12 @@
-# Estado real — 16/11/2026
+# Estado real — 17/11/2026
+
+## Evolução 06 — Studio simplificado e edição contextual
+
+- O canvas se ajusta ao espaço disponível. O zoom manual inclui 100%, mais e menos, e permanece ao trocar de slide durante a sessão. As guias podem ser desligadas.
+- O painel lateral acompanha a seleção. Texto tem edição por duplo clique, tipografia, aviso de excesso e acesso ao módulo Headlines. Imagens têm substituição local ou pelo fluxo existente de Openverse, recorte, reenquadramento por arraste e escala proporcional. O comando Restaurar enquadramento volta a exibir a imagem inteira dentro do espaço atual.
+- Camadas acompanham a seleção no canvas. Shift + clique permite alinhar e agrupar vários elementos. Bloqueio e visibilidade gravam no projeto local. Slides têm miniaturas e avisos da última auditoria válida, e podem ser reordenados com os botões ou Alt + setas no slide ativo.
+- Inspeção visual em 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080, com encaixe da arte e sem rolagem horizontal da página. Em 1024 px o painel de propriedades tem rolagem própria. Passaram lint, TypeScript, build, dry-run do Wrangler e 95 testes Vitest.
+- Playwright no Wrangler local aprovou 72 cenários, com duas repetições omitidas no perfil laptop. Os testes cobriram edição de projeto fabricado, créditos na substituição de imagens, histórico, reabertura, auditoria, backup e exportação PNG/ZIP.
 
 ## Evolução 05 — Fabricação na Produção Expressa
 
