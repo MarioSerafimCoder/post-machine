@@ -10,8 +10,30 @@ concurrency:
   group: production
   cancel-in-progress: false
 jobs:
+  verified:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Exigir CI aprovado para o commit exato da publicação
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in {1..40}; do
+            result="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" -f head_sha="$GITHUB_SHA" -f branch=main -f per_page=50 --jq '[.workflow_runs[] | select(.event == "push" or .event == "workflow_dispatch")] | first | if . then [.status, (.conclusion // "pending"), (.id | tostring)] | @tsv else "missing" end')"
+            read -r status conclusion run <<< "$result"
+            if [[ "$status" == completed ]]; then
+              echo "CI $run para $GITHUB_SHA: $conclusion"
+              test "$conclusion" = success
+              exit $?
+            fi
+            sleep 15
+          done
+          echo "Nenhum CI aprovado para $GITHUB_SHA. Publicação interrompida."
+          exit 1
   collect:
     if: github.ref == 'refs/heads/main'
+    needs: verified
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -99,9 +121,9 @@ jobs:
         run: |
           # O token edita o Worker. O domínio já está vinculado na Cloudflare.
           output="$RUNNER_TEMP/radar-wrangler-output.jsonl"
-          WRANGLER_OUTPUT_FILE_PATH="$output" npx wrangler versions upload --message "Radar GitHub Actions $GITHUB_RUN_ID"
+          WRANGLER_OUTPUT_FILE_PATH="$output" npx wrangler versions upload --message "Radar GitHub Actions $GITHUB_RUN_ID · $GITHUB_SHA"
           version_id="$(jq -er 'select(.type == "version-upload") | .version_id | strings | select(test("^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"))' "$output")"
-          npx wrangler versions deploy "$version_id@100%" --yes --message "Radar GitHub Actions $GITHUB_RUN_ID"
+          npx wrangler versions deploy "$version_id@100%" --yes --message "Radar GitHub Actions $GITHUB_RUN_ID · $GITHUB_SHA"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

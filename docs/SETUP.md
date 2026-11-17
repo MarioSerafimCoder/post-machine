@@ -33,7 +33,7 @@ O comando dry-run valida empacotamento; NÃO comprova deploy, DNS, Access ou gra
 
 ## GitHub Actions
 
-`ci.yml` valida main e pull requests em runners Linux públicos padrão. `deploy.yml` roda em main manualmente e às 06:17, 12:17 e 18:17 (Brasília). O job de coleta independe de credenciais Cloudflare. Ele restaura o último artefato de coleta válido (ou usa a edição inicial de `public/radar.json`), coleta, valida e gera o build. O job seguinte publica exatamente esse build, sem outro push ou workflow.
+`ci.yml` valida main e pull requests em runners Linux públicos padrão. `deploy.yml` roda em main manualmente e às 06:17, 12:17 e 18:17 (Brasília). O workflow exige CI aprovado para o mesmo SHA antes de coletar e publicar. Em caso de falha, corrija e envie um novo commit. Se a execução foi cancelada ou não existe, execute o CI na main antes de tentar publicar novamente. A coleta restaura o último artefato válido ou usa a edição inicial de `public/radar.json`, coleta, valida e gera o build. O job seguinte publica exatamente esse build.
 
 Configurar no environment `production`:
 
