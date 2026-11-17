@@ -25,7 +25,7 @@ export function Slides({ project, current, select, action, issues, reorder, open
   }, [current,open,project.slides.length])
   return <section className="studio-slides" aria-label="Slides">
     <header><strong>Frames</strong><button aria-expanded={open} onClick={toggle}>{open ? 'Recolher frames' : 'Mostrar frames'}</button></header>
-    {open && <><div className="slide-list" ref={list} aria-label="Setas navegam. Alt e setas movem o frame ativo.">{project.slides.map((slide, index) => {
+    {open && <><div className="slide-list" ref={list} role="group" aria-label="Setas navegam. Alt e setas movem o frame ativo.">{project.slides.map((slide, index) => {
       const review = issues.get(slide.id)
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]
       const label = composition === undefined ? templates[slide.layout as keyof typeof templates] ?? 'Livre' : compositionNames[Number(composition)] ?? 'Livre'
