@@ -6,6 +6,8 @@
 - Finalizar e exportar salva as alterações e reaproveita uma auditoria compatível com a arte ou executa nova análise. O PNG e o ZIP mantêm dimensões originais e ordem. O painel mostra progresso e permite cancelar a entrega. Uma operação nativa de codificação já iniciada pode terminar internamente sem efetuar download.
 - A legenda usa os dados da campanha e pode ser editada, copiada ou baixada. O campo opcional é compatível com projetos e backups v1. O ZIP inclui um único arquivo de créditos quando há atribuições. A legenda no ZIP é opcional.
 - ESLint, TypeScript, build e dry-run do Wrangler aprovados. Vitest aprovou 95 testes. Os seis cenários direcionados finais passaram no build servido pelo Wrangler. A revisão visual da central cobriu 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080, sem rolagem horizontal da página.
+- O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44077499375) publicou `501921e` como versão `748f4e98-f095-466d-b4cc-5ff76f41c68a` a 100% do tráfego. O Cloudflare Access redirecionou requisições anônimas antes e depois da publicação. A interação com os painéis e os downloads foi verificada no build local.
+- O [CI do GitHub](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44077498887) aprovou a versão publicada com 73 cenários Playwright e três repetições omitidas no perfil laptop.
 ## Evolução 06 — Studio simplificado e edição contextual
 
 - O canvas se ajusta ao espaço disponível. O zoom manual inclui 100%, mais e menos, e permanece ao trocar de slide durante a sessão. As guias podem ser desligadas.
