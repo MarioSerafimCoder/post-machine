@@ -5,6 +5,7 @@ import { sceneForCollection } from './collectionPosition'
 import { treatComposition, type Box, type Composition } from './factory/geometry'
 import { fitText, type TextMeasurement } from './factory/typography'
 import type { Treatment } from './factory/planning'
+import { composePremium, premiumCollections, type Premium } from './premium'
 import './objects'
 
 export const compositionNames = ['Capa', 'Introdução', 'Conteúdo', 'Imagem + texto', 'Destaque', 'Encerramento'] as const
@@ -12,7 +13,7 @@ type Art = 'line' | 'photo' | 'block' | 'grid' | 'orbit' | 'column' | 'cards' | 
 export type Collection = {
   version: 1; id: string; name: string; style: string; formats: readonly Format[]; art: Art
   palette: [paper: string, ink: string, accent: string, panel: string]
-  fonts: [heading: string, body: string]; layouts: Composition[]
+  fonts: [heading: string, body: string]; layouts: Composition[]; premium?: Premium
 }
 const layout = (title: Box, body: Box, image: Box, size: number): Composition => ({ title, body, image, size })
 const formats = ['portrait', 'square', 'story'] as const
@@ -85,16 +86,17 @@ export const collections = [
     layout([0,.15,1,.42],[0,.66,.71,.21],[.78,.63,.22,.22],128),
     layout([.12,.13,.88,.4],[.12,.6,.76,.2],[0,.2,.07,.6],108),
   ]),
+  ...premiumCollections,
 ]
 
 export type CollectionSlide = {
-  title: string; subtitle?: string; body: string; cta?: string; imageBrief?: string
+  title: string; subtitle?: string; emphasis?: string; body: string; cta?: string; imageBrief?: string
   role?: 'cover' | 'content' | 'cta'; composition?: number; image?: Record<string, unknown>
   intent?: 'highlight' | 'comparison'; framing?: 'cover' | 'contain'
   headlines?: import('../headlines/contract').HeadlineSession
 }
 const samples: CollectionSlide[] = [
-  { title: 'Ideias em forma', subtitle: 'Caderno de criação', body: 'Um estudo sobre escolhas visuais e o que elas comunicam.' },
+  { title: 'Ideias em forma', emphasis:'em forma', subtitle: 'Caderno de criação', body: 'Um estudo sobre escolhas visuais e o que elas comunicam.' },
   { title: 'Comece pela pergunta', body: 'Que impressão você quer deixar? Observe o contexto antes de escolher a linguagem.' },
   { title: 'Organize o essencial', body: 'Dê prioridade ao que precisa ser entendido primeiro. Use escala e espaço para guiar a leitura.' },
   { title: 'A imagem também fala', body: 'Enquadramento, ritmo e contraste mudam a forma como lemos uma cena.' },
@@ -108,10 +110,10 @@ const hasBrand = (brand: Brand) => Boolean(brand.name || brand.handle || brand.l
 export function collectionBrand(style: Collection, brand: Brand): Brand {
   if (hasBrand(brand)) return brand
   return { ...brand, background: style.palette[0], primary: style.palette[1], secondary: style.palette[2],
-    headingFont: style.fonts[0], bodyFont: style.fonts[1] }
+    headingFont: style.fonts[0], bodyFont: style.fonts[1], ...(style.premium ? {margin:64} : {}) }
 }
 
-export function imageForFrame<T extends Record<string, unknown>>(source: T, frame: Box, framing: 'cover' | 'contain' = 'cover') {
+export function imageForFrame<T extends Record<string, unknown>>(source: T, frame: Box, framing: 'cover' | 'contain' = 'cover', focusY = .5) {
   const [left, top, width, height] = frame
   const ow = Number(source.width), oh = Number(source.height)
   if (framing === 'contain') {
@@ -122,10 +124,11 @@ export function imageForFrame<T extends Record<string, unknown>>(source: T, fram
   const scale = Math.max(width / ow, height / oh)
   const cropWidth = width / scale, cropHeight = height / scale
   return { ...source, left, top, width: cropWidth, height: cropHeight, scaleX: scale, scaleY: scale,
-    cropX: (ow - cropWidth) / 2, cropY: (oh - cropHeight) / 2, semantic: 'image' }
+    cropX: (ow - cropWidth) / 2, cropY: (oh - cropHeight) * focusY, semantic: 'image' }
 }
 
 export function composeCollection(style: Collection, index: number, content: CollectionSlide, brand: Brand, format: Format, treatment?: Treatment) {
+  if (style.premium) return composePremium(style.premium,index,content,brand,format,treatment)
   const [width, height] = dimensions[format]
   const m = brand.margin
   const w = width - m * 2, h = height - m * 2
@@ -213,7 +216,7 @@ export function buildCollectionProject(style: Collection, format: Format, brand:
   }) }
 }
 
-export function applyCollectionBrand(scene: Scene, brand: Brand, format: Format): Scene {
+export function applyCollectionBrand(scene: Scene, brand: Brand, format: Format, premium = false): Scene {
   let identity = false
   const apply = (object: Scene['objects'][number]): Scene['objects'][number] => {
     if (Array.isArray(object.objects)) return { ...object, objects: object.objects.flatMap(child =>
@@ -227,7 +230,7 @@ export function applyCollectionBrand(scene: Scene, brand: Brand, format: Format)
     if (['title','subtitle','body','cta','brand'].includes(String(object.semantic))) {
       const heading = object.semantic === 'title' || object.semantic === 'cta'
       if (object.semantic === 'brand') identity = true
-      return { ...object, fill:brand.primary, fontFamily:heading ? brand.headingFont : brand.bodyFont,
+      return { ...object, fill:premium ? object.fill : brand.primary, fontFamily:heading ? brand.headingFont : brand.bodyFont,
         ...(object.semantic === 'brand' ? { text:[brand.name,brand.handle].filter(Boolean).join(' / ') } : {}) }
     }
     return object
@@ -236,10 +239,10 @@ export function applyCollectionBrand(scene: Scene, brand: Brand, format: Format)
   const [width,height] = dimensions[format]
   const label = [brand.name,brand.handle].filter(Boolean).join(' / ')
   if (label && !identity) objects.push(new Textbox(label, { semantic:'brand', left:brand.margin,
-    top:height-brand.margin-36, width:width-brand.margin*2, fontFamily:brand.bodyFont, fontSize:23, fill:brand.primary,
+    top:height-brand.margin-36, width:width-brand.margin*2, fontFamily:brand.bodyFont, fontSize:23, fill:premium ? (scene.objects.find(object => object.semantic === 'title')?.fill as string ?? '#ffffff') : brand.primary,
     originX:'left', originY:'top' }).toObject() as unknown as Scene['objects'][number])
   if (brand.logo) objects.push(logoObject(brand.logo,width,brand.margin))
-  return { ...scene, background:brand.background, objects }
+  return { ...scene, background:premium ? scene.background : brand.background, objects }
 }
 
 export function prepareCollectionImage(image: FabricImage) {

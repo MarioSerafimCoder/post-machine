@@ -273,6 +273,10 @@ export function Express({ active, brand, format: initialFormat, cancel, open }: 
           onClick={() => setSlides(items => items.filter(item => item.key !== slide.key))}>Remover</button>
       </div></header>
       <label>Título<input value={slide.title} onChange={event => change(slide.key,{title:event.target.value, headlines:undefined})} /></label>
+      {style.premium && <label>Trecho em destaque<input value={slide.emphasis ?? ''} maxLength={titleLimit}
+        placeholder="Parte exata do título" aria-invalid={!!slide.emphasis?.trim() && !slide.title.includes(slide.emphasis.trim())}
+        onChange={event => change(slide.key,{emphasis:event.target.value})} />
+        {slide.emphasis?.trim() && !slide.title.includes(slide.emphasis.trim()) && <small>Use um trecho que apareça exatamente no título.</small>}</label>}
       <label>Subtítulo<input value={slide.subtitle ?? ''} onChange={event => change(slide.key,{subtitle:event.target.value})} /></label>
       <label>Texto<textarea id={'express-edit-text-' + index} rows={3} value={slide.body} onChange={event => change(slide.key,{body:event.target.value})} /></label>
       <label>Chamada para ação<input value={slide.cta ?? ''} onChange={event => change(slide.key,{cta:event.target.value})} /></label>

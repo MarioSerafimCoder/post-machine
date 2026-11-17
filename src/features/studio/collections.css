@@ -50,3 +50,5 @@
 .studio-welcome .studio-entry .express-entry { background: var(--accent); color: var(--surface); }
 .express-panel > .button-dark { justify-self: start; background: var(--accent); color: var(--surface); }
 .express-panel > .button-dark:hover { background: var(--accent-hover); }
+
+.collection-premium { display: inline-block; color: #a00011; font-weight: 650; }

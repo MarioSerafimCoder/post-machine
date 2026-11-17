@@ -8,7 +8,7 @@ declare module 'fabric' {
   interface SerializedObjectProps { semantic?: string; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession; imageCredit?: ImageCredit }
 }
 FabricObject.customProperties = ['semantic', 'assetId', 'maxHeight', 'label', 'headlines', 'imageCredit',
-  'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation']
+  'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation', 'evented']
 export const sceneOf = (canvas: Canvas): Scene => canvas.toObject() as Scene
 export function addObject(canvas: Canvas, type: 'title' | 'text' | 'rect' | 'circle' | 'line', color = '#111111') {
   const common = { left: 100, top: 120, originX: 'left' as const, originY: 'top' as const, fill: color }

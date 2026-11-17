@@ -7,10 +7,10 @@ import { validateProject } from './validation'
 
 describe('coleções do Studio', () => {
   it('gera 48 composições distintas e editáveis em cada formato sem alterar o contrato v1', () => {
-    expect(collections).toHaveLength(8)
+    expect(collections.filter(style => !style.premium)).toHaveLength(8)
     for (const format of ['portrait','square','story'] as const) {
       const geometries = new Set<string>()
-      for (const style of collections) {
+      for (const style of collections.filter(item => !item.premium)) {
         const project = buildCollectionProject(style,format,defaultBrand,demoSlides.map((slide,composition) => ({...slide,composition})),style.name)
         expect(validateProject(project).slides).toHaveLength(6)
         for (const slide of project.slides) {
@@ -60,5 +60,40 @@ describe('entrada de texto da Produção Expressa', () => {
     expect(parseExpress('Slide 1 — Abertura\nPrimeiro parágrafo.\n\nSegundo.\nSlide 2\nTexto sem título').slides)
       .toEqual([{title:'Abertura',body:'Primeiro parágrafo.\n\nSegundo.'},{title:'',body:'Texto sem título'}])
     expect(() => parseExpress(Array.from({length:21},(_,i) => `Slide ${i+1}\nConteúdo`).join('\n'))).toThrow('20 slides')
+  })
+})
+
+describe('coleções premium', () => {
+  it('preserva os 18 layouts, margens e gradiente serializável nos três formatos', () => {
+    const premium = collections.filter(style => style.premium)
+    expect(premium).toHaveLength(3)
+    for (const format of ['portrait','square','story'] as const) {
+      for (const style of premium) {
+        const image = { type:'Image',width:1700,height:1450,src:'data:image/png;base64,AA==',originX:'left',originY:'top' }
+        const project = buildCollectionProject(style,format,defaultBrand,demoSlides.map((sample,composition) => ({...sample,image,composition})),style.name)
+        validateProject(project)
+        const [width,height] = dimensions[format]
+        expect(project.slides).toHaveLength(6)
+        for (const slide of project.slides) {
+          for (const item of slide.scene.objects.filter(object => typeof object.text === 'string')) {
+            expect(Number(item.left)).toBeGreaterThanOrEqual(64)
+            expect(Number(item.left)+Number(item.width)).toBeLessThanOrEqual(width-63)
+            expect(Number(item.top)+Number(item.height)).toBeLessThanOrEqual(height-48)
+          }
+        }
+        const objects = project.slides[0].scene.objects
+        const overlay = objects.findIndex(object => object.semantic === (style.premium === 'card' ? 'editorialCard' : 'editorialGradient'))
+        expect(overlay).toBeGreaterThan(objects.findIndex(object => object.semantic === 'image'))
+        expect(overlay).toBeLessThan(objects.findIndex(object => object.semantic === 'title'))
+        if (style.premium !== 'card') expect(objects[overlay].fill).toMatchObject({type:'linear'})
+      }
+    }
+  })
+  it('retém um título denso sem truncamento e informa quando ele não cabe', () => {
+    const style = collections.find(item => item.premium === 'impact')!
+    const title = 'Uma decisão de direção de arte precisa de contexto. '.repeat(14)
+    const { scene, issues } = composeCollection(style,0,{title,body:'Contexto.'},collectionBrand(style,defaultBrand),'portrait','balanced')
+    expect(scene.objects.find(object => object.semantic === 'title')?.text).toBe(title)
+    expect(issues).toContain('title')
   })
 })

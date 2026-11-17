@@ -65,10 +65,10 @@ export function CollectionGallery({ selected, format, setFormat, use }: {
     <label>Formato da coleção<select value={format} onChange={event => setFormat(event.target.value as Format)}>
       {Object.entries(formatNames).map(([key,name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}
     </select></label>
-    <div className="collection-grid">{collections.map(style => <article key={style.id} data-selected={style.id === selected}>
+    <div className="collection-grid">{[...collections].sort((a,b) => Number(!!b.premium) - Number(!!a.premium)).map(style => <article key={style.id} data-selected={style.id === selected}>
       <Thumbnail key={format} style={style} index={0} format={format} />
       <div className="collection-card-copy">
-        <h3>{style.name}</h3><p>{style.style}</p><small>{style.formats.map(value => formatNames[value]).join(' · ')}</small>
+        <h3>{style.name}</h3>{style.premium && <small className="collection-premium">Coleção premium</small>}<p>{style.style}</p><small>{style.formats.map(value => formatNames[value]).join(' · ')}</small>
         <div className="collection-actions"><button className="button button-outline" onClick={event => visualize(style,event.currentTarget)}>Visualizar</button>
           <button className="button button-dark" onClick={() => use(style)}>{style.id === selected ? 'Selecionada' : 'Usar coleção'}</button></div>
       </div>

@@ -17,7 +17,8 @@ const overlap = (a: Bounds,b: Bounds) => Math.max(0,Math.min(a.left+a.width,b.le
 export function evaluateScene(scene: Scene, measurements: TextMeasurement[], slide: PlannedSlide, format: Format, brand: Brand, unavailable: ReadonlySet<string>) {
   const [width,height] = dimensions[format]
   const margin = brand.margin
-  const [background,foreground] = [parseColor(scene.background),parseColor(brand.primary)]
+  const background = parseColor(scene.background)
+  const overlay = scene.objects.some(object => ['editorialGradient','editorialCard'].includes(String(object.semantic)))
   const texts = scene.objects.filter(object => typeof object.text === 'string' && object.text.trim() !== '')
   const image = scene.objects.find(object => object.semantic === 'image')
   const layer = image ?? scene.objects.find(object => object.semantic === 'imageFrame')
@@ -45,16 +46,17 @@ export function evaluateScene(scene: Scene, measurements: TextMeasurement[], sli
       penalty += 20
     }
     const overlapped = texts.slice(index+1).some(other => overlap(box,bounds(other)) > Math.min(area(box),area(bounds(other)))*.10)
-    if (overlapped || (frame && overlap(box,frame) > area(box)*.10)) {
+    if (overlapped || (!overlay && frame && overlap(box,frame) > area(box)*.10)) {
       issues.push({ kind:'layout',field:String(object.semantic),message:'Possível sobreposição de texto com outra camada.' })
       penalty += 40
     }
     if (unavailable.has(String(object.fontFamily))) {
       issues.push({kind:'font',field:String(object.semantic),message:'Fonte não confirmada. O navegador pode usar uma substituta.'})
     }
-    const panel = scene.objects.find(item => item.semantic === 'collectionPanel' && overlap(bounds(item),box) >= area(box)-1)
+    const panel = scene.objects.find(item => ['collectionPanel','editorialCard'].includes(String(item.semantic)) && overlap(bounds(item),box) >= area(box)-1)
+    const foreground = parseColor(object.fill)
     const under = panel ? parseColor(panel.fill) : background
-    if (under && foreground && (!image || !frame || !overlap(box,frame)) &&
+    if (under && foreground && (panel || !image || !frame || !overlap(box,frame)) &&
       contrast(under,foreground) < (Number(object.fontSize) >= 48 ? 3 : 4.5)) {
       issues.push({kind:'layout',field:String(object.semantic),message:'Contraste de texto abaixo do limite no fundo sólido.'})
       penalty += 30

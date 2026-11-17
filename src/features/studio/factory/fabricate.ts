@@ -48,7 +48,7 @@ export async function fabricate(input: FactoryInput, signal: AbortSignal, progre
   const missing = unavailableFonts(brand)
   const slides = planSlides(input.slides,input.assets)
   const proposals: Proposal[] = treatments.map(treatment => ({
-    treatment, project:{ ...newProject(input.format),brand:input.brand,slides:[] }, details:[],
+    treatment, project:{ ...newProject(input.format),brand:input.style.premium ? brand : input.brand,slides:[] }, details:[],
   }))
   let candidates = 0
   let lastYield = performance.now()

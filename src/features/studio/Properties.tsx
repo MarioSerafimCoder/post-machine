@@ -1,13 +1,15 @@
 import { useRef, type ReactNode } from 'react'
-import { ActiveSelection, Canvas, FabricImage, Group, Textbox } from 'fabric'
+import { ActiveSelection, Canvas, Color, FabricImage, Gradient, Group, Textbox } from 'fabric'
 import { fontChoices } from './fonts'
 import type { Brand } from './model'
 import { cropImage, restoreFraming } from './images'
+import { editorialGradient } from './premium'
 import { align, duplicate, groupSelection } from './objects'
 
 export function Properties({ canvas, changed, brand, replaceImage, children }: {
   brand: Brand; canvas: Canvas | null; changed: () => void; replaceImage: () => void; children?: ReactNode
 }) {
+  const textField = useRef<HTMLTextAreaElement>(null)
   const drag = useRef<{ x: number; y: number; cropX: number; cropY: number }>(null)
   const object = canvas?.getActiveObject()
   if (!canvas || !object) return null
@@ -37,11 +39,36 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
   const act = (fn: () => void) => { fn(); canvas.requestRenderAll(); changed() }
   const scaleImage = (scale: number) => set({ scaleX: clamp(scale,.02,10), scaleY: clamp(scale,.02,10) })
   const locked = object.lockMovementX
+  const gradient = object.fill instanceof Gradient && object.semantic === 'editorialGradient' ? object.fill : undefined
+  const stops = gradient?.colorStops ?? []
+  const end = new Color(stops.at(-1)?.color ?? '#000000')
+  const gradientOptions = gradient ? {
+    strength:end.getAlpha(), start:stops[1]?.offset ?? .38, finish:stops[4]?.offset ?? 1, color:'#' + end.toHex(),
+    angle:Math.atan2((gradient.coords.x2 - gradient.coords.x1)/object.width,(gradient.coords.y2 - gradient.coords.y1)/object.height)*180/Math.PI,
+  } : undefined
+  function updateGradient(patch: Partial<NonNullable<typeof gradientOptions>>) {
+    if (gradientOptions && object) set({ fill:editorialGradient(object.width,object.height,{...gradientOptions,...patch}) })
+  }
+  function highlight() {
+    if (!text) return
+    const field = textField.current
+    const start = field && field.selectionStart !== field.selectionEnd
+      ? text.graphemeSplit(text.text.slice(0,field.selectionStart)).length : text.selectionStart
+    const end = field && field.selectionStart !== field.selectionEnd
+      ? text.graphemeSplit(text.text.slice(0,field.selectionEnd)).length : text.selectionEnd
+    if (start === end) { field?.focus(); return }
+    act(() => text.setSelectionStyles({fill:brand.secondary},start,end))
+  }
   return <aside className="studio-properties" aria-label="Propriedades do elemento">
     <h3>{multi ? canvas.getActiveObjects().length + ' elementos selecionados' : text ? 'Editar texto' : image ? 'Editar imagem' : 'Editar elemento'}</h3>
     {text && <>
-      <label>Texto do elemento<textarea value={text.text} maxLength={8000} onChange={event => set({ text: event.target.value })} /></label>
+      <label>Texto do elemento<textarea ref={textField} value={text.text} maxLength={8000} onChange={event => { text.removeStyle('fill'); set({ text: event.target.value }) }} /></label>
       {text.maxHeight !== undefined && text.height * text.scaleY > text.maxHeight && <p className="context-warning">O texto excede o espaço previsto.</p>}
+      {text.semantic === 'title' && <details className="studio-advanced"><summary>Destaque do título</summary>
+        <p>Selecione um trecho no campo de texto e aplique a cor de acento.</p>
+        <div className="studio-actions"><button onClick={highlight}>Destacar seleção</button>
+          <button onClick={() => act(() => text.removeStyle('fill'))}>Limpar destaques</button></div>
+      </details>}
       {children}
       <label>Fonte<select aria-label="Fonte" value={text.fontFamily} onChange={event => set({ fontFamily: event.target.value })}>
         {!fontChoices(brand).some(font => font.family === text.fontFamily) && <option>{text.fontFamily}</option>}
@@ -82,7 +109,14 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
         <button aria-label="Ampliar imagem" disabled={locked} onClick={() => scaleImage(image.scaleX * 1.1)}>+</button>
       </div>
     </>}
-    {!multi && !image && !text && <div className="property-grid">{color('Cor','fill')}{border}</div>}
+    {gradientOptions && <div className="property-grid">
+      <label>Cor do gradiente<input type="color" value={gradientOptions.color} onChange={event => updateGradient({color:event.target.value})} /></label>
+      {numeric('Intensidade (%)',gradientOptions.strength*100,n => updateGradient({strength:n/100}),0,100)}
+      {numeric('Início (%)',gradientOptions.start*100,n => updateGradient({start:n/100}),5,Math.round((gradientOptions.finish-.05)*100))}
+      {numeric('Fim (%)',gradientOptions.finish*100,n => updateGradient({finish:n/100}),Math.round((gradientOptions.start+.05)*100),100)}
+      {numeric('Direção (°)',gradientOptions.angle,n => updateGradient({angle:n}),-180,180)}
+    </div>}
+    {!multi && !image && !text && !gradient && <div className="property-grid">{color('Cor','fill')}{border}</div>}
     {!multi && <details className="studio-advanced"><summary>Propriedades avançadas</summary><div className="property-grid">
       {number('X','left',object.left)}{number('Y','top',object.top)}
       {number('Rotação','angle',object.angle,-360,360)}{number('Opacidade','opacity',object.opacity,0,1,.05)}
