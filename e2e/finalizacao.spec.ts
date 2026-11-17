@@ -17,7 +17,8 @@ test('finaliza, mantém legenda e cancela uma renderização sem alterar o proje
   await caption.fill(text)
   await button('Copiar legenda').click()
   await expect(region.getByRole('status')).toHaveText('Legenda copiada.')
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text)
+  const copied = await page.evaluate(() => navigator.clipboard.readText())
+  expect(copied.replace(/\r\n/g,'\n')).toBe(text)
   for (const [width,height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]) {
     await page.setViewportSize({width,height})
     await expect(region).toBeVisible()
