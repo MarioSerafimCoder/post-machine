@@ -1,0 +1,1432 @@
+{
+  "version": "2.0.0",
+  "edition": "2026-11-16",
+  "rules": [
+    {
+      "rule_id": "SRC-001",
+      "name": "Fonte por alegação factual",
+      "category": "SRC",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Alegação factual em texto, imagem ou legenda",
+      "action": "Vincular claim_id a pelo menos uma fonte acessada e trecho/evidência; suspender aprovação sem suporte.",
+      "exceptions": [
+        "Ficção rotulada; opinião explicitamente identificada"
+      ],
+      "validation": "Obrigatório registrar claim_id, source_id, trecho e decisão de suporte.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F04",
+        "F44"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "SRC-002",
+      "name": "Não extrapolar fonte parcial",
+      "category": "SRC",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "source_access != full_text",
+      "action": "Não inferir método, conclusão ou detalhe que não conste da parte consultada.",
+      "exceptions": [],
+      "validation": "Alegações precisam caber no conteúdo efetivamente disponível.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F04",
+        "F45"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "SRC-003",
+      "name": "Separar associação de causalidade",
+      "category": "SRC",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Origem observacional ou insuficiente para causalidade",
+      "action": "Bloquear declaração causal não sustentada; reescrever como associação.",
+      "exceptions": [],
+      "validation": "Comparar linguagem causal com desenho do estudo.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F10",
+        "F20"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "SRC-004",
+      "name": "Estado de acesso explícito",
+      "category": "SRC",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Toda fonte anexada",
+      "action": "Exigir source_access em enum de acesso; registrar accessed_at.",
+      "exceptions": [],
+      "validation": "Campo source_access deve existir e ser válido.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F04"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "SRC-005",
+      "name": "Conflito entre fontes",
+      "category": "SRC",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Fontes relevantes discordam sobre mesma alegação",
+      "action": "Registrar versões, apresentar divergência e solicitar decisão editorial; não fabricar consenso.",
+      "exceptions": [],
+      "validation": "Conflito não resolvido marca campaign.status = needs_review.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F44",
+        "F45"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "SRC-006",
+      "name": "Citação direta e integridade",
+      "category": "SRC",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Citação textual atribuída",
+      "action": "Exigir trecho exato e autoria/contexto; impedir citação fabricada.",
+      "exceptions": [],
+      "validation": "Citação vinculada ao fragmento original.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F44"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "TTL-001",
+      "name": "Promessa do título compatível",
+      "category": "TTL",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Toda peça com headline",
+      "action": "Checar que o conteúdo entrega a promessa e evita exagero.",
+      "exceptions": [],
+      "validation": "Revisor confirma aderência título/conteúdo.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F20"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "TTL-002",
+      "name": "Pergunta não é padrão universal",
+      "category": "TTL",
+      "level": "experimental",
+      "check_type": "editorial",
+      "when": "Seleção de headline",
+      "action": "Oferecer título interrogativo só como variante, com justificativa e teste.",
+      "exceptions": [],
+      "validation": "Registrar hipótese, métrica e versão declarativa comparável.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F08",
+        "F09"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "TTL-003",
+      "name": "Especificidade sem exagero",
+      "category": "TTL",
+      "level": "recommended",
+      "check_type": "editorial",
+      "when": "Título excessivamente genérico",
+      "action": "Sugerir objeto, consequência ou exemplo que já conste da fonte.",
+      "exceptions": [],
+      "validation": "Não adicionar dados inexistentes.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F07",
+        "F20"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "TXT-001",
+      "name": "Linguagem concreta",
+      "category": "TXT",
+      "level": "recommended",
+      "check_type": "review_required",
+      "when": "Conteúdo abstrato sem exemplos",
+      "action": "Sugerir formulações concretas sem alterar sentido.",
+      "exceptions": [
+        "Termo legal; tecnicismo necessário; discussão conceitual"
+      ],
+      "validation": "Revisão pareada de precisão e clareza.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F07"
+      ],
+      "evidenceIds": [
+        "EV-CONCRETE-2026-001"
+      ]
+    },
+    {
+      "rule_id": "TXT-002",
+      "name": "Complexidade funcional",
+      "category": "TXT",
+      "level": "recommended",
+      "check_type": "editorial",
+      "when": "Texto de compreensão difícil para o público",
+      "action": "Reorganizar em blocos, explicar conceitos e preservar nuances.",
+      "exceptions": [],
+      "validation": "Avaliador humano verifica compreensão.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F14",
+        "F16"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "TXT-003",
+      "name": "Naturalidade sem simulação",
+      "category": "TXT",
+      "level": "recommended",
+      "check_type": "editorial",
+      "when": "Uso repetitivo de estruturas ou clichês",
+      "action": "Sugerir variação textual baseada em voz definida, sem erros artificiais.",
+      "exceptions": [],
+      "validation": "Histórico de repetição + revisão humana.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F30"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "VIS-001",
+      "name": "Hierarquia discernível",
+      "category": "VIS",
+      "level": "recommended",
+      "check_type": "review_required",
+      "when": "Arte/carrossel com títulos e corpo",
+      "action": "Validar contraste hierárquico, agrupamento semântico, ordem de leitura.",
+      "exceptions": [],
+      "validation": "Avaliação visual com preview mobile.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F14",
+        "F18"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "VIS-002",
+      "name": "Contraste acessível",
+      "category": "VIS",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Texto sobre cor de fundo uniforme calculável",
+      "action": "Usar 4.5:1 para texto comum e 3:1 para grande como baseline WCAG; quando imagem complexa requer revisão.",
+      "exceptions": [
+        "Casos não determináveis automaticamente"
+      ],
+      "validation": "Calcular WCAG quando amostra de fundo é confiável; senão needs_review.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F19",
+        "F49"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "VIS-003",
+      "name": "Evitar corte/overflow",
+      "category": "VIS",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Exportação de arte",
+      "action": "Impedir textos ou elementos essenciais fora do canvas; preview com corte por plataforma.",
+      "exceptions": [],
+      "validation": "Geometry test, clipping and safe area presets.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F35"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "VIS-004",
+      "name": "Coerência do carrossel",
+      "category": "VIS",
+      "level": "recommended",
+      "check_type": "review_required",
+      "when": "2+ slides",
+      "action": "Checar progressão, continuidade, estilo e ausência de repetição desnecessária.",
+      "exceptions": [],
+      "validation": "Revisão slide a slide.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F14",
+        "F18"
+      ],
+      "evidenceIds": [
+        "EV-MULTIMEDIA-001"
+      ]
+    },
+    {
+      "rule_id": "ACC-001",
+      "name": "Descrição de imagem informativa",
+      "category": "ACC",
+      "level": "recommended",
+      "check_type": "deterministic",
+      "when": "Imagem marcada como informativa",
+      "action": "Solicitar alt text; não usar texto alternativo como keyword stuffing.",
+      "exceptions": [
+        "Imagem explicitamente decorativa e dispensada pelo canal"
+      ],
+      "validation": "Existência e revisão da descrição.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F36",
+        "F40"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "ACC-002",
+      "name": "Isenção de imagem decorativa",
+      "category": "ACC",
+      "level": "recommended",
+      "check_type": "deterministic",
+      "when": "Imagem decorativa",
+      "action": "Exigir decorative=true para dispensar alt text quando plataforma permitir.",
+      "exceptions": [],
+      "validation": "Campos alt_text ou decorative consistentes.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F19"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "ETH-001",
+      "name": "Não intensificar conclusão",
+      "category": "ETH",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Ciência/notícia ou evidência parcial",
+      "action": "Evitar conclusão e emoção maiores do que o dado permite.",
+      "exceptions": [],
+      "validation": "Revisão de entailment, nunca afirmar segurança absoluta da IA.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F04",
+        "F10"
+      ],
+      "evidenceIds": [
+        "EV-HEADLINE-NEG-001"
+      ]
+    },
+    {
+      "rule_id": "ETH-002",
+      "name": "Direitos de imagem",
+      "category": "ETH",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Todo ativo externo",
+      "action": "Bloquear statuses unknown/restricted e exigir evidência documental para licensed/exception.",
+      "exceptions": [],
+      "validation": "approved_rights_status e proof_location.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F47"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "ETH-003",
+      "name": "Publicidade identificável",
+      "category": "ETH",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Conteúdo patrocinado/comercial com obrigação aplicável",
+      "action": "Exigir campo de natureza comercial e revisão de identificação.",
+      "exceptions": [],
+      "validation": "Revisão jurídica conforme campanha e jurisdição.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F47"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "AI-001",
+      "name": "Revisão humana antes do release",
+      "category": "AI",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Campanha criada com IA",
+      "action": "Publicação/exportação final depende de review_approved_by e review_approved_at.",
+      "exceptions": [],
+      "validation": "Sem aprovação -> draft/needs_review.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F30",
+        "F48"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "AI-002",
+      "name": "Proveniência sintética",
+      "category": "AI",
+      "level": "recommended",
+      "check_type": "deterministic",
+      "when": "Imagem ou redação assistida por IA",
+      "action": "Registrar uso interno da IA e sinalizar análise de rotulagem quando aplicável.",
+      "exceptions": [],
+      "validation": "Provenance.status e descrição presentes.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F30",
+        "F48"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "IG-001",
+      "name": "Carrossel contextual Instagram",
+      "category": "IG",
+      "level": "recommended",
+      "check_type": "editorial",
+      "when": "Conteúdo sequencial/comparativo no IG",
+      "action": "Oferecer carrossel como candidato, não previsão de superioridade.",
+      "exceptions": [],
+      "validation": "Justificativa e alternativa estática.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F24",
+        "F25"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "LI-001",
+      "name": "Documento estruturado LinkedIn",
+      "category": "LI",
+      "level": "recommended",
+      "check_type": "editorial",
+      "when": "Conteúdo denso e consultável no LinkedIn",
+      "action": "Sugerir documento nativo se fizer sentido.",
+      "exceptions": [],
+      "validation": "Justificativa de progressão e acessibilidade.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F27",
+        "F28"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "TH-001",
+      "name": "Threads conversacional",
+      "category": "TH",
+      "level": "recommended",
+      "check_type": "editorial",
+      "when": "Adaptação para Threads",
+      "action": "Reescrever como contribuição contextual, não cópia literal.",
+      "exceptions": [],
+      "validation": "Revisão do contexto e sentido.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F32"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "PI-001",
+      "name": "Relevância Pinterest semântica",
+      "category": "PI",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Pin com title/description/target",
+      "action": "Manter correspondência entre imagem, título, descrição e destino.",
+      "exceptions": [],
+      "validation": "Revisão semântica do destino.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F34",
+        "F35"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "X-001",
+      "name": "Evitar spam X",
+      "category": "X",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Conteúdo X",
+      "action": "Verificar duplicidade exata e hashtags proibidas; risco semântico passa a revisão.",
+      "exceptions": [],
+      "validation": "Verificação automatizada objetiva e revisão contextual.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F13"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "FB-001",
+      "name": "Evitar desconexão Facebook",
+      "category": "FB",
+      "level": "recommended",
+      "check_type": "review_required",
+      "when": "Conteúdo Facebook",
+      "action": "Revisar legenda desconectada e repetição.",
+      "exceptions": [],
+      "validation": "Alerta editorial; revisar com humano.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F12"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "PLT-001",
+      "name": "Validar suporte por canal",
+      "category": "PLT",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Exportação para uma plataforma",
+      "action": "Bloquear formatos fora dos perfis técnicos confirmados; campo unknown gera aviso/revisão.",
+      "exceptions": [],
+      "validation": "Checar tipo de arte, mídia e versão.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F27",
+        "F35",
+        "F54"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "EXP-001",
+      "name": "Proporção e corte seguros",
+      "category": "EXP",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Arquivo produzido",
+      "action": "Checar preset de exportação, ratio da arte e limites confirmados; visual final tem preview.",
+      "exceptions": [],
+      "validation": "Fail apenas em limite oficial confirmado; crop estético vira warning.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F35",
+        "F52"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "MET-001",
+      "name": "Métrica com denominador explícito",
+      "category": "MET",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Registro de desempenho",
+      "action": "Requer numerator, denominator, período e plataforma antes de derivar taxa.",
+      "exceptions": [],
+      "validation": "Nulos/não disponíveis não equivalem a zero.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F24",
+        "F25"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "MET-002",
+      "name": "Sem ranking causal de benchmark",
+      "category": "MET",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Benchmark observacional usado em recomendação",
+      "action": "Rótulo associação; não prometer resultado.",
+      "exceptions": [],
+      "validation": "Proibir previsões determinísticas de alcance/engajamento.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F24",
+        "F25"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "PRF-001",
+      "name": "Precedência de restrições",
+      "category": "PRF",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Configuração de perfil e campanha",
+      "action": "Aplicar ordem: legislação/política > fatos/direitos > plataforma > perfil > campanha > sugestão.",
+      "exceptions": [],
+      "validation": "Conflito resolvido por prioridade sem silenciar erro.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F19",
+        "F47"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "PRF-002",
+      "name": "Tom e público configuráveis",
+      "category": "PRF",
+      "level": "recommended",
+      "check_type": "editorial",
+      "when": "Geração multicliente",
+      "action": "Aplicar perfis por projeto sem contaminar outras marcas.",
+      "exceptions": [],
+      "validation": "Comparação da saída com perfil e restrições.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F30"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "OPS-001",
+      "name": "Auditoria rastreável",
+      "category": "OPS",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Toda auditoria",
+      "action": "Registrar rule_id, status, issue, source refs e suggested_fix.",
+      "exceptions": [],
+      "validation": "IDs referenciam regras existentes.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F44"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "OPS-002",
+      "name": "Controle de revisão",
+      "category": "OPS",
+      "level": "blocking",
+      "check_type": "deterministic",
+      "when": "Campanha exportável",
+      "action": "Exigir versão, status, aprovação e manifest de exportação.",
+      "exceptions": [],
+      "validation": "Estado deve permitir release.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F44"
+      ],
+      "evidenceIds": []
+    },
+    {
+      "rule_id": "OPS-003",
+      "name": "Sem alegar fato ao faltar fonte",
+      "category": "OPS",
+      "level": "blocking",
+      "check_type": "review_required",
+      "when": "Fonte headline_only ou sem acesso",
+      "action": "Gerar pergunta/rascunho com ressalva ou aguardar fonte; não inventar síntese.",
+      "exceptions": [],
+      "validation": "Nenhuma claim factual não suportada em export final.",
+      "reason": "",
+      "version": "2.0.0",
+      "updated_at": "2026-11-16",
+      "sourceIds": [
+        "F44"
+      ],
+      "evidenceIds": []
+    }
+  ],
+  "sources": [
+    {
+      "id": "F02",
+      "title": "Schreiner, Fischer & Riedl — Revisão de engajamento",
+      "url": "https://link.springer.com/article/10.1007/s10660-019-09353-8",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F03",
+      "title": "de Place Bak — Emoções e compartilhamento",
+      "url": "https://www.emerald.com/oir/article-abstract/50/3/564/1346906/Emotions-and-sentiment-in-social-media-information",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F04",
+      "title": "Cai et al. — Intenção de compartilhar",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/40535178/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F05",
+      "title": "Hu & Noor — Compartilhamento de conhecimento",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11351684/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F06",
+      "title": "Rathje & Van Bavel — Psicologia da viralidade",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/40675888/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F07",
+      "title": "Hu et al. — Linguagem concreta",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/41117138/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F08",
+      "title": "Kirgios — Perguntas e respostas",
+      "url": "https://doi.org/10.1287/mnsc.2024.04405",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F09",
+      "title": "Títulos interrogativos reduzem engajamento",
+      "url": "https://onlinelibrary.wiley.com/doi/10.1002/jcpy.70031",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F10",
+      "title": "Robertson et al. — Negatividade e CTR",
+      "url": "https://doi.org/10.1038/s41562-023-01538-4",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F11",
+      "title": "LinkedIn — Melhorias do feed",
+      "url": "https://news.linkedin.com/2026/ImprovingTheFeed",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F12",
+      "title": "Meta — Spam no Facebook",
+      "url": "https://about.fb.com/news/2025/04/cracking-down-spammy-content-facebook/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F13",
+      "title": "X — Autenticidade",
+      "url": "https://help.x.com/en/rules-and-policies/authenticity",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F14",
+      "title": "Noetel et al. — Design multimídia",
+      "url": "https://journals.sagepub.com/doi/10.3102/00346543211052329",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F15",
+      "title": "Redundância no aprendizado multimídia",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/37213390/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F16",
+      "title": "Leitura digital e cognição",
+      "url": "https://www.sciencedirect.com/science/article/pii/S1364661323001985",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F17",
+      "title": "Tipografia e legibilidade: revisão",
+      "url": "https://www.visible-language.org/journal/issue-59-3-legibility-readability/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F18",
+      "title": "Kuba & Jeong — Infográficos",
+      "url": "https://openurl.ebsco.com/contentitem/doi%3A10.1080/1051144x.2023.2168394",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F19",
+      "title": "W3C — WCAG",
+      "url": "https://www.w3.org/TR/wcag/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F20",
+      "title": "Análise de experimentos de manchetes",
+      "url": "https://pubsonline.informs.org/doi/10.1287/mksc.2021.0018",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F21",
+      "title": "Meta — Sistemas de recomendação",
+      "url": "https://about.fb.com/news/2023/06/how-ai-ranks-content-on-facebook-and-instagram/amp/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F22",
+      "title": "Meta — Conteúdo original",
+      "url": "https://about.fb.com/br/news/2024/04/ajudando-o-criador-de-conteudo-a-encontrar-novos-publicos/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F23",
+      "title": "Meta — Alcance e seguidores (2026)",
+      "url": "https://about.fb.com/br/news/2026/10/numero-de-seguidores-nao-determina-o-alcance/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F24",
+      "title": "Metricool — Social Media Study 2026",
+      "url": "https://metricool.com/wp-content/uploads/Social-Media-Study-2026-EN.pdf",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F25",
+      "title": "Socialinsider — Instagram",
+      "url": "https://www.socialinsider.io/social-media-benchmarks/instagram-engagement-report",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F26",
+      "title": "LinkedIn — Relevância no feed",
+      "url": "https://www.linkedin.com/help/linkedin/answer/a1339724",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F27",
+      "title": "LinkedIn — Upload de documentos",
+      "url": "https://www.linkedin.com/help/linkedin/answer/a518909/upload-e-compartilhar-documentos-emlinkedin",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F28",
+      "title": "Socialinsider — LinkedIn",
+      "url": "https://www.socialinsider.io/social-media-benchmarks/linkedin",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F29",
+      "title": "LinkedIn — Distribuição de conteúdo",
+      "url": "https://www.linkedin.com/help/linkedin/answer/a516930",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F30",
+      "title": "LinkedIn — Boas práticas de IA",
+      "url": "https://www.linkedin.com/help/linkedin/answer/a1481496",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F31",
+      "title": "Meta — API e publicações do Facebook",
+      "url": "https://developers.facebook.com/docs/content-library-and-api/content-library-api/guides/fb-posts",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F32",
+      "title": "Meta — Recursos do Threads",
+      "url": "https://about.fb.com/news/2025/03/new-threads-features-more-personalized-experience-you-control/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F33",
+      "title": "Meta — Threads usuários ativos (2026)",
+      "url": "https://about.fb.com/news/2026/06/meta-launching-new-features-500-million-monthly-threads-users/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F34",
+      "title": "Pinterest — Distribuição de Pins",
+      "url": "https://help.pinterest.com/pt-br/business/article/pin-performance-and-distribution",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F35",
+      "title": "Pinterest — Especificações de Pins",
+      "url": "https://help.pinterest.com/pt-br/article/review-pin-specs",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F36",
+      "title": "Pinterest — Texto alternativo",
+      "url": "https://help.pinterest.com/en/business/article/add-alternative-text-to-your-pins",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F37",
+      "title": "X — Recomendações",
+      "url": "https://help.x.com/en/rules-and-policies/recommendations",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F38",
+      "title": "X — For You",
+      "url": "https://help.x.com/en/resources/recommender-systems/for-you-home-timeline-recommendations",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F39",
+      "title": "X — Busca",
+      "url": "https://help.x.com/en/resources/recommender-systems/search-recommendations",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F40",
+      "title": "X — Descrições de imagens",
+      "url": "https://help.x.com/en/using-x/write-image-descriptions",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F41",
+      "title": "Buffer — Horários Instagram",
+      "url": "https://buffer.com/resources/when-is-the-best-time-to-post-on-instagram/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F42",
+      "title": "LinkedIn — Compartilhamento de links",
+      "url": "https://www.linkedin.com/help/linkedin/answer/a525301",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F43",
+      "title": "Valores-notícia na era digital",
+      "url": "https://journals.sagepub.com/doi/full/10.1177/14648849231165855",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F44",
+      "title": "Anter — Seleção de conteúdo para redes",
+      "url": "https://doi.org/10.1080/1461670x.2023.2235428",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F45",
+      "title": "Degena et al. — Qualidade jornalística",
+      "url": "https://www.tandfonline.com/doi/full/10.1080/1461670X.2024.2314204",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F46",
+      "title": "Estudo sobre agenda e notícias corporativas",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0363811125001079",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F47",
+      "title": "WIPO — Direitos autorais",
+      "url": "https://www.wipo.int/en/web/copyright/faq-copyright",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F48",
+      "title": "Meta — Rotulagem de IA",
+      "url": "https://about.fb.com/news/2024/04/metas-approach-to-labeling-ai-generated-content-and-manipulated-media/",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F49",
+      "title": "W3C — Critério de contraste",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F50",
+      "title": "Hu & Noor — DOI canônico",
+      "url": "https://doi.org/10.3390/bs14080636",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F51",
+      "title": "Kuba & Jeong — Infográfico sequencial",
+      "url": "https://www.tandfonline.com/doi/full/10.1080/1051144X.2024.2349380",
+      "origin": "relatorio_original",
+      "verified_at": "2026-11-16",
+      "verification": "reference_recovered_from_pdf"
+    },
+    {
+      "id": "F52",
+      "title": "Instagram — Resolução e proporção da imagem",
+      "url": "https://www.facebook.com/help/instagram/1631821640426723",
+      "origin": "verificacao_complementar",
+      "verified_at": "2026-11-16",
+      "verification": "official_snippet_only"
+    },
+    {
+      "id": "F53",
+      "title": "LinkedIn — Tipos de mídia suportados",
+      "url": "https://www.linkedin.com/help/linkedin/answer/a564109/",
+      "origin": "verificacao_complementar",
+      "verified_at": "2026-11-16",
+      "verification": "official_page_checked"
+    },
+    {
+      "id": "F54",
+      "title": "X — Como publicar e limites de mídia",
+      "url": "https://help.x.com/pt/using-x/how-to-post",
+      "origin": "verificacao_complementar",
+      "verified_at": "2026-11-16",
+      "verification": "official_page_checked"
+    },
+    {
+      "id": "F55",
+      "title": "X — Requisitos para imagens",
+      "url": "https://help.x.com/en/using-x/posting-gifs-and-pictures",
+      "origin": "verificacao_complementar",
+      "verified_at": "2026-11-16",
+      "verification": "official_page_checked"
+    },
+    {
+      "id": "F56",
+      "title": "Pinterest — Especificações para Pins orgânicos",
+      "url": "https://help.pinterest.com/pt-br/article/review-pin-specs",
+      "origin": "verificacao_complementar",
+      "verified_at": "2026-11-16",
+      "verification": "official_page_checked"
+    },
+    {
+      "id": "F57",
+      "title": "LinkedIn — Upload de documentos (PT-BR)",
+      "url": "https://www.linkedin.com/help/linkedin/answer/a518909/upload-e-compartilhar-documentos-emlinkedin?lang=pt-BR",
+      "origin": "verificacao_complementar",
+      "verified_at": "2026-11-16",
+      "verification": "official_page_checked"
+    }
+  ],
+  "evidence": {
+    "EV-CONCRETE-2026-001": {
+      "source_ids": [
+        "F07"
+      ],
+      "claim": "Linguagem mais concreta se associou a maior compartilhamento em bases analisadas e foi preferida em experimento pré-registrado.",
+      "type": "mixed_observational_experiment",
+      "external_validity": "context_specific",
+      "last_reviewed": "2026-11-16"
+    },
+    "EV-HEADLINE-NEG-001": {
+      "source_ids": [
+        "F10"
+      ],
+      "claim": "Palavras negativas aumentaram CTR em experiências com manchetes Upworthy; não implica conversão ou confiança.",
+      "type": "randomized_field_experiments",
+      "external_validity": "online_news_headlines",
+      "last_reviewed": "2026-11-16"
+    },
+    "EV-MULTIMEDIA-001": {
+      "source_ids": [
+        "F14"
+      ],
+      "claim": "Princípios de aprendizagem multimídia favorecem compreensão em contextos educacionais.",
+      "type": "meta_meta_analysis",
+      "external_validity": "education_not_identical_to_social_feed",
+      "last_reviewed": "2026-11-16"
+    }
+  },
+  "platforms": {
+    "instagram": {
+      "scope": "posts de imagem e carrosséis orgânicos; sem vídeo",
+      "formats": [
+        "single_image",
+        "carousel"
+      ],
+      "verified_rules": [],
+      "advisories": [
+        {
+          "key": "single_image_aspect_ratio",
+          "value": "1.91:1 a 3:4",
+          "confidence": "official_search_excerpt",
+          "source_id": "F52",
+          "note": "Página oficial da Meta recuperada por resultado de busca; conferir no produto antes de bloquear."
+        },
+        {
+          "key": "working_canvas",
+          "value": "1080x1350 (4:5) ou 1080x1440 (3:4)",
+          "confidence": "design_preset",
+          "note": "Preset editorial, não mínimo técnico universal."
+        }
+      ],
+      "not_verified": [
+        "número máximo atual de quadros em carrossel",
+        "tamanho máximo de arquivo para cada fluxo orgânico",
+        "comportamento de crop em todas as superfícies"
+      ]
+    },
+    "linkedin": {
+      "scope": "post de texto/imagem e documento nativo orgânico",
+      "formats": [
+        "text",
+        "single_image",
+        "document"
+      ],
+      "verified_rules": [
+        {
+          "key": "document_max_mb",
+          "value": 100,
+          "unit": "MB",
+          "source_id": "F57"
+        },
+        {
+          "key": "document_max_pages",
+          "value": 300,
+          "unit": "pages",
+          "source_id": "F57"
+        },
+        {
+          "key": "document_formats",
+          "value": [
+            "PDF",
+            "PPT",
+            "PPTX",
+            "DOC",
+            "DOCX"
+          ],
+          "source_id": "F57"
+        },
+        {
+          "key": "image_formats",
+          "value": [
+            "GIF",
+            "JPEG",
+            "PNG",
+            "WEBP"
+          ],
+          "source_id": "F53"
+        }
+      ],
+      "advisories": [
+        {
+          "key": "document_pages_recommended",
+          "value": "poucas páginas quando possível; extensão depende da complexidade",
+          "confidence": "editorial",
+          "note": "Não confundir recomendação com limite."
+        }
+      ],
+      "not_verified": [
+        "limite exato de caracteres por tipo de conta/fluxo",
+        "recorte de imagens em todos os dispositivos"
+      ]
+    },
+    "facebook": {
+      "scope": "publicações orgânicas de página/perfil",
+      "formats": [
+        "text",
+        "single_image",
+        "album",
+        "link"
+      ],
+      "verified_rules": [],
+      "advisories": [
+        {
+          "key": "working_canvas",
+          "value": "1080x1350 ou 1080x1080",
+          "confidence": "design_preset",
+          "note": "Preset visual; não restrição oficial universal."
+        }
+      ],
+      "not_verified": [
+        "limite numérico universal do álbum por superfície",
+        "dimensões, arquivos e tamanho por tipo de conta e fluxo"
+      ]
+    },
+    "threads": {
+      "scope": "posts de texto e imagem orgânicos",
+      "formats": [
+        "text",
+        "single_image",
+        "text_thread"
+      ],
+      "verified_rules": [],
+      "advisories": [
+        {
+          "key": "style",
+          "value": "conversacional, sem cópia literal",
+          "confidence": "editorial_heuristic",
+          "source_id": "F32"
+        }
+      ],
+      "not_verified": [
+        "limite exato de caracteres para toda modalidade",
+        "número/limites de imagens na publicação via interface/API"
+      ]
+    },
+    "pinterest": {
+      "scope": "Pin orgânico de imagem",
+      "formats": [
+        "single_image"
+      ],
+      "verified_rules": [
+        {
+          "key": "image_formats",
+          "value": [
+            "BMP",
+            "JPEG",
+            "PNG",
+            "TIFF",
+            "WEBP"
+          ],
+          "source_id": "F56"
+        },
+        {
+          "key": "web_max_image_mb",
+          "value": 20,
+          "unit": "MB",
+          "source_id": "F56"
+        },
+        {
+          "key": "pin_title_max_chars",
+          "value": 100,
+          "unit": "chars",
+          "source_id": "F56"
+        },
+        {
+          "key": "pin_description_max_chars",
+          "value": 800,
+          "unit": "chars",
+          "source_id": "F56"
+        }
+      ],
+      "advisories": [
+        {
+          "key": "working_canvas",
+          "value": "1000x1500 / 2:3",
+          "confidence": "official_recommendation",
+          "source_id": "F34",
+          "note": "Proporção recomendada; não foi tratada como exigência universal de upload."
+        }
+      ],
+      "not_verified": [
+        "zonas seguras numéricas aplicáveis a todos os tipos de Pin e superfícies"
+      ]
+    },
+    "x": {
+      "scope": "post comum de texto e fotos; sem recursos pagos",
+      "formats": [
+        "text",
+        "single_image",
+        "multi_image",
+        "text_thread"
+      ],
+      "verified_rules": [
+        {
+          "key": "regular_post_max_chars",
+          "value": 280,
+          "unit": "chars",
+          "source_id": "F54"
+        },
+        {
+          "key": "max_media_items",
+          "value": 4,
+          "unit": "items",
+          "source_id": "F54"
+        },
+        {
+          "key": "image_max_mb",
+          "value": 5,
+          "unit": "MB",
+          "source_id": "F55"
+        },
+        {
+          "key": "image_formats",
+          "value": [
+            "GIF",
+            "JPEG",
+            "PNG"
+          ],
+          "source_id": "F55"
+        }
+      ],
+      "advisories": [
+        {
+          "key": "single_image_ratio",
+          "value": "2:1 a 3:4 costuma exibir integralmente",
+          "confidence": "official_display_note",
+          "source_id": "F55"
+        }
+      ],
+      "not_verified": [
+        "limites para contas pagas e ferramentas com acesso especial"
+      ]
+    }
+  }
+}

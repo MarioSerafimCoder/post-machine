@@ -1,5 +1,12 @@
 # Roteiro por fases
 
+## Editorial Intelligence 2.0
+
+- EI-01 e EI-02 incorporam o catálogo v2.0.0 e usam regras rastreáveis para selecionar, comparar e explicar recomendações conforme o contexto.
+- EI-03 a EI-05 conectam briefing, importação, Headlines, Produção Expressa e Auditoria ao Assistente Editorial. A saída de campanha continua no contrato v1.
+- EI-06 mantém feedback delimitado por perfil editorial ou campanha. EI-07 valida os fluxos desktop, o armazenamento local e a publicação protegida.
+- Casos de plataforma sem artefato correspondente, revisão factual de alegações, aprovação humana formal e métricas com denominadores ficam para extensões específicas do fluxo de publicação.
+
 ## Evolução 08 — Integração e estabilidade
 
 - Pautas importadas podem abrir diretamente na Produção Expressa. A edição preserva os destaques dos caracteres que permaneceram no título.

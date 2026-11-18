@@ -1,14 +1,15 @@
-import { importContent, maxImport, maxSlides, type Content } from '../campaigns/contract'
+import { importContent, maxImport, maxSlides, type Briefing, type Content } from '../campaigns/contract'
 import type { CollectionSlide } from './collections'
 
 export const titleLimit = 500
 export const bodyLimit = 8000
 
-export function fromStructured(content: Content) {
+export function fromStructured(content: Content, briefing?: Briefing) {
   return content.slides.map(slide => ({
     title: slide.title, body: slide.body, role: slide.role, imageBrief: slide.imageBrief,
     headlines: slide.headlines, cta: slide.role === 'cta' || content.slides.length === 1 ? content.campaign.cta : '',
-    intent: explicitIntent(slide.layoutType),
+    intent: explicitIntent(slide.layoutType) ?? (slide.role === 'content' && briefing?.approach === 'Comparação' &&
+      briefing.acceptedRules?.includes('SRC-005') ? 'comparison' as const : undefined),
   }))
 }
 

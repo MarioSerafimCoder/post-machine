@@ -1,0 +1,80 @@
+.app-shell:has(.editorial-dock) .active-workspace { padding-inline-end: 62px; }
+.editorial-dock {
+  position: fixed;
+  inset: auto 12px 13px auto;
+  z-index: 12;
+  display: grid;
+  justify-items: end;
+  color: var(--ink);
+  font-size: 13px;
+}
+.editorial-dock button, .editorial-dock select {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 9px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.editorial-dock button:hover { border-color: var(--accent); }
+.editorial-dock button:disabled { opacity: .56; cursor: default; }
+.editorial-dock .editorial-launcher {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 3px 12px #11111116;
+}
+.editorial-launcher picture { display: grid; place-items: center; width: 44px; height: 44px; }
+.editorial-launcher img { display: block; width: 56px; max-width: none; height: auto; translate: -6px -6px; }
+.editorial-indicator {
+  position: absolute;
+  inset: 4px 4px auto auto;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+}
+.editorial-popover {
+  position: absolute;
+  inset: auto 0 53px auto;
+  width: 344px;
+  max-height: min(610px, calc(100vh - 118px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  box-shadow: 0 10px 34px #11111124;
+}
+.editorial-popover header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.editorial-popover h2 { margin: 0; font-size: 17px; font-weight: 750; }
+.editorial-popover label { display: grid; gap: 5px; }
+.editorial-popover p, .editorial-popover li { margin: 0; line-height: 1.5; }
+.editorial-balloon { width: 282px; border-top: 2px solid var(--accent); }
+.app-shell:has(.editorial-dock[data-in-flow]) { flex-direction: column; }
+.editorial-dock[data-in-flow] { position: static; margin: 0 62px 20px 20px; }
+.editorial-dock[data-in-flow] .editorial-popover { position: relative; inset: auto; }
+.editorial-dock[data-in-flow] .editorial-launcher { position: fixed; inset: auto 12px 13px auto; }
+.editorial-balloon p { font-weight: 670; }
+.editorial-buttons { display: flex; flex-wrap: wrap; gap: 5px; }
+.editorial-insight { display: grid; justify-items: start; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line); }
+.editorial-insight h3, .editorial-insight h4 { margin: 0; font-size: 14px; font-weight: 700; }
+.editorial-insight small, .editorial-trace small { color: var(--muted); }
+.editorial-trace { overflow-wrap: anywhere; }
+.editorial-trace ul { margin: 6px 0; padding-inline-start: 17px; }
+.editorial-trace small { display: block; }
+.editorial-dock summary, .editorial-briefing summary { cursor: pointer; font-weight: 635; }
+.editorial-insight details > p, .editorial-trace { margin-top: 6px; }
+.editorial-briefing > details { border-top: 1px solid var(--line); padding-top: 8px; }
+.editorial-briefing .campaign-fields { margin-top: 8px; }
+.editorial-briefing .editorial-checkbox { display: flex; align-items: center; }
+.editorial-briefing .editorial-checkbox input { width: auto; }

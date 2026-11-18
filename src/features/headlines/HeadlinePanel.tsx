@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useAssistantSignal, type Signal } from '../intelligence/signals'
+import { recordEditorialFeedback } from '../intelligence/feedback'
 import { analyzeHeadline, characterCount } from './analysis'
 import { approaches, approachNames, importSuggestions, newSession, type HeadlineContext, type HeadlineSession, type Suggestion } from './contract'
 import { buildHeadlinePrompt, ruleSuggestions } from './suggest'
@@ -13,9 +15,10 @@ type Props = {
   stored?: HeadlineSession
   save: (session: HeadlineSession, text?: string) => void
   measure?: (text: string) => HeadlineFit
+  assistant?: Pick<Signal, 'area' | 'scope'> & { id: string }
 }
 
-export function HeadlinePanel({ title, context, stored, save, measure }: Props) {
+export function HeadlinePanel({ title, context, stored, save, measure, assistant }: Props) {
   const session = stored ?? newSession(title)
   const [raw, setRaw] = useState('')
   const [manual, setManual] = useState<string>()
@@ -24,6 +27,21 @@ export function HeadlinePanel({ title, context, stored, save, measure }: Props) 
   const [error, setError] = useState('')
   const diagnosis = analyzeHeadline(title, session, context)
   const fit = measure?.(title)
+  const diagnosisElement = useRef<HTMLDivElement>(null)
+  const linguistic = diagnosis.heuristic.find(item => /genéricos|clichê/.test(item)) ?? diagnosis.heuristic[0]
+  const issue = (fit && !fit.fits ? fit.detail : undefined) ?? diagnosis.measured[0] ?? linguistic
+  useAssistantSignal(assistant && issue ? {
+    area: assistant.area, scope: assistant.scope, priority: 60,
+    insight: {
+      id: `headline:${assistant.id}`, ruleId: fit && !fit.fits ? 'VIS-003' : 'TTL-003',
+      title: 'Revise a headline selecionada', detail: issue,
+      assessment: issue === linguistic ? 'heuristic' : 'verified',
+      actions: [{ label: 'Abrir análise do título', run: () => {
+        diagnosisElement.current?.focus({ preventScroll: true })
+        diagnosisElement.current?.scrollIntoView({ block: 'nearest' })
+      } }],
+    },
+  } : undefined)
   const update = (changes: Partial<HeadlineSession>) => save({ ...session, ...changes })
 
   function showSuggestions(suggestions: Suggestion[]) {
@@ -66,6 +84,10 @@ export function HeadlinePanel({ title, context, stored, save, measure }: Props) 
     if (!text.trim() || text.length > 500 || text === title) return
     const result = measure?.(text)
     save({ ...session, applications: [...session.applications.slice(-19), { at: new Date().toISOString(), previous: title, applied: text, suggestionId }] }, text)
+    if (assistant) recordEditorialFeedback({
+      scope: assistant.scope, id: `headline-choice:${assistant.id}:${crypto.randomUUID()}`, ruleId: 'TTL-002',
+      preference: /[?？]\s*$/.test(text) ? 'headline-question' : 'headline-declarative', outcome: 'accepted',
+    })
     setManual(undefined)
     setMessage(result && !result.fits ? `Título aplicado. ${result.detail}` : 'Título aplicado.')
   }
@@ -76,7 +98,7 @@ export function HeadlinePanel({ title, context, stored, save, measure }: Props) 
       <p><strong>Título atual</strong> {title || 'Sem título'}</p>
       {session.original !== title && <p className="muted">Original {session.original || 'sem título'}</p>}
     </header>
-    <div className="headline-diagnosis">
+    <div className="headline-diagnosis" ref={diagnosisElement} tabIndex={-1}>
       <p><strong>Medido</strong> · {diagnosis.characters} caracteres · {diagnosis.words} palavras</p>
       {fit && <p>{fit.width} × {fit.height} px na arte · {fit.detail}</p>}
       {diagnosis.measured.map(item => <p key={item}>{item}</p>)}

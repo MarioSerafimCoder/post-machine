@@ -5,6 +5,7 @@ import { auditProject } from './engine'
 import { defaultSettings, type AuditReport, type Category, type Finding, type Severity } from './contract'
 import { prepareSafeMove } from './fix'
 import { sameReviewVersion } from './review'
+import { useAuditAssistant } from '../intelligence/auditSignal'
 import './audit.css'
 
 const categories: Record<Category,string> = {
@@ -12,8 +13,8 @@ const categories: Record<Category,string> = {
   contrast:'Contraste', branding:'Marca', consistency:'Consistência',
 }
 
-type Props = { view?: 'diagnosis' | 'corrections' | 'results'; project: Project; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => void | Promise<void>; onReport?: (report: AuditReport, project: Project, index?: number) => void; onUndo?: () => void | Promise<void> }
-export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo,onReport,view='diagnosis'}: Props) {
+type Props = { view?: 'diagnosis' | 'corrections' | 'results'; project: Project; assistantArea?: 'studio' | 'auditoria'; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => void | Promise<void>; onReport?: (report: AuditReport, project: Project, index?: number) => void; onUndo?: () => void | Promise<void> }
+export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,onUndo,onReport,view='diagnosis'}: Props) {
   const [report,setReport] = useState<AuditReport>()
   const [source,setSource] = useState<Project>()
   const [scope,setScope] = useState<number>()
@@ -82,6 +83,12 @@ export function AuditPanel({project,currentSlide,onFocus,onChange,onUndo,onRepor
       setUndoSource(undefined)
     } catch (cause) { setError(String(cause)) }
   }
+  useAuditAssistant({
+    area: busy || proposing ? undefined : assistantArea, project, source, report, current: currentSlide,
+    locate: finding => { if (latest.current && source && sameReviewVersion(source, latest.current)) onFocus(finding) },
+    fix: finding => void fix(finding),
+    canFix: finding => (attempts[finding.id] ?? 0) < 2,
+  })
   const visible=(report?.findings??[]).filter(f=>(view !== 'corrections' || f.autoFixAvailable)&&(severity==='all'||f.severity===severity)&&(category==='all'||f.category===category)&&(slide==='all'||String(f.slideNumber)===slide)&&(situation==='all'||(situation==='reviewed')===reviewed.has(f.id)))
   const count=(level:Severity)=>report?.findings.filter(f=>f.severity===level).length??0
   const settings=project.auditSettings??defaultSettings

@@ -72,7 +72,7 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
         </div>
       </article>
     })}</div>
-    <section className="factory-detail" aria-label={`Prévia ${labels[proposal.treatment][0]}`}>
+    <section className="factory-detail" id="express-proposal-preview" tabIndex={-1} aria-label={`Prévia ${labels[proposal.treatment][0]}`}>
       <header><div><h3>{labels[proposal.treatment][0]} · {result.collection}</h3>
         <p className="muted">Slide {slideIndex+1} de {result.slides.length}</p></div>
         <button className="button button-dark" disabled={busy} onClick={() => open(proposal)}>Usar esta versão</button></header>

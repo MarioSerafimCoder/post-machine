@@ -28,7 +28,10 @@ export function analyzeHeadline(text: string, limits: Pick<HeadlineSession, 'max
   if (generic.test(text)) heuristic.push('Há termos genéricos. Nomeie o assunto, a mudança ou o recorte.')
   if (text.trim() && (tokens.length <= 2 || /^(is?so|isto|aquilo|veja|descubra)\s/i.test(text))) heuristic.push('Confira se o assunto fica claro para quem vê apenas o título.')
   if (/informar|educar/i.test(context.objective ?? '') && (!tokens.length || detected.length || /[!?]{2,}/.test(text))) heuristic.push('Para o objetivo informado, verifique se o título nomeia o conteúdo que será explicado.')
-  const known = [context.briefing, ...context.slides.map(slide => slide.body), ...context.sources.flatMap(source => [source.title, source.summary])].join(' ').toLocaleLowerCase('pt-BR')
-  if ([...lower.matchAll(claims)].some(match => !known.includes(match[0].trim()))) heuristic.push('Há um número, superlativo ou promessa que precisa ser conferido nas fontes e no briefing.')
+  const candidates = [...lower.matchAll(claims)]
+  if (candidates.length) {
+    const known = [context.briefing, ...context.slides.map(slide => slide.body), ...context.sources.flatMap(source => [source.title, source.summary])].join(' ').toLocaleLowerCase('pt-BR')
+    if (candidates.some(match => !known.includes(match[0].trim()))) heuristic.push('Há um número, superlativo ou promessa que precisa ser conferido nas fontes e no briefing.')
+  }
   return { characters, words: tokens.length, measured, heuristic }
 }

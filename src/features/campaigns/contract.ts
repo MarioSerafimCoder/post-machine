@@ -3,6 +3,7 @@ import { articleSchema, opportunitySchema, webUrl, type Article, type Opportunit
 import { headlineSessionSchema } from '../headlines/contract'
 import { creativeOriginSchema, type CreativeOrigin, type Reference } from '../virals/contract'
 import { editorialFormat } from '../virals/catalog'
+import { accessStates, channels } from '../intelligence/types'
 
 export const objectives = ['Informar', 'Educar', 'Gerar engajamento', 'Provocar reflexão', 'Apresentar uma opinião', 'Converter'] as const
 export const tones = ['Profissional', 'Criativo', 'Provocativo', 'Reflexivo', 'Informal', 'Institucional'] as const
@@ -19,6 +20,11 @@ export const preferencesSchema = z.object({ audience: short, tone: z.enum(tones)
 const briefingSchema = preferencesSchema.extend({
   objective: z.enum(objectives), format, slideCount: z.number().int().min(2).max(maxSlides),
   approach: z.enum(approaches), notes: prose,
+  editorialProfile: z.string().trim().max(80).optional(),
+  channel: z.enum(channels).optional(),
+  sourceAccess: z.enum(accessStates).optional(),
+  sourceConflict: z.boolean().optional(),
+  acceptedRules: z.array(z.string().regex(/^[A-Z]+-\d{3}$/)).max(12).optional(),
 })
 const sourceSchema = z.object({ title: short.trim().min(1), url: webUrl, publishedAt: z.iso.datetime({ offset: true }).nullable() })
 const slideSchema = z.object({
@@ -83,7 +89,7 @@ export function draftFromReference(reference: Reference, preferences: Preference
     briefing: { ...draft.briefing, approach, notes: `Referência de formato: ${format.name}. ${format.slides}` } }
 }
 
-export function createPrompt({ article, briefing, title, creativeOrigin, opportunity }: Draft) {
+export function createPrompt({ article, briefing, title, creativeOrigin, opportunity }: Draft, editorialInstructions: readonly string[] = []) {
   const count = slideCount(briefing)
   const example: Content = {
     schemaVersion: 1,
@@ -123,6 +129,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     'Separe fatos verificáveis, interpretações e opiniões na redação. Preserve o contexto e não invente números, estudos, citações, datas, atribuições ou referências.',
     'Escreva headlines específicas e interessantes, sem clichês, linguagem artificial ou clickbait enganoso. Organize a narrativa com progressão clara e textos curtos para caber na peça.',
     'Sugira uma imagem pertinente e indique a direção de arte de cada peça em imageBrief e layoutType. Escreva uma legenda contextualizada e um CTA coerente com o objetivo.',
+    ...editorialInstructions,
     'Retorne somente JSON válido. Mantenha os campos, a ordem e a quantidade de peças do modelo. Preencha os textos e liste apenas referências verificáveis. Preserve o link original e use null para datas desconhecidas.',
     '',
     JSON.stringify(example, null, 2),

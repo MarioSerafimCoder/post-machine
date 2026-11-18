@@ -1,5 +1,12 @@
 # Arquitetura e decisões
 
+## Editorial Intelligence 2.0
+
+- `src/features/intelligence/` contém catálogo e esquemas de validação, decisão contextual, briefing, leitura dos resultados da Auditoria e interface do assistente. O catálogo normaliza os IDs bibliográficos do ZIP como `sourceIds` e conserva os registros experimentais separados. As ligações explícitas de concretude, negatividade em manchetes e coerência multimídia conservam o escopo da evidência. As datas e o tipo de verificação documental vêm do pacote v2.0.0.
+- Campanhas adicionam metadados opcionais ao briefing. O adaptador de prompt reutiliza o exemplo e a validação v1, com instruções limitadas ao contexto e à quantidade de peças selecionada. A intenção comparativa aprovada entra como preferência de composição quando o conteúdo e o papel da peça são compatíveis.
+- A área ativa fornece sinais tipados e ações transitórias a uma store de sessão. Só o assistente subscreve o conjunto de sinais. Relatórios são elegíveis enquanto `sameReviewVersion()` confirmar a revisão, e correções passam pelo fluxo existente de confirmação, tentativas e desfazer.
+- Preferências do assistente usam `localStorage` com esquema versionado e até 80 decisões. A memória registra identificadores, data e escolha, sem texto de campanhas, artigos, imagens ou projetos. O GIF fornecido e seu primeiro quadro são ativos locais. Não há API de modelo, sincronização ou serviço adicional.
+
 ## Evoluções 01 e 02
 
 O cabeçalho usa as rotas por hash existentes. A barra contextual reutiliza os controles de cada área. Após a primeira visita, Radar e Studio permanecem montados para preservar filtros, briefing e edição. O Fabric continua usando o mesmo modelo de projeto e armazenamento.

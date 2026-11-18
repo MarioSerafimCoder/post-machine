@@ -2,7 +2,10 @@ import type { Opportunity } from '../radar/contract'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { SaveQueue } from '../../lib/saveQueue'
-import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { BriefingIntelligence } from '../intelligence/BriefingIntelligence'
+import { briefingInstructions, recommend, reviewEditorial } from '../intelligence/decision'
+import { campaignScope, preferenceFor, useEditorialMemory } from '../intelligence/feedback'
 import { normalize, type Article } from '../radar/contract'
 import {
   approaches, backupSchema, createPrompt, defaultPreferences, draftFromReference, formats, importContent,
@@ -222,7 +225,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
         </div>
       </aside>
       {draft && <div className="campaign-editor">
-        <Editor key={draft.id} draft={draft} update={persist} onPreferences={briefing => void savePreferences(briefing)} />
+        <Editor key={draft.id} draft={draft} active={active} update={persist} onPreferences={briefing => void savePreferences(briefing)} />
         <div className="campaign-actions">
           <button className="button button-dark" onClick={() => persist(draft, true)}>Salvar campanha</button>
           {draft.content && <>
@@ -242,8 +245,9 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   </section>
 }
 
-function Editor({ draft, update, onPreferences }: {
+function Editor({ draft, active, update, onPreferences }: {
   draft: Draft
+  active: boolean
   update: (draft: Draft) => void
   onPreferences: (briefing: Briefing) => void
 }) {
@@ -253,11 +257,15 @@ function Editor({ draft, update, onPreferences }: {
   const [copyStatus, setCopyStatus] = useState('')
   const [replacing, setReplacing] = useState(false)
   const { article, briefing } = draft
+  const deferred = useDeferredValue(draft)
+  const { history } = useEditorialMemory()
+  const recommendations = useMemo(() => active ? recommend(deferred, preference => preferenceFor(history, campaignScope(deferred), preference)) : [], [active, deferred, history])
+  const findings = useMemo(() => active ? reviewEditorial(deferred) : [], [active, deferred])
   const editBriefing = (changes: Partial<Briefing>) => update({ ...draft, briefing: { ...briefing, ...changes } })
   const editContent = (content: Content) => update({ ...draft, content })
 
   function generate() {
-    update({ ...draft, prompt: createPrompt(draft), promptBriefing: briefing })
+    update({ ...draft, prompt: createPrompt(draft, briefingInstructions(draft, recommend(draft))), promptBriefing: briefing })
     setCopyStatus('')
   }
 
@@ -302,14 +310,14 @@ function Editor({ draft, update, onPreferences }: {
       {draft.creativeOrigin.description && <p>{draft.creativeOrigin.description}</p>}
     </section>}
     {article && <section className="campaign-panel" aria-labelledby="campaign-source-heading">
-      <h3 id="campaign-source-heading">Notícia de origem</h3>
+      <h3 id="campaign-source-heading" tabIndex={-1}>Notícia de origem</h3>
       <a href={article.url} target="_blank" rel="noreferrer">{article.title}</a>
       <p className="muted">{[article.source, article.category, article.language === 'pt' ? 'Português' : article.language === 'en' ? 'Inglês' : article.language,
         article.publishedAt && date.format(new Date(article.publishedAt))].filter(Boolean).join(' · ')}</p>
       {article.summary && <p>{article.summary}</p>}
     </section>}
     <section className="campaign-panel" aria-labelledby="campaign-briefing-heading">
-      <h3 id="campaign-briefing-heading">Briefing editorial</h3>
+      <h3 id="campaign-briefing-heading" tabIndex={-1}>Briefing editorial</h3>
       <label>Título do briefing<input value={draft.title} maxLength={500} onChange={event => update({ ...draft, title: event.target.value })} /></label>
       <div className="campaign-fields">
         <Select label="Objetivo" value={briefing.objective} options={choices(objectives)} change={objective => editBriefing({ objective })} />
@@ -327,6 +335,8 @@ function Editor({ draft, update, onPreferences }: {
         <button className="button button-outline" onClick={() => onPreferences(briefing)}>Salvar público e tom como padrão</button>
       </div>
     </section>
+    <BriefingIntelligence draft={draft} recommendations={recommendations} findings={findings} active={active}
+      current={deferred === draft} edit={editBriefing} />
     {draft.promptBriefing && <section className="campaign-panel" aria-labelledby="campaign-prompt-heading">
       <h3 id="campaign-prompt-heading">Produzir com IA</h3>
       <p className="muted">Copie o prompt e cole na ferramenta escolhida. A resposta volta pelo importador abaixo.</p>
@@ -363,7 +373,7 @@ function Editor({ draft, update, onPreferences }: {
       </div>}
       {error && <p role="alert" className="info-strip">{error}</p>}
     </section>
-    {draft.content && <Review draft={draft} content={draft.content} update={editContent} />}
+    {draft.content && <Review draft={draft} active={active} content={draft.content} update={editContent} />}
   </>
 }
 
@@ -382,7 +392,7 @@ function Select<T extends string>({ label, value, options, change }: {
   </select></label>
 }
 
-function Review({ draft, content, update }: { draft: Draft; content: Content; update: (content: Content) => void }) {
+function Review({ draft, active, content, update }: { draft: Draft; active: boolean; content: Content; update: (content: Content) => void }) {
   const [headlineIndex, setHeadlineIndex] = useState<number>()
   const { campaign, slides } = content
   const setSlides = (items: Slide[]) => update({ ...content, slides: items.map((item, index) => ({ ...item, order: index + 1 })) })
@@ -421,6 +431,7 @@ function Review({ draft, content, update }: { draft: Draft; content: Content; up
         </div>
         <button type="button" className="button button-outline" aria-expanded={headlineIndex === index} onClick={() => setHeadlineIndex(value => value === index ? undefined : index)}>Melhorar headline</button>
         {headlineIndex === index && <HeadlinePanel title={slide.title} stored={slide.headlines} context={{ ...campaignHeadlineContext(draft), selectedSlide: index + 1 }}
+          assistant={active ? { area: 'radar', scope: campaignScope(draft), id: `${draft.id}:${slide.order}` } : undefined}
           save={(headlines, text) => slideField(index, { headlines, title: text ?? slide.title })} />}
         <div className="campaign-actions">
           <button className="button button-outline" disabled={index === 0} onClick={() => move(index, -1)}>Mover para cima</button>

@@ -14,6 +14,7 @@ import { divideBody } from './factory/planning'
 import { readImage } from './images'
 import { formatNames, type Brand, type Format, type Project } from './model'
 import { ProposalReview } from './factory/ProposalReview'
+import { useAssistantSignal } from '../intelligence/signals'
 import './collections.css'
 
 const tools: ContextTool[] = [
@@ -34,7 +35,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
 }) {
   const [step, setStep] = useState<Step>('Conteúdo')
   const [text, setText] = useState('')
-  const [slides, setSlides] = useState<Entry[]>(() => campaign?.content ? fromStructured(campaign.content).map(entry) : [entry()])
+  const [slides, setSlides] = useState<Entry[]>(() => campaign?.content ? fromStructured(campaign.content, campaign.briefing).map(entry) : [entry()])
   const [campaigns, setCampaigns] = useState<Draft[]>()
   const [linked, setLinked] = useState(campaign)
   const [name, setName] = useState(campaign?.content?.campaign.title.slice(0,100) ?? '')
@@ -101,7 +102,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   function loadCampaign(id: string) {
     const item = campaigns?.find(draft => draft.id === id)
     if (!item?.content) return
-    organize(fromStructured(item.content)); setLinked(item); setCaption(item.content.campaign.caption); setName(item.content.campaign.title.slice(0,100))
+    organize(fromStructured(item.content, item.briefing)); setLinked(item); setCaption(item.content.campaign.caption); setName(item.content.campaign.title.slice(0,100))
     if (item.content.campaign.format === 'story') setFormat('story')
     setError('')
   }
@@ -245,6 +246,28 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     const updated = recompose(factoryInput,result.slides[previewIndex],result.proposals[selected],previewIndex,composition)
     setPrepared({ input:factoryInput,result:{ ...result,proposals:result.proposals.map((proposal,index) => index === selected ? updated : proposal) } })
   }
+
+  const reviewedProposal = active && !busy && step === 'Prévia' ? result?.proposals[selected] : undefined
+  const issuePosition = reviewedProposal?.details.findIndex(detail => detail.issues.some(issue => !issue.message.startsWith('Imagem ainda'))) ?? -1
+  const productionIssue = reviewedProposal?.details[issuePosition]?.issues.find(issue => !issue.message.startsWith('Imagem ainda'))
+  const lighter = result?.proposals.findIndex((proposal, index) => index !== selected &&
+    proposal.details.reduce((sum, detail) => sum + detail.issues.length, 0) <
+    (reviewedProposal?.details.reduce((sum, detail) => sum + detail.issues.length, 0) ?? 0)) ?? -1
+  useAssistantSignal(reviewedProposal && productionIssue ? {
+    area: 'studio', scope: reviewedProposal.project.id, priority: 65,
+    insight: {
+      id: `express:${issuePosition}:${productionIssue.kind}:${productionIssue.field ?? ''}`,
+      ruleId: productionIssue.kind === 'text' ? 'VIS-003' : 'VIS-001',
+      title: `Revise o slide ${issuePosition + 1} da proposta`,
+      detail: productionIssue.message,
+      assessment: 'needs_review',
+      alternative: lighter >= 0 ? 'Outra proposta desta fabricação gerou menos avisos. Compare o resultado e o recorte.' : undefined,
+      actions: [
+        { label: 'Ver slide da proposta', run: () => { setPreviewIndex(issuePosition); document.getElementById('express-proposal-preview')?.focus() } },
+        ...(lighter >= 0 ? [{ label: 'Comparar proposta com menos avisos', run: () => { setSelected(lighter); document.getElementById('express-proposal-preview')?.focus() } }] : []),
+      ],
+    },
+  } : undefined)
 
   let panel: ReactNode
   if (step === 'Conteúdo') panel = <div className="express-content">

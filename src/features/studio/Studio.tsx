@@ -27,6 +27,8 @@ import { cropImage, readImage } from './images'
 import './studio.css'
 import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
+import { useAuditAssistant } from '../intelligence/auditSignal'
+import { campaignScope } from '../intelligence/feedback'
 import type { AuditReport, Finding } from '../audit/contract'
 import { sameReviewSettings, sameReviewVersion, type Review } from '../audit/review'
 import { resolvePage } from '../../lib/navigation'
@@ -323,6 +325,16 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { startingRef.current = false; setStarting(false) }
   }
+  useAuditAssistant({
+    area: active && (!auditOpen || exportOpen) ? 'studio' : undefined,
+    project, source: fullReview?.project, report: fullReview?.report, current,
+    locate: finding => {
+      const latest = getCurrent()
+      if (!latest || !fullReview || !sameReviewVersion(fullReview.project, latest)) return
+      setExportProjectId(undefined)
+      focusFinding(finding)
+    },
+  })
   if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
     <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format} cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} />
   </Suspense>
@@ -407,6 +419,7 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
       ? <ImageSearch key={imagePanel.request} initialTerm={imagePanel.term} insert={insertImage} />
       : <ImageLibrary key={imagePanel.request} flush={flush} insert={insertImage} />)}
     {selectedTitle && headlineTarget === selectedTitle && <div className="studio-headlines"><HeadlinePanel title={selectedTitle.text} stored={selectedTitle.headlines}
+      assistant={active ? { area: 'studio', scope: campaign ? campaignScope(campaign) : project.id, id: project.slides[current].id } : undefined}
       context={{ ...(campaign ? campaignHeadlineContext(campaign) : { sources: [] }), format: formatNames[project.format], selectedSlide: current + 1, slides: project.slides.map(slide => semantics(slide.scene)) }}
       measure={text => measureTitle(selectedTitle, text, dimensions[project.format])}
       save={(headlines, text) => {
@@ -418,7 +431,7 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
         selectedTitle.set({ headlines })
         snapshotCanvas(text !== undefined)
       }} /></div>}
-    {auditOpen&&<AuditPanel project={project} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
+    {auditOpen&&<AuditPanel project={project} assistantArea={active && !exportOpen ? 'studio' : undefined} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
     {error && <p role="alert">{error}</p>}
     {!readyCanvas && !error && <p className="studio-loading" role="status">Carregando o slide…</p>}
     {guidance && sameReviewVersion(guidance.project,project) && guidance.finding.slideId === project.slides[current].id && <div className="studio-guidance" role="status">

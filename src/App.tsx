@@ -1,6 +1,8 @@
 import type { CampaignStartMode } from './features/campaigns/CampaignStart'
 import type { Draft } from './features/campaigns/contract'
 import { lazy, Suspense } from 'react'
+import { AssistantSignals, createAssistantSignals } from './features/intelligence/signals'
+const Assistant = lazy(() => import('./features/intelligence/Assistant'))
 const Studio = lazy(() => import('./features/studio/Studio').then(module => ({ default: module.Studio })))
 const Radar = lazy(() => import('./features/radar/Radar').then(module => ({ default: module.Radar })))
 const AuditPage = lazy(() => import('./features/audit/AuditPage').then(module => ({ default: module.AuditPage })))
@@ -21,6 +23,7 @@ const modules: { id: Page; number: string; title: string; description: string; i
 
 export function App() {
   const page = usePage()
+  const [assistantSignals] = useState(createAssistantSignals)
   const [visited, setVisited] = useState({ studio: false, radar: false })
   const [radarStart, setRadarStart] = useState<{ mode: CampaignStartMode }>()
   useEffect(() => {
@@ -38,7 +41,7 @@ export function App() {
     if (previousLabel.current !== label) heading.current?.focus()
     previousLabel.current = label
   }, [label])
-  return <><section className="desktop-required" aria-label="Disponível somente para desktop"><span className="brand-mark" aria-hidden="true">PM</span><h1>Um espaço para criar no desktop.</h1><p>O Post Machine foi feito exclusivamente para computadores. Abra em um desktop ou amplie a janela para pelo menos 1024 px.</p><span className="badge badge-green">Desktop first. Sempre.</span></section><div className="app-shell">
+  return <AssistantSignals.Provider value={assistantSignals}><section className="desktop-required" aria-label="Disponível somente para desktop"><span className="brand-mark" aria-hidden="true">PM</span><h1>Um espaço para criar no desktop.</h1><p>O Post Machine foi feito exclusivamente para computadores. Abra em um desktop ou amplie a janela para pelo menos 1024 px.</p><span className="badge badge-green">Desktop first. Sempre.</span></section><div className="app-shell">
     <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus() }}>Pular para o conteúdo</a>
     <div className="main-shell">
       <header className="topbar">
@@ -62,7 +65,8 @@ export function App() {
       </main>
     </div>
     {roadmap && <Roadmap onClose={() => setRoadmap(false)} />}
-  </div></>
+    <Suspense fallback={null}><Assistant key={page} page={page} /></Suspense>
+  </div></AssistantSignals.Provider>
 }
 
 function Overview({ onRoadmap }: { onRoadmap: () => void }) {

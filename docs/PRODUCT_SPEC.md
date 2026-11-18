@@ -318,6 +318,14 @@ Quando o problema não puder ser corrigido com segurança, emitir alerta para re
 
 Planejar uma auditoria visual multimodal opcional no futuro, sem contratar APIs pagas.
 
+## 9.1. Editorial Intelligence
+
+O Assistente Editorial usa um motor local de regras sobre dados reais da ferramenta. Recomendações de estratégia e formato têm justificativa, alternativa e indicação de incerteza. O briefing pode registrar canal, acesso às fontes, divergências declaradas e um perfil editorial opcional. Campos e estrutura mudam mediante ação explícita. O prompt enriquecido preserva o contrato de importação v1.
+
+O GIF do assistente acompanha os fluxos desktop. Movimento reduzido usa um quadro estático. O Studio sinaliza novas orientações no ícone e abre os detalhes abaixo da área de trabalho. O assistente usa avisos reais da fabricação, resultados de Headlines e achados vigentes da Auditoria. Ocorrências editoriais pedem revisão humana quando a confirmação exige interpretação da fonte.
+
+Feedback local pode ajustar a prioridade de formatos, abordagens e padrões de título comparáveis. O perfil explícito permite compartilhar preferências entre suas campanhas. Sem perfil, o histórico pertinente à recomendação fica na campanha. Silenciamento e redefinição de memória estão no painel do assistente.
+
 ## 10. Segurança e persistência
 
 - Aplicação de uso pessoal, protegida em produção com Cloudflare Access.

@@ -73,7 +73,7 @@ export function AuditPage() {
       {library.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </select></label></div>}
     {error && <p role="alert">{error}</p>}
-    {project ? <div hidden={!panel}><AuditPanel key={project.id} project={project} onFocus={focus} onChange={change} onUndo={undo}
+    {project ? <div hidden={!panel}><AuditPanel key={project.id} project={project} assistantArea={panel ? 'auditoria' : undefined} onFocus={focus} onChange={change} onUndo={undo}
       view={panel === 'Correções' ? 'corrections' : panel === 'Resultados' ? 'results' : 'diagnosis'} /></div>
       : <p>Selecione um projeto salvo neste navegador ou <a className="text-button" href="#/studio">abra o Studio</a>.</p>}
   </section></ContextWorkspace>
