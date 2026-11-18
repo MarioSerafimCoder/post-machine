@@ -14,30 +14,44 @@ const schema = z.object({
 type Memory = z.infer<typeof schema>
 const key = 'post-machine:editorial-assistant:v1'
 const empty: Memory = { mode: 'proactive', history: [] }
-const read = (): Memory => {
-  try { return schema.parse(JSON.parse(localStorage.getItem(key) ?? 'null')) }
-  catch { return empty }
+const read = (): Memory | undefined => {
+  try {
+    const stored = localStorage.getItem(key)
+    return stored === null ? undefined : schema.parse(JSON.parse(stored))
+  } catch { return undefined }
 }
-let memory = read()
+let memory = read() ?? empty
 const listeners = new Set<() => void>()
+const emit = () => { for (const listener of listeners) listener() }
 const subscribe = (callback: () => void) => {
   listeners.add(callback)
   return () => { listeners.delete(callback) }
 }
 export const useEditorialMemory = () => useSyncExternalStore(subscribe, () => memory, () => empty)
 
+// Storage events originate in other tabs; same-tab changes are published by save().
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key !== key && event.key !== null) return
+    const latest = read() ?? empty
+    if (JSON.stringify(latest) === JSON.stringify(memory)) return
+    memory = latest
+    emit()
+  })
+}
+
 function save(next: Memory) {
   memory = next
-  try { localStorage.setItem(key, JSON.stringify(next)) } catch { /* Memory remains available in this session. */ }
-  listeners.forEach(listener => listener())
+  try { localStorage.setItem(key, JSON.stringify(next)) } catch { /* In-memory mode remains available. */ }
+  emit()
 }
-export const setAssistantMode = (mode: Memory['mode']) => save({ ...memory, mode })
-export const resetEditorialMemory = () => save({ ...memory, history: [] })
+const currentMemory = () => read() ?? memory
+export const setAssistantMode = (mode: Memory['mode']) => save({ ...currentMemory(), mode })
+export const resetEditorialMemory = () => save({ ...currentMemory(), history: [] })
 export function recordEditorialFeedback(entry: Omit<Memory['history'][number], 'at'>) {
-  const latest = read()
-  const history = latest === empty ? memory.history : latest.history
-  const retained = history.filter(item => item.scope !== entry.scope || item.id !== entry.id)
-  save({ ...memory, history: [...retained, { ...entry, at: new Date().toISOString() }].slice(-80) })
+  const latest = currentMemory()
+  const retained = latest.history.filter(item => item.scope !== entry.scope || item.id !== entry.id)
+  save({ ...latest, history: [...retained, { ...entry, at: new Date().toISOString() }].slice(-80) })
 }
 export function preferenceFor(history: Memory['history'], scope: string, preference: Preference) {
   return history.reduce((score, item) => item.scope === scope && item.preference === preference
