@@ -1,5 +1,6 @@
 import { StaticCanvas } from 'fabric'
 import { dimensions, type Project } from '../studio/model'
+import { verifySceneLoaded } from '../studio/sceneIntegrity'
 import '../studio/objects'
 import { inspectCanvas } from './rules'
 import { defaultSettings, type Finding } from './contract'
@@ -13,6 +14,7 @@ export async function prepareSafeMove(project: Project, finding: Finding): Promi
   const canvas = new StaticCanvas(document.createElement('canvas'), {width,height,enableRetinaScaling:false})
   try {
     await canvas.loadFromJSON(slide.scene)
+    verifySceneLoaded(canvas, slide.scene)
     const object = canvas.getObjects()[Number(finding.objectId)]
     if (!object || object.lockMovementX || object.lockMovementY) throw Error('Elemento bloqueado ou alterado. Execute uma nova auditoria.')
     const box = object.getBoundingRect()

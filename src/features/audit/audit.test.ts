@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { FabricImage, Group, Rect, StaticCanvas, Textbox } from 'fabric'
 import { defaultBrand, newProject } from '../studio/model'
 import '../studio/objects'
@@ -110,5 +110,22 @@ describe('auditoria técnica',()=>{
     const finding=inspectCanvas(original,project.slides[0].id,1,project.brand,'blank','content').find(f=>f.ruleId==='SAFE_MARGIN')!
     expect(finding.autoFixAvailable).toBe(false)
     await expect(prepareSafeMove(project,finding)).rejects.toThrow('edição manual')
+  })
+  it('recusa correção se um elemento desaparece na hidratação do slide', async () => {
+    const project = newProject()
+    const original = canvas(new Textbox('Título', { left: 20, top: 100, width: 300, fontSize: 50, originX: 'left', originY: 'top' }), new Rect({ width: 25, height: 25 }))
+    const slide = project.slides[0]
+    slide.scene = original.toObject() as typeof slide.scene
+    const finding = inspectCanvas(original, slide.id, 1, project.brand, slide.layout, slide.role).find(item => item.ruleId === 'SAFE_MARGIN')!
+    const load = StaticCanvas.prototype.loadFromJSON
+    const spy = vi.spyOn(StaticCanvas.prototype, 'loadFromJSON').mockImplementationOnce(function (this: StaticCanvas) {
+      return load.call(this, { ...slide.scene, objects: slide.scene.objects.slice(0, 1) })
+    })
+    try {
+      await expect(prepareSafeMove(project, finding)).rejects.toThrow('elementos que não puderam ser carregados')
+    } finally {
+      spy.mockRestore()
+      await original.dispose()
+    }
   })
 })

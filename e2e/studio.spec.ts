@@ -1,4 +1,9 @@
 import { test, expect, type Page } from '@playwright/test'
+import { createHash } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import JSZip from 'jszip'
+import { newProject } from '../src/features/studio/model'
+
 const consoleErrors = new WeakMap<Page, string[]>()
 test.beforeEach(({ page }) => { const errors: string[] = []; consoleErrors.set(page, errors); page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) }) })
 test.afterEach(({ page }) => { expect(consoleErrors.get(page)).toEqual([]) })
@@ -84,8 +89,6 @@ test('campanha gera carrossel editável, troca template e organiza slides', asyn
   await expect(page.getByRole('region', { name: 'Slides', exact: true }).getByRole('button', { name: /Slide [123]$/ })).toHaveCount(3)
 })
 
-import { readFile } from 'node:fs/promises'
-import JSZip from 'jszip'
 test('recupera imagens e histórico, restaura backup e exporta PNG e ZIP nas dimensões reais', async ({ page }) => {
   await page.goto('/#/studio')
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
@@ -137,6 +140,7 @@ test('recupera imagens e histórico, restaura backup e exporta PNG e ZIP nas dim
 
 test('falha de IndexedDB mantém alterações e permite retentativa', async ({ page }) => {
   await page.goto('/#/studio'); await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await expect(page.getByText('Nenhum backup ZIP registrado para este projeto.')).toBeVisible()
   await page.getByRole('button', { name: 'Salvar', exact: true }).click()
   await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
   await page.evaluate(() => {
@@ -146,11 +150,142 @@ test('falha de IndexedDB mantém alterações e permite retentativa', async ({ p
   })
   await page.getByLabel('Projeto', { exact: true }).fill('Edição mantida após falha')
   await expect(page.getByText('Falha ao salvar', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Baixe o ZIP antes de fechar/)).toBeVisible()
+  const backupEvent = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Baixar backup ZIP' }).click()
+  const backup = await JSZip.loadAsync(await readFile(await (await backupEvent).path()))
+  expect(JSON.parse(await backup.file('project.json')!.async('string')).name).toBe('Edição mantida após falha')
+  const lastBackup = page.locator('.studio-backup time')
+  await expect(lastBackup).toBeVisible()
+  const at = (await lastBackup.getAttribute('datetime'))!
   await page.evaluate(() => (window as unknown as { restoreIDB: () => void }).restoreIDB())
   await page.getByRole('button', { name: 'Salvar', exact: true }).click()
   await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Abrir Edição mantida após falha', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Abrir Edição mantida após falha', exact: true }).click()
+  await expect(lastBackup).toHaveAttribute('datetime', at)
+  await expect(page.getByRole('button', { name: 'Baixar backup ZIP' })).toBeHidden()
+  await page.clock.setSystemTime(Date.parse(at) + 8 * 86_400_000)
+  await page.reload()
+  await page.getByRole('button', { name: 'Abrir Edição mantida após falha', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Baixar backup ZIP' })).toBeVisible()
+})
+
+test('preserva texto parecido com referências a arquivos e reutiliza o hash de imagens ao salvar', async ({ page }) => {
+  const name = `asset:${'a'.repeat(64)}`
+  const text = 'data:image/png;base64,AAAA'
+  await page.goto('/#/studio')
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.getByLabel('Projeto', { exact: true }).fill(name)
+  await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
+  await page.getByLabel('Texto do elemento').fill(text)
+  await page.getByRole('button', { name: 'Imagens', exact: true }).click()
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1200
+    canvas.height = 900
+    canvas.getContext('2d')!.fillRect(0, 0, 1200, 900)
+    return canvas.toDataURL().split(',')[1]
+  })
+  await page.getByLabel('Adicionar ou substituir imagem').setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') })
+  await expect(page.getByRole('button', { name: 'Recortar quadrado' })).toBeVisible()
+  const save = page.getByRole('button', { name: 'Salvar', exact: true })
+  await save.click()
+  await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
+
+  await page.evaluate(() => {
+    const digest = crypto.subtle.digest.bind(crypto.subtle)
+    const stats = { hashes: 0 }
+    Object.assign(window, { saveStats: stats })
+    crypto.subtle.digest = (...args) => { stats.hashes++; return digest(...args) }
+  })
+  await page.getByRole('button', { name: 'Duplicar slide', exact: true }).click()
+  await save.click()
+  await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
+  expect.soft(await page.evaluate(() => (window as unknown as { saveStats: { hashes: number } }).saveStats.hashes)).toBe(1)
+
+  const downloadEvent = page.waitForEvent('download')
+  await page.getByText('Mais ações', { exact: true }).click()
+  await page.getByRole('button', { name: 'Backup completo', exact: true }).click()
+  const backup = await readFile(await (await downloadEvent).path())
+  const zip = await JSZip.loadAsync(backup)
+  const manifest = JSON.parse(await zip.file('project.json')!.async('string'))
+  expect.soft(manifest.slides[0].scene.objects[0].text).toBe(text)
+  expect.soft(Object.keys(zip.files).filter(key => /^assets\/[a-f0-9]{64}$/.test(key))).toHaveLength(1)
+
+  await page.reload()
+  await page.getByRole('button', { name: `Abrir ${name}`, exact: true }).click()
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue(name)
+  await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await page.getByText('Configurações de armazenamento', { exact: true }).click()
+  await page.getByRole('button', { name: 'Verificar armazenamento', exact: true }).click()
+  await expect(page.getByText(/1 projetos · 1 arquivos de imagem ou fonte/)).toBeVisible()
+  await page.getByLabel('Restaurar projeto ZIP').setInputFiles({ name: 'backup.zip', mimeType: 'application/zip', buffer: backup })
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue(`${name} (restaurado)`)
+})
+
+test('abre, atualiza e restaura um projeto v1 cuja revisão antiga guardava texto como arquivo', async ({ page }) => {
+  const project = { ...newProject(), name: 'Projeto v1' }
+  const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jYioAAAAASUVORK5CYII=', 'base64')
+  const hash = createHash('sha256').update(bytes).digest('hex')
+  const text = `data:image/png;base64,${bytes.toString('base64')}`
+  project.slides[0].scene.objects = [{ type: 'Textbox', text: `asset:${hash}`, left: 100, top: 100, width: 600, fontSize: 40 }]
+
+  await page.goto('/')
+  await page.evaluate(async ({ project, hash, bytes }) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('post-machine-studio', 2)
+      request.onupgradeneeded = () => {
+        for (const store of ['projects', 'assets', 'settings', 'recovery']) request.result.createObjectStore(store)
+      }
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(['projects', 'assets'], 'readwrite')
+      transaction.objectStore('projects').put(project, project.id)
+      transaction.objectStore('assets').put(new Blob([new Uint8Array(bytes)], { type: 'image/png' }), hash)
+      transaction.oncomplete = () => resolve()
+      transaction.onabort = () => reject(transaction.error)
+    })
+    db.close()
+  }, { project, hash, bytes: [...bytes] })
+
+  await page.goto('/#/studio')
+  await page.getByRole('button', { name: 'Abrir Projeto v1', exact: true }).click()
+  await page.getByRole('button', { name: 'Camadas', exact: true }).click()
+  await page.getByRole('button', { name: /1 · data:image/ }).click()
+  await expect(page.getByLabel('Texto do elemento')).toHaveValue(text)
+  await page.getByLabel('Projeto', { exact: true }).fill('Projeto v1 atualizado')
+  await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Abrir Projeto v1 atualizado', exact: true })).toBeVisible()
+
+  const legacyBackup = await new JSZip().file('project.json', JSON.stringify(project)).file(`assets/${hash}`, bytes).generateAsync({ type: 'nodebuffer' })
+  await page.getByLabel('Restaurar projeto ZIP').setInputFiles({ name: 'v1.zip', mimeType: 'application/zip', buffer: legacyBackup })
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Projeto v1 (restaurado)')
+  await page.getByRole('button', { name: /1 · data:image/ }).click()
+  await expect(page.getByLabel('Texto do elemento')).toHaveValue(text)
+})
+
+test('confere a revisão do projeto ao excluir pela biblioteca em outra aba', async ({ page, context }) => {
+  await page.goto('/#/studio')
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.getByLabel('Projeto', { exact: true }).fill('Projeto compartilhado')
+  await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  const stale = await context.newPage()
+  await stale.goto('/#/studio')
+  await expect(stale.getByRole('button', { name: 'Excluir Projeto compartilhado', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Abrir Projeto compartilhado', exact: true }).click()
+  await page.getByLabel('Projeto', { exact: true }).fill('Projeto atualizado')
+  await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Abrir Projeto atualizado', exact: true })).toBeVisible()
+
+  stale.on('dialog', dialog => dialog.accept())
+  await stale.getByRole('button', { name: 'Excluir Projeto compartilhado', exact: true }).click()
+  await expect(stale.getByRole('alert')).toContainText('O projeto mudou em outra aba')
+  await expect(stale.getByRole('button', { name: 'Abrir Projeto atualizado', exact: true })).toBeVisible()
+  await stale.getByRole('button', { name: 'Excluir Projeto atualizado', exact: true }).click()
+  await expect(stale.getByRole('button', { name: 'Abrir Projeto atualizado', exact: true })).toHaveCount(0)
 })
 
 test('avisa overflow e mantém o editor usável em 1024, 1280 e 1440', async ({ page }) => {

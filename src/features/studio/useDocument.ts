@@ -48,5 +48,6 @@ export function useDocument(initial?: Project) {
   }, [initial, queue])
   const flush = useCallback(() => queue.flushAll(), [queue])
   const status = (project && statuses[project.id]) || 'Salvo'
-  return { project, setProject: apply, getCurrent: () => current.current, undo, redo, history, status, flush }
+  return { project, setProject: apply, getCurrent: () => current.current, undo, redo, history, status, flush,
+    saveFailed: status !== 'Salvo' && status !== 'Salvando…' }
 }

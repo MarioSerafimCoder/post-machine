@@ -13,6 +13,8 @@
 .studio-toolbar .studio-project-name { display: flex; align-items: center; gap: 6px; max-width: 260px; flex: 1 1 170px; }
 .studio-toolbar .studio-inline-field { display: inline-flex; align-items: center; gap: 6px; }
 .studio-save-status { flex: 1 1 70px; color: var(--muted); min-width: 60px; }
+.studio-backup { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; color: var(--muted); }
+.studio .studio-backup button { padding: 3px 7px; }
 .studio-output { margin-inline-start: auto; }
 .studio-more { position: relative; }
 .studio-more summary { padding: 8px; cursor: pointer; color: var(--ink); }

@@ -1,4 +1,19 @@
-# Estado real — 17/11/2026
+# Estado real — 18/11/2026
+
+## Homologação de produção e lembrete de backup
+
+- Na sessão autenticada do domínio publicado, uma oportunidade real do Radar abriu uma pauta. Foi importado conteúdo de teste, fabricadas três propostas e salva uma versão de dois slides. O título alterado persistiu após salvar e reabrir. A central mostrou a revisão atual com zero erros e zero avisos. O ZIP continha dois PNGs de 1080 × 1350 e o backup continha dois slides, o título editado e o vínculo da campanha. Esse mesmo ZIP restaurou os dois slides e o título editado no build local. A restauração na sessão publicada ficou pendente porque o controle do navegador não conseguiu selecionar o arquivo local.
+- O Studio mostra a data do último ZIP enviado para download por projeto neste navegador. A ação de backup aparece quando não há registro, a partir de sete dias ou em caso de falha de salvamento. Nessa falha, o ZIP pode incluir a edição pendente, e o Studio indica a opção de restauração na biblioteca. A data registra o encaminhamento ao navegador. A confirmação de que o arquivo ficou guardado cabe ao usuário.
+- Lint, build, 105 testes Vitest e 81 cenários Playwright aprovados, com cinco repetições omitidas no perfil laptop. Em 1280 e 1440 px, o teste comprovou o download da edição pendente quando o IndexedDB falha, a persistência da data ao reabrir e o retorno do lembrete após o prazo. Mudança validada localmente em `main`.
+
+## Auditoria de código após a Evolução 08
+
+- A biblioteca do Studio compara a revisão exibida com a versão persistida na mesma transação que exclui o projeto e sua recuperação. Em caso de divergência, a biblioteca é atualizada e pede ao usuário que confira a versão atual. O cenário com duas abas reproduziu a exclusão indevida na base `1850dd4`.
+- O salvamento, a restauração e a limpeza do Studio tratam apenas as fontes de imagens, logotipo e fontes tipográficas como arquivos. Nomes e textos que parecem referências são preservados. O manifesto continua no v1, com campo opcional para distinguir a codificação atual. Registros IndexedDB e ZIPs antigos continuam aceitos. Quando um ZIP antigo já converteu texto em arquivo, a restituição do tipo original depende de a assinatura do arquivo identificar o formato.
+- No Chromium, duplicar um slide com uma imagem e um texto parecido com URL de imagem reduziu de quatro para um os cálculos de SHA-256 durante o salvamento. A revisão anterior compartilha os hashes das imagens e fontes idênticas com a revisão que está sendo gravada. A comparação mede chamadas de hash nesse cenário.
+- A correção assistida usa a mesma verificação de integridade do Studio e da exportação. Um teste que simula a perda de um elemento na hidratação do Fabric confirma que a correção é interrompida antes de produzir uma cena incompleta.
+- ESLint, TypeScript, build e dry-run do Wrangler aprovados. Vitest passou com 105 testes. Playwright passou com 81 cenários no Vite e cinco repetições omitidas no laptop. No build servido pelo Wrangler local, os oito cenários direcionados também passaram em 1280 e 1440 px, incluindo edição e restauração de um projeto com a codificação original do v1. Validação desta revisão realizada localmente em `main`.
+- `npm audit --omit=dev` retornou zero alertas. A auditoria completa reportou 12 entradas de severidade alta na cadeia de ferramentas de desenvolvimento ligadas a `picomatch` 4.0.7. A versão publicada consultada ainda era 4.0.7, sem atualização corrigida no aviso. Acompanhar a publicação de uma versão compatível com as ferramentas atuais. [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf)
 
 ## Evolução 08 — Integração e estabilidade
 

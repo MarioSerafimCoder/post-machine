@@ -32,49 +32,86 @@ async function transaction<T>(stores: string[], mode: IDBTransactionMode, action
   } finally { db.close() }
 }
 const dataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob) })
-async function pack(project: Project) {
-  const assets = new Map<string, Blob>()
-  const encodedAssets = new Map<string, Promise<string>>()
-  async function packAsset(value: string) {
-    const [header, encoded] = value.split(',')
-    const binary = atob(encoded)
-    const bytes = new Uint8Array(binary.length)
-    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
-    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(n => n.toString(16).padStart(2, '0')).join('')
-    assets.set(hash, new Blob([bytes], { type: header.slice(5, header.indexOf(';')) }))
-    return `asset:${hash}`
-  }
-  async function walk(value: unknown): Promise<unknown> {
-    if (typeof value === 'string' && /^data:(image\/(png|jpeg|webp)|font\/woff2);base64,/.test(value)) {
-      let packed = encodedAssets.get(value)
-      if (!packed) { packed = packAsset(value); encodedAssets.set(value, packed) }
-      return packed
+const assetRef = /^asset:([a-f0-9]{64})$/
+const legacyRevisions = new WeakMap<Project, string>()
+type StoredProject = ReturnType<typeof validateProject>
+type RewriteAsset = (source: string, replace: (value: string) => void) => void
+
+function mapAssetFields<T>(value: T, rewrite: RewriteAsset, fields?: readonly string[]): T {
+  if (value === null || typeof value !== 'object') return value
+  const copy = (Array.isArray(value) ? [...value] : { ...value }) as Record<string, unknown>
+  for (const [key, child] of Object.entries(value)) {
+    if (key === 'imageCredit' || (fields && key === 'headlines')) continue
+    if (typeof child === 'string') {
+      if (!fields || fields.includes(key)) rewrite(child, next => { copy[key] = next })
+    } else if (child && typeof child === 'object') {
+      copy[key] = mapAssetFields(child, rewrite, fields)
     }
-    if (Array.isArray(value)) return Promise.all(value.map(walk))
-    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k, v]) => [k, k === 'imageCredit' ? v : await walk(v)])))
-    return value
   }
-  return { project: validateProject(await walk(validateProject(project))), assets }
+  return copy as T
 }
-async function hydrate(project: unknown, read: (id: string) => Promise<Blob | undefined>): Promise<Project> {
-  const cache = new Map<string, Promise<string>>()
-  async function walk(value: unknown): Promise<unknown> {
-    if (typeof value === 'string' && /^asset:[a-f0-9]{64}$/.test(value)) {
-      let source = cache.get(value)
-      if (!source) {
-        source = read(value.slice(6)).then(blob => {
-          if (!blob) throw Error('Arquivo ausente. Restaure um backup completo.')
-          return dataUrl(blob)
-        })
-        cache.set(value, source)
-      }
-      return source
-    }
-    if (Array.isArray(value)) return Promise.all(value.map(walk))
-    if (value && typeof value === 'object') return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([k,v]) => [k, k === 'imageCredit' ? v : await walk(v)])))
-    return value
+
+function mapProjectAssets(project: Project, rewrite: RewriteAsset): Project {
+  return {
+    ...project,
+    brand: mapAssetFields(project.brand, rewrite, ['logo', 'source']),
+    slides: project.slides.map(slide => ({ ...slide, scene: mapAssetFields(slide.scene, rewrite, ['src']) })),
   }
-  return validateProject(await walk(validateProject(project)))
+}
+
+async function encodeAsset(source: string) {
+  const [header, encoded] = source.split(',')
+  const binary = atob(encoded)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index)
+  const id = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(n => n.toString(16).padStart(2, '0')).join('')
+  return { id, blob: new Blob([bytes], { type: header.slice(5, header.indexOf(';')) }) }
+}
+
+async function pack(project: Project, encodedAssets = new Map<string, ReturnType<typeof encodeAsset>>()) {
+  const assets = new Map<string, Blob>()
+  const pending: Promise<void>[] = []
+  const packed = mapProjectAssets(validateProject(project), (source, replace) => {
+    if (!/^data:(image\/(png|jpeg|webp)|font\/woff2);base64,/.test(source)) return
+    let encoded = encodedAssets.get(source)
+    if (!encoded) {
+      encoded = encodeAsset(source)
+      encodedAssets.set(source, encoded)
+    }
+    pending.push(encoded.then(({ id, blob }) => { assets.set(id, blob); replace(`asset:${id}`) }))
+  })
+  await Promise.all(pending)
+  return { project: validateProject({ ...packed, assetEncoding: 'media-v1' }), assets }
+}
+
+async function hydrate(stored: StoredProject, read: (id: string) => Promise<Blob | undefined>): Promise<Project> {
+  const { assetEncoding, ...project } = stored
+  const cache = new Map<string, Promise<string | undefined>>()
+  const pending: Promise<void>[] = []
+  function rewrite(required: boolean): RewriteAsset {
+    return (source, replace) => {
+      const id = assetRef.exec(source)?.[1]
+      if (!id) return
+      let loaded = cache.get(id)
+      if (!loaded) {
+        loaded = read(id).then(blob => blob && dataUrl(blob))
+        cache.set(id, loaded)
+      }
+      pending.push(loaded.then(value => {
+        if (value) replace(value)
+        else if (required) throw Error('Arquivo ausente. Restaure um backup completo.')
+      }))
+    }
+  }
+  const hydrated = mapProjectAssets(project, rewrite(true))
+  await Promise.all(pending)
+  if (assetEncoding) return validateProject(hydrated)
+
+  // Some v1 documents also stored literal data URLs as assets outside media fields.
+  pending.length = 0
+  const legacy = mapAssetFields(hydrated, rewrite(false))
+  await Promise.all(pending)
+  return validateProject(legacy)
 }
 export function withStudioStorage<T>(action: () => Promise<T>): Promise<T> {
   return navigator.locks?.request('post-machine-studio-storage', action) ?? action()
@@ -84,8 +121,9 @@ export function saveProject(project: Project, expected?: Project) {
 }
 export class ProjectConflict extends Error {}
 async function writeProject(project: Project, expected?: Project) {
-  const packed = await pack(project)
-  const baseline = expected && JSON.stringify((await pack(expected)).project)
+  const encodedAssets = new Map<string, ReturnType<typeof encodeAsset>>()
+  const packed = await pack(project, encodedAssets)
+  const baseline = expected && (legacyRevisions.get(expected) ?? JSON.stringify((await pack(expected, encodedAssets)).project))
   const written = await transaction(['projects', 'assets', 'settings', 'recovery'], 'readwrite', tx => {
     let written = false
     const old = tx.objectStore('projects').get(project.id)
@@ -110,7 +148,10 @@ export function loadProject(id: string): Promise<Project> {
 async function loadStoredProject(id: string, store: 'projects' | 'recovery'): Promise<Project> {
   const value = await transaction([store], 'readonly', tx => { const req = tx.objectStore(store).get(id); return () => req.result as unknown })
   if (!value) throw Error(store === 'recovery' ? 'Ainda não existe versão anterior salva.' : 'Projeto não encontrado.')
-  return hydrate(value, key => transaction(['assets'], 'readonly', tx => { const req = tx.objectStore('assets').get(key); return () => req.result as Blob | undefined }))
+  const stored = validateProject(value)
+  const project = await hydrate(stored, key => transaction(['assets'], 'readonly', tx => { const req = tx.objectStore('assets').get(key); return () => req.result as Blob | undefined }))
+  if (!stored.assetEncoding) legacyRevisions.set(project, JSON.stringify(stored))
+  return project
 }
 export async function readBrand(): Promise<Brand | undefined> {
   return withStudioStorage(async () => {
@@ -134,11 +175,21 @@ async function resolveBrandAsset(source: string) {
   if (!blob) throw Error('Arquivo da marca ausente.')
   return dataUrl(blob)
 }
-export function removeProject(id: string) {
+export function removeProject(expected: Project) {
+  const baseline = JSON.stringify(validateProject(expected))
   return withStudioStorage(() => transaction(['projects', 'recovery'], 'readwrite', tx => {
-    tx.objectStore('projects').delete(id)
-    tx.objectStore('recovery').delete(id)
-    return () => undefined
+    const projects = tx.objectStore('projects')
+    const latest = projects.get(expected.id)
+    let removed = false
+    latest.onsuccess = () => {
+      try {
+        if (latest.result !== undefined && JSON.stringify(validateProject(latest.result)) !== baseline) return
+        projects.delete(expected.id)
+        tx.objectStore('recovery').delete(expected.id)
+        removed = true
+      } catch { abortTransaction(tx) }
+    }
+    return () => removed
   }))
 }
 
@@ -154,22 +205,28 @@ export function inspectStorage(clean = false) {
     let failure: unknown
     values.onsuccess = () => {
       try {
-        const roots = [...projects.result, ...recovery.result]
-        roots.forEach(validateProject)
-        if (settings.result !== undefined) brandSchema.parse(settings.result)
-        const references = new Set<string>()
-        function visit(value: unknown) {
-          if (typeof value === 'string' && /^asset:[a-f0-9]{64}$/.test(value)) references.add(value.slice(6))
-          if (value && typeof value === 'object') Object.entries(value).forEach(([key, entry]) => { if (key !== 'imageCredit') visit(entry) })
-        }
-        roots.forEach(visit)
-        visit(settings.result)
+        const roots = [...projects.result, ...recovery.result].map(validateProject)
+        const brand = settings.result === undefined ? undefined : brandSchema.parse(settings.result)
         const files = new Map(keys.result.map((key, index) => {
           const blob = values.result[index]
           if (typeof key !== 'string' || !/^[a-f0-9]{64}$/.test(key) || !(blob instanceof Blob) || !blob.size) throw Error('Arquivo do armazenamento inválido.')
           return [key, blob]
         }))
-        if ([...references].some(key => !files.has(key))) throw Error('Existem referências a arquivos ausentes.')
+        const references = new Set<string>()
+        const visit = (source: string) => {
+          const id = assetRef.exec(source)?.[1]
+          if (!id) return
+          if (!files.has(id)) throw Error('Existem referências a arquivos ausentes.')
+          references.add(id)
+        }
+        if (brand) mapAssetFields(brand, visit, ['logo', 'source'])
+        for (const project of roots) {
+          mapProjectAssets(project, visit)
+          if (!project.assetEncoding) mapAssetFields(project, source => {
+            const id = assetRef.exec(source)?.[1]
+            if (id && files.has(id)) references.add(id)
+          })
+        }
         let bytes = 0, orphans = 0, recoverableBytes = 0
         for (const [key, blob] of files) {
           bytes += blob.size
@@ -261,7 +318,7 @@ export async function restoreProject(file: File): Promise<Project> {
   let total = 0
   const account = (size: number) => (total += size) <= 150_000_000
   const json = await readZipEntry(manifest, 20_000_000, account)
-  let document: unknown
+  let document: StoredProject
   try { document = validateProject(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(json))) }
   catch { throw Error('O documento do backup está corrompido ou usa uma versão incompatível.') }
   const project = await hydrate(document, async id => {

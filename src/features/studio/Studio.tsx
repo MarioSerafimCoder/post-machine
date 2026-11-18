@@ -41,10 +41,33 @@ const studioTools: ContextTool[] = [
   { label: 'Imagens', icon: 'image' }, { label: 'Elementos', icon: 'shape' },
   { label: 'Minha marca', icon: 'shield' }, { label: 'Camadas', icon: 'layers' },
 ]
+const backupInterval = 7 * 24 * 60 * 60 * 1000
+const backupDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+const backupKey = (id: string) => `post-machine:studio-backup:${id}`
+
+function readBackupDate(id: string) {
+  try {
+    const date = Date.parse(localStorage.getItem(backupKey(id)) ?? '')
+    return Number.isFinite(date) ? date : undefined
+  } catch { return undefined }
+}
+
 export function Studio({ request, active, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; onStartCampaign: (mode: CampaignStartMode) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
-  const { project, setProject, undo, redo, history, status, flush, getCurrent } = useDocument()
+  const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent } = useDocument()
+  const [backupTimes, setBackupTimes] = useState<Record<string, number>>({})
+  const [backupPending, setBackupPending] = useState(false)
+  const [backupClock, setBackupClock] = useState(Date.now)
+  const lastBackup = project && (backupTimes[project.id] ?? readBackupDate(project.id))
+  const backupDue = lastBackup === undefined || backupClock - lastBackup >= backupInterval
+  useEffect(() => {
+    if (!active) return
+    const update = () => setBackupClock(Date.now())
+    const timer = window.setInterval(update, 60_000)
+    window.addEventListener('focus', update)
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', update) }
+  }, [active])
   const [library, setLibrary] = useState<Project[]>([])
   const [brand, setBrand] = useState(defaultBrand)
   const [entry, setEntry] = useState<'express' | 'collections'>()
@@ -164,6 +187,30 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
   const receiveAuditFocus=useEffectEvent(async(raw:string)=>{try{const target=JSON.parse(raw) as {projectId:string;slideId:string;objectId:string|null};await flush();const value=await loadProject(target.projectId);const index=value.slides.findIndex(slide=>slide.id===target.slideId);focusPath.current=target.objectId;chooseSlide(Math.max(0,index));replace(value, true);setAuditOpen(true)}catch(cause){setError(String(cause))}})
   useEffect(()=>{const receive=()=>{if(window.location.hash!=='#/studio')return;const raw=sessionStorage.getItem('post-machine:audit-focus')??sessionStorage.getItem('direto:audit-focus');if(!raw)return;sessionStorage.removeItem('post-machine:audit-focus');sessionStorage.removeItem('direto:audit-focus');queueMicrotask(()=>void receiveAuditFocus(raw))};receive();window.addEventListener('hashchange',receive);return()=>window.removeEventListener('hashchange',receive)},[])
   async function openProject(id: string) { try { await flush(); const value = await loadProject(id); chooseSlide(0); replace(value, true); setError('') } catch (e) { setError(String(e)) } }
+  async function downloadBackup() {
+    const snapshot = getCurrent()
+    if (!snapshot || backupPending) return
+    setBackupPending(true)
+    try {
+      const blob = await backupProject(snapshot)
+      download(blob, 'post-machine-projeto.zip')
+      const at = Date.now()
+      setBackupTimes(times => ({ ...times, [snapshot.id]: at }))
+      setBackupClock(at)
+      setError('')
+      try { localStorage.setItem(backupKey(snapshot.id), new Date(at).toISOString()) }
+      catch { setError('O ZIP foi enviado para download. O navegador não conseguiu guardar a data para a próxima sessão.') }
+    } catch { setError('Não foi possível gerar o backup deste projeto.') }
+    finally { setBackupPending(false) }
+  }
+  async function deleteProject(item: Project) {
+    if (!window.confirm('Excluir este projeto local?')) return
+    try {
+      const removed = await removeProject(item)
+      setLibrary(await listProjects())
+      setError(removed ? '' : 'O projeto mudou em outra aba. Confira a versão atual antes de excluir.')
+    } catch { setError('Não foi possível excluir o projeto. Recarregue a página para conferir a biblioteca.') }
+  }
   const handleRequest = useEffectEvent(async ({draft,mode}: NonNullable<typeof request>) => {
     try {
       await flush()
@@ -290,7 +337,7 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
   if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => { setExpressDraft(undefined); setEntry('express') }}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand, slides:[emptySlide(brand.background)] }) }}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
-    <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => { if (window.confirm('Excluir este projeto local?')) void removeProject(item.id).then(() => listProjects()).then(setLibrary, error => setError(String(error))) }}>Excluir {item.name}</button></article>)}</div></section>
+    <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
     <header className="studio-toolbar" aria-label="Ações do projeto">
       <div className="studio-toolbar-row">
@@ -317,7 +364,7 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
             menu.open = false
             menu.querySelector('summary')?.focus()
           }}>
-            <button onClick={() => void backupProject(project).then(blob => download(blob, 'post-machine-projeto.zip'), () => setError('Não foi possível gerar o backup deste projeto.'))}>Backup completo</button>
+            <button disabled={backupPending} onClick={() => void downloadBackup()}>Backup completo</button>
             <button onClick={() => {
               if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) {
                 void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, cause => setError(cause instanceof Error ? cause.message : 'Não foi possível recuperar a versão anterior.'))
@@ -344,6 +391,12 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
           <button ref={exportToggle} className="export-primary" aria-expanded={exportOpen} aria-controls={exportOpen ? 'studio-export' : undefined}
             onClick={() => setExportProjectId(exportOpen ? undefined : project.id)}>Finalizar e exportar</button>
         </div>
+      </div>
+      <div className="studio-backup">
+        <span aria-live="polite">{lastBackup === undefined ? 'Nenhum backup ZIP registrado para este projeto.' : <>Último backup enviado para download · <time dateTime={new Date(lastBackup).toISOString()}>{backupDate.format(lastBackup)}</time></>}</span>
+        {saveFailed ? <span>Baixe o ZIP antes de fechar. Se precisar, use Restaurar projeto ZIP na biblioteca.</span>
+          : backupDue && <span>{lastBackup === undefined ? 'Guarde uma cópia fora do perfil do navegador.' : 'Já é hora de atualizar sua cópia de segurança.'}</span>}
+        {(backupDue || saveFailed) && <button disabled={backupPending} onClick={() => void downloadBackup()}>{backupPending ? 'Gerando backup…' : 'Baixar backup ZIP'}</button>}
       </div>
     </header>
     {exportOpen && <ExportPanel key={project.id} project={project} current={current} active={active} getCurrent={getCurrent} flush={flush} review={fullReview} onReport={receiveReview}
