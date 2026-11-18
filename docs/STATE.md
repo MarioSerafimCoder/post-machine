@@ -11,6 +11,8 @@
 - O Studio verifica os limites do ZIP antes de encaminhar o download. Criação e restauração compartilham os limites do documento, dos arquivos e do tamanho total. O teste de regressão usa texto multibyte para verificar o limite em bytes.
 - Studio e Auditoria identificam registros incompatíveis sem ocultar os projetos válidos. A abertura da biblioteca migra o IndexedDB para a versão 3 e cria o índice de data usado na retomada da edição. Alterações de slides e demais edições atualizam a data no fluxo comum de salvamento. A página inicial consulta novamente após uma gravação pendente.
 - O salvamento reaproveita identificadores de arquivos da revisão anterior e grava somente mídias ausentes. O backup calcula seus próprios identificadores para exportar um ZIP autocontido.
+- Lint, build, 115 testes Vitest e 94 cenários Playwright aprovados, com seis repetições omitidas no perfil laptop. Oito cenários direcionados passaram no Wrangler local em 1280 e 1440 px. Na gravação monitorada de um projeto com imagem existente, houve zero novos hashes e zero gravações de mídia.
+- O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44358788730) aprovou `e0ce8cd`. O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44358810512) promoveu a versão `586339e9-e68a-4336-87a8-b4deb1437fbb` a 100% do tráfego. Após a publicação, a página inicial, ambos os feeds e o favicon responderam com HTTP 302 para o Cloudflare Access.
 
 ## Evolução 09 — Produtividade e consistência da interface
 
