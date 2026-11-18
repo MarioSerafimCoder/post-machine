@@ -54,7 +54,7 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   await page.getByRole('group', { name: 'Peça 3 · Conteúdo' }).getByRole('button', { name: 'Excluir peça' }).click()
   await page.getByRole('group', { name: 'Peça 2 · Capa' }).getByRole('button', { name: 'Duplicar peça' }).click()
   await expect(page.getByRole('group', { name: 'Peça 3 · Capa' }).getByLabel('Título')).toHaveValue('Capa editada')
-  await page.getByRole('button', { name: 'Salvar campanha', exact: true }).click()
+  await page.getByRole('button', { name: 'Salvar sem abrir', exact: true }).click()
   await expect(page.getByText('Campanha salva.', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Voltar às notícias' }).click()
   await expect(page.getByRole('searchbox', { name: 'Buscar notícias' })).toHaveValue(title)
@@ -91,4 +91,35 @@ test('importa Markdown de arquivo para post único', async ({ page }) => {
   await page.getByRole('button', { name: 'Importar conteúdo' }).click()
   await expect(page.getByLabel('Nome da campanha')).toHaveValue('Nome da campanha')
   await expect(page.getByLabel('Sugestão de imagem')).toHaveValue('Sugestão de imagem.')
+})
+
+test('importa a resposta do GPT com datas parciais ao salvar e abre o projeto editável no Studio', async ({ page }) => {
+  await page.goto('/#/radar')
+  await page.getByRole('button', { name: 'Pautas e prompts', exact: true }).click()
+  await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
+  await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
+
+  const sources = [
+    { title: 'Fonte com data', url: 'https://example.com/1', publishedAt: '2026-11-18' },
+    { title: 'Fonte sem hora', url: 'https://example.com/2', publishedAt: '2026-11-17' },
+    { title: 'Fonte sem data', url: 'https://example.com/3', publishedAt: '' },
+    { title: 'Outra fonte', url: 'https://example.com/4' },
+  ]
+  const response = {
+    schemaVersion: 1,
+    campaign: { title: 'Campanha enviada ao Studio', objective: 'Informar', audience: 'Leigo',
+      tone: 'Provocativo', format: 'post', caption: 'Legenda preservada.', cta: 'Conheça o contexto.' },
+    sources, slides: [{ order: 1, role: 'content', title: 'Título importado diretamente', body: 'Texto de referência do GPT.',
+      imageBrief: 'Direção de arte vinculada ao slide.', layoutType: 'editorial' }],
+  }
+  await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify(response))
+  await expect(page.getByText('Prévia indisponível.')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Salvar e abrir no Studio' }).click()
+  await expect(page).toHaveURL(/#\/studio/)
+  await expect(page.getByRole('region', { name: 'Editor Studio' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Projeto' })).toHaveValue('Campanha enviada ao Studio')
+  await expect(page.getByRole('region', { name: 'Slides' }).getByRole('button', { name: 'Slide 1' })).toBeVisible()
+  await page.getByRole('button', { name: 'Camadas', exact: true }).click()
+  await expect(page.getByRole('button', { name: /Título importado diretamente/ })).toBeVisible()
 })

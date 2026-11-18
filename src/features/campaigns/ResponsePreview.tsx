@@ -1,7 +1,7 @@
 import { useDeferredValue, useMemo } from 'react'
 import { reviewImport, roles, type Draft } from './contract'
 
-export function ResponsePreview({ raw, draft, express }: { raw: string; draft?: Draft; express?: boolean }) {
+export function ResponsePreview({ raw, draft, express, hideError = false }: { raw: string; draft?: Draft; express?: boolean; hideError?: boolean }) {
   const deferred = useDeferredValue(raw)
   const result = useMemo(() => {
     if (!deferred.trim() || (express && !/^(?:```(?:json|md|markdown)?\s*)?(?:[[{]|# Campanha\b)/i.test(deferred.trim()))) return
@@ -9,7 +9,7 @@ export function ResponsePreview({ raw, draft, express }: { raw: string; draft?: 
     catch (cause) { return { error: cause instanceof Error ? cause.message : 'Confira o formato da resposta.' } }
   }, [deferred, draft, express])
   if (!result || raw !== deferred) return null
-  if (result.error) return <p className="info-strip">Prévia indisponível. {result.error}</p>
+  if (result.error) return hideError ? null : <p className="info-strip" role="status">Prévia indisponível. {result.error}</p>
   if (!result.review) return null
   const { content, ignored } = result.review
   return <details open className="campaign-example response-preview">

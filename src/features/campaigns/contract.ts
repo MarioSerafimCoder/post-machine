@@ -26,7 +26,13 @@ const briefingSchema = preferencesSchema.extend({
   sourceConflict: z.boolean().optional(),
   acceptedRules: z.array(z.string().regex(/^[A-Z]+-\d{3}$/)).max(12).optional(),
 })
-const sourceSchema = z.object({ title: short.trim().min(1), url: webUrl, publishedAt: z.iso.datetime({ offset: true }).nullable() })
+// Preserve the publication day without inventing an exact time or timezone.
+const publishedAtSchema = z.preprocess(value =>
+  value === undefined || value === null || (typeof value === 'string' && !value.trim()) ? null :
+    typeof value === 'string' ? value.trim() : value,
+  z.union([z.iso.datetime({ offset: true }), z.iso.date()]).nullable(),
+)
+const sourceSchema = z.object({ title: short.trim().min(1), url: webUrl, publishedAt: publishedAtSchema })
 const slideSchema = z.object({
   order: z.number().int().min(1).max(maxSlides), role: z.enum(['cover', 'content', 'cta']),
   title: short, body: prose, imageBrief: prose, layoutType: short, headlines: headlineSessionSchema.optional(),
@@ -130,7 +136,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     'Escreva headlines específicas e interessantes, sem clichês, linguagem artificial ou clickbait enganoso. Organize a narrativa com progressão clara e textos curtos para caber na peça.',
     'Sugira uma imagem pertinente e indique a direção de arte de cada peça em imageBrief e layoutType. Escreva uma legenda contextualizada e um CTA coerente com o objetivo.',
     ...editorialInstructions,
-    'Retorne somente JSON válido. Mantenha os campos, a ordem e a quantidade de peças do modelo. Preencha os textos e liste apenas referências verificáveis. Preserve o link original e use null para datas desconhecidas.',
+    'Retorne somente JSON válido. Mantenha os campos, a ordem e a quantidade de peças do modelo. Preencha os textos e liste apenas referências verificáveis. Para sources[].publishedAt, use AAAA-MM-DD quando apenas a data for conhecida (não invente horário), ISO 8601 com fuso quando a hora estiver confirmada, ou null se desconhecida. Preserve o link original.',
     '',
     JSON.stringify(example, null, 2),
   ].join('\n')
@@ -214,7 +220,9 @@ export function reviewImport(input: string, draft?: Draft) {
   }
   const parsed = contentSchema.safeParse(data)
   if (!parsed.success) {
-    const fields = parsed.error.issues.slice(0, 6).map(issue => issue.path.join('.') || 'estrutura')
+    const fields = parsed.error.issues.slice(0, 6).map(issue => issue.path.at(-1) === 'publishedAt'
+      ? `${issue.path.join('.')} (use AAAA-MM-DD, data e hora ISO com fuso ou null)`
+      : issue.path.join('.') || 'estrutura')
     throw Error(`Revise os campos obrigatórios ou inválidos: ${fields.join(', ')}.`)
   }
   const { campaign, slides, sources } = parsed.data

@@ -43,6 +43,15 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   const [deleteId, setDeleteId] = useState<string>()
   const [restoring, setRestoring] = useState(false)
   const handledRequest = useRef<typeof request>(null)
+  const transferPending = useRef(false)
+  const responseInput = useRef<{ id: string; raw: string }>()
+  const [responsePendingId, setResponsePendingId] = useState<string>()
+  const trackResponse = useCallback((id: string, raw: string) => {
+    responseInput.current = { id, raw }
+    const pending = raw.trim() ? id : undefined
+    setResponsePendingId(current => current === pending ? current : pending)
+    setError(current => current ? '' : current)
+  }, [])
   const heading = useRef<HTMLHeadingElement>(null)
   const draft = backup?.campaigns.find(item => item.id === selected)
   const [persisted] = useState(() => new Map<string, Draft>())
@@ -95,7 +104,40 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     setError('')
     queue.schedule(item.id, item)
     if (explicit) void queue.flush(item.id).then(() => setStatus('Campanha salva.'), () => undefined)
+    return item
   }, [queue])
+
+  async function saveAndContinue(item: Draft, destination: 'studio' | 'express' | 'save' = 'studio') {
+    if (transferPending.current) return
+    transferPending.current = true
+    setSaving(count => count + 1)
+    setError('')
+    try {
+      const raw = responseInput.current?.id === item.id ? responseInput.current.raw.trim() : ''
+      const content = raw ? importContent(raw, item) : item.content
+      if (raw && item.content && !window.confirm('A resposta colada substituirá o conteúdo revisado desta campanha. Continuar?')) return
+      const saved = persist(raw ? { ...item, content } : item)
+      await queue.flushAll()
+      if (raw) {
+        responseInput.current = undefined
+        setResponsePendingId(undefined)
+      }
+      setStatus('Campanha salva.')
+      if (destination !== 'save' && saved.content) onDesign(saved, destination === 'express' ? 'express' : undefined)
+    } catch (failure) {
+      if (failure instanceof CampaignConflict) {
+        setError('A campanha mudou em outra aba. Exporte um backup antes de recarregar; o Studio não foi aberto.')
+      } else {
+        setError(failure instanceof Error
+          ? `Não foi possível continuar: ${failure.message}`
+          : 'Não foi possível salvar e abrir o Studio. Revise a resposta e tente novamente.')
+      }
+      window.requestAnimationFrame(() => document.getElementById('campaign-import-heading')?.scrollIntoView({ block: 'nearest' }))
+    } finally {
+      transferPending.current = false
+      setSaving(count => count - 1)
+    }
+  }
 
   useEffect(() => {
     if (!request || handledRequest.current === request || (!backup && !loadError)) return
@@ -226,13 +268,17 @@ export function Campaigns({ request, active, onBack, onDesign }: {
         </div>
       </aside>
       {draft && <div className="campaign-editor">
-        <Editor key={draft.id} draft={draft} active={active} update={persist} onPreferences={briefing => void savePreferences(briefing)} />
+        <Editor key={draft.id} draft={draft} active={active} update={persist}
+          onPreferences={briefing => void savePreferences(briefing)}
+          onRawChange={raw => trackResponse(draft.id, raw)} externalError={error} />
         <div className="campaign-actions">
-          <button className="button button-dark" onClick={() => persist(draft, true)}>Salvar campanha</button>
-          {draft.content && <>
-            <button className="button button-dark" onClick={() => void queue.flushAll().then(() => onDesign(draft,'express'), () => undefined)}>Fabricar na Produção Expressa</button>
-            <button className="button button-outline" onClick={() => void queue.flushAll().then(() => onDesign(draft), () => undefined)}>Criar design no Studio</button>
-          </>}
+          <button className="button button-dark" disabled={saving > 0} onClick={() => void saveAndContinue(draft)}>
+            {draft.content || responsePendingId === draft.id ? 'Salvar e abrir no Studio' : 'Salvar campanha'}
+          </button>
+          {draft.content && responsePendingId !== draft.id && <button className="button button-outline" disabled={saving > 0}
+            onClick={() => void saveAndContinue(draft, 'save')}>Salvar sem abrir</button>}
+          {draft.content && <button className="button button-outline" disabled={saving > 0}
+            onClick={() => void saveAndContinue(draft, 'express')}>Fabricar na Produção Expressa</button>}
           <button className="button button-outline" onClick={() => duplicate(draft)}>Duplicar campanha</button>
           <button className="button button-outline" onClick={() => setDeleteId(draft.id)}>Excluir campanha</button>
         </div>
@@ -246,11 +292,13 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   </section>
 }
 
-function Editor({ draft, active, update, onPreferences }: {
+function Editor({ draft, active, update, onPreferences, onRawChange, externalError }: {
   draft: Draft
   active: boolean
   update: (draft: Draft) => void
   onPreferences: (briefing: Briefing) => void
+  onRawChange: (raw: string) => void
+  externalError: string
 }) {
   const [platform, setPlatform] = useState<keyof typeof platforms>('ChatGPT')
   const [raw, setRaw] = useState('')
@@ -264,6 +312,12 @@ function Editor({ draft, active, update, onPreferences }: {
   const findings = useMemo(() => active ? reviewEditorial(deferred) : [], [active, deferred])
   const editBriefing = (changes: Partial<Briefing>) => update({ ...draft, briefing: { ...briefing, ...changes } })
   const editContent = (content: Content) => update({ ...draft, content })
+  const changeRaw = (value: string) => {
+    setRaw(value)
+    setError('')
+    setReplacing(false)
+    onRawChange(value)
+  }
 
   function generate() {
     update({ ...draft, prompt: createPrompt(draft, briefingInstructions(draft, recommend(draft))), promptBriefing: briefing })
@@ -287,7 +341,7 @@ function Editor({ draft, active, update, onPreferences }: {
       if (!/\.(json|md)$/i.test(file.name) || file.size > maxImport * 4) throw Error()
       const value = await file.text()
       if (value.length > maxImport) throw Error()
-      setRaw(value)
+      changeRaw(value)
     } catch { setError('Escolha um arquivo .json ou .md legível com até 250 mil caracteres.') }
   }
 
@@ -295,9 +349,7 @@ function Editor({ draft, active, update, onPreferences }: {
     try {
       const content = importContent(raw, draft)
       editContent(content)
-      setRaw('')
-      setError('')
-      setReplacing(false)
+      changeRaw('')
       setCopyStatus('')
       window.requestAnimationFrame(() => document.getElementById('campaign-review-heading')?.focus())
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Não foi possível importar o conteúdo.') }
@@ -355,8 +407,10 @@ function Editor({ draft, active, update, onPreferences }: {
     </section>}
     <section className="campaign-panel" aria-labelledby="campaign-import-heading">
       <h3 id="campaign-import-heading">Importar resposta</h3>
-      <label>Conteúdo em JSON ou Markdown<textarea rows={6} value={raw} maxLength={maxImport} onChange={event => { setRaw(event.target.value); setReplacing(false) }} /></label>
-      <ResponsePreview raw={raw} draft={draft} />
+      <label>Conteúdo em JSON ou Markdown<textarea rows={6} value={raw} maxLength={maxImport}
+        onChange={event => changeRaw(event.target.value)} /></label>
+      <p className="muted">Cole a resposta do GPT. Depois de validar, você pode salvar e seguir diretamente para o Studio.</p>
+      <ResponsePreview raw={raw} draft={draft} hideError={Boolean(error || externalError)} />
       <details className="campaign-example"><summary>Ver sintaxe Markdown</summary>
         <p className="muted">Use os nomes dos campos do modelo. Repita a seção Fonte para cada referência e numere os slides a partir de 1. Use carousel, post ou story no formato e cover, content ou cta na função. Datas usam ISO 8601 ou null.</p>
         <pre>{markdownExample}</pre>

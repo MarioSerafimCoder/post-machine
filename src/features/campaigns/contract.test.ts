@@ -28,6 +28,24 @@ describe('contrato editorial', () => {
     expect(importContent(fenced, post)).toEqual(markdown)
   })
 
+  it('importa datas de fontes com precisão preservada, aceita ausência e rejeita datas indefinidas', () => {
+    const base = importContent(markdownExample, post)
+    const sources = [
+      { title: 'Data conhecida', url: 'https://example.com/a', publishedAt: '2026-11-18' },
+      { title: 'Hora conhecida', url: 'https://example.com/b', publishedAt: '2026-11-18T10:15:49.000Z' },
+      { title: 'Sem data', url: 'https://example.com/c', publishedAt: null },
+      { title: 'Data vazia', url: 'https://example.com/d', publishedAt: '' },
+      { title: 'Data omitida', url: 'https://example.com/e' },
+    ]
+    const result = importContent(JSON.stringify({ ...base, sources }), post)
+    expect(result.sources.map(source => source.publishedAt)).toEqual([
+      null, '2026-11-18', '2026-11-18T10:15:49.000Z', null, null, null,
+    ])
+    expect(() => importContent(JSON.stringify({
+      ...base, sources: [{ ...sources[0], publishedAt: 'ontem' }],
+    }), post)).toThrow(/sources\.0\.publishedAt.*AAAA-MM-DD/)
+  })
+
   it('rejeita campos ausentes, referências inseguras e formato divergente', () => {
     expect(() => importContent('{}', post)).toThrow('schemaVersion')
     expect(() => importContent(markdownExample.replace('https://example.com/artigo', 'javascript:alert(1)'), post)).toThrow('sources.0.url')
