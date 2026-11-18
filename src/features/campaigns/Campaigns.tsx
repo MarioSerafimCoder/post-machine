@@ -24,6 +24,10 @@ const platforms = {
   Gemini: 'https://gemini.google.com/',
 }
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
+const dateOnly = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'UTC' })
+// An ISO calendar date has no time zone: render its original day without shifting it.
+const publicationDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+  ? dateOnly.format(new Date(value + 'T00:00:00.000Z')) : date.format(new Date(value))
 const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imageBrief: '', layoutType: 'editorial' }
 
 export function Campaigns({ request, active, onBack, onDesign }: {
@@ -427,7 +431,7 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
       <p className="muted">Cole a resposta do GPT. Depois de validar, você pode salvar e seguir diretamente para o Studio.</p>
       <ResponsePreview raw={raw} draft={draft} hideError={Boolean(error || externalError)} />
       <details className="campaign-example"><summary>Ver sintaxe Markdown</summary>
-        <p className="muted">Use os nomes dos campos do modelo. Repita a seção Fonte para cada referência e numere os slides a partir de 1. Use carousel, post ou story no formato e cover, content ou cta na função. Datas usam ISO 8601 ou null.</p>
+        <p className="muted">Use os nomes dos campos do modelo. Repita a seção Fonte para cada referência e numere os slides a partir de 1. Use carousel, post ou story no formato e cover, content ou cta na função. Datas aceitam AAAA-MM-DD, ISO 8601 com fuso ou null.</p>
         <pre>{markdownExample}</pre>
       </details>
       <div className="campaign-actions">
@@ -489,7 +493,7 @@ function Review({ draft, active, content, update }: { draft: Draft; active: bool
     </div>
     <h4>Referências</h4>
     <ul className="campaign-sources">{content.sources.map(source => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>
-      {source.publishedAt && <time dateTime={source.publishedAt}> · {date.format(new Date(source.publishedAt))}</time>}</li>)}</ul>
+      {source.publishedAt && <time dateTime={source.publishedAt}> · {publicationDate(source.publishedAt)}</time>}</li>)}</ul>
     <ol className="campaign-slides">{slides.map((slide, index) => <li key={slide.order}>
       <fieldset className="campaign-slide">
         <legend>Peça {slide.order} · {roles[slide.role]}</legend>

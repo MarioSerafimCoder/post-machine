@@ -123,4 +123,8 @@ test('importa a resposta do GPT com datas parciais ao salvar e abre o projeto ed
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
   await expect(page.getByRole('button', { name: /Título importado diretamente/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /Conheça o contexto/ })).toBeVisible()
+  await page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Radar' }).click()
+  await expect(page.getByRole('heading', { name: 'Revisão editorial' })).toBeVisible()
+  await expect(page.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'Fonte com data' }) }))
+    .toContainText('18/11/2026')
 })
