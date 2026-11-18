@@ -29,13 +29,16 @@ export function useDocument(initial?: Project) {
     return saves
   })
   const apply = useCallback((action: SetStateAction<Project | undefined>, record = true, fromStorage = false) => {
-    const next = typeof action === 'function' ? action(current.current) : action
+    const value = typeof action === 'function' ? action(current.current) : action
+    if (value === current.current) return
+    const next = value && !fromStorage ? { ...value, updatedAt: new Date().toISOString() } : value
     if (record && current.current && next?.id === current.current.id) { past.current = [...past.current.slice(-29), current.current]; future.current = [] }
     if (next?.id !== current.current?.id) { past.current = []; future.current = [] }
     current.current = next; display(next)
     setHistory({ undo: past.current.length > 0, redo: future.current.length > 0 })
     if (next && fromStorage) { persisted.set(next.id, next); setStatuses(values => ({ ...values, [next.id]: 'Salvo' })) }
     else if (next) queue.schedule(next.id, next)
+    return next
   }, [persisted, queue])
   const undo = () => { const next = past.current.pop(); if (!next || !current.current) return; future.current.push(current.current); apply(next, false); return next }
   const redo = () => { const next = future.current.pop(); if (!next || !current.current) return; past.current.push(current.current); apply(next, false); return next }

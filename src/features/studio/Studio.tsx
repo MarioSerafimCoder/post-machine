@@ -10,7 +10,8 @@ import { measureTitle } from './headlineFit'
 import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
 import { loadFonts } from './fonts'
 import { useDocument } from './useDocument'
-import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject, saveProject } from './storage'
+import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject, saveProject, BackupLimitError } from './storage'
+import { DamagedProjects } from './DamagedProjects'
 import { download } from './export'
 import { ExportPanel } from './ExportPanel'
 import type { Draft } from '../campaigns/contract'
@@ -72,7 +73,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     window.addEventListener('focus', update)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', update) }
   }, [active])
-  const [library, setLibrary] = useState<Project[]>([])
+  const [libraryResult, setLibrary] = useState<Awaited<ReturnType<typeof listProjects>>>({ projects: [], damaged: [] })
+  const library = libraryResult.projects
   const [brand, setBrand] = useState(defaultBrand)
   const [entry, setEntry] = useState<'express' | 'collections'>()
   const [starting, setStarting] = useState(false)
@@ -226,7 +228,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       setError('')
       try { localStorage.setItem(backupKey(snapshot.id), new Date(at).toISOString()) }
       catch { setError('O ZIP foi enviado para download. O navegador não conseguiu guardar a data para a próxima sessão.') }
-    } catch { setError('Não foi possível gerar o backup deste projeto.') }
+    } catch (cause) { setError(cause instanceof BackupLimitError ? cause.message : 'Não foi possível gerar o backup deste projeto.') }
     finally { setBackupPending(false) }
   }
   async function deleteProject(item: Project) {
@@ -406,7 +408,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => { setExpressDraft(undefined); setEntry('express') }}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => createEmptyProject()}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
-    <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
+    <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><DamagedProjects items={libraryResult.damaged} /><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
     <header className="studio-toolbar" aria-label="Ações do projeto">
       <div className="studio-toolbar-row">
@@ -492,7 +494,14 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         selectedTitle.set({ headlines })
         snapshotCanvas(text !== undefined)
       }} /></div>}
-    {auditOpen&&<AuditPanel project={project} assistantArea={active && !exportOpen ? 'studio' : undefined} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected)=>{await flush();if(getCurrent()!==expected)throw Error('O projeto mudou. Rode novamente a auditoria.');setProject(value);setRevision(n=>n+1);await flush()}} onUndo={() => moveHistory(false)}/>}
+    {auditOpen&&<AuditPanel project={project} assistantArea={active && !exportOpen ? 'studio' : undefined} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected) => {
+      await flush()
+      if (getCurrent() !== expected) throw Error('O projeto mudou. Rode novamente a auditoria.')
+      const applied = setProject(value) ?? value
+      setRevision(n => n + 1)
+      await flush()
+      return applied
+    }} onUndo={() => moveHistory(false)}/>}
     {error && <p role="alert">{error}</p>}
     {!readyCanvas && !error && <p className="studio-loading" role="status">Carregando o slide…</p>}
     {guidance && sameReviewVersion(guidance.project,project) && guidance.finding.slideId === project.slides[current].id && <div className="studio-guidance" role="status">

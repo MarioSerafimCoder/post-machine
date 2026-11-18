@@ -202,7 +202,7 @@ test('preserva texto parecido com referências a arquivos e reutiliza o hash de 
   await page.getByRole('button', { name: 'Duplicar slide', exact: true }).click()
   await save.click()
   await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
-  expect.soft(await page.evaluate(() => (window as unknown as { saveStats: { hashes: number } }).saveStats.hashes)).toBe(1)
+  expect.soft(await page.evaluate(() => (window as unknown as { saveStats: { hashes: number } }).saveStats.hashes)).toBe(0)
 
   const downloadEvent = page.waitForEvent('download')
   await page.getByText('Mais ações', { exact: true }).click()
@@ -231,7 +231,7 @@ test('abre, atualiza e restaura um projeto v1 cuja revisão antiga guardava text
   const text = `data:image/png;base64,${bytes.toString('base64')}`
   project.slides[0].scene.objects = [{ type: 'Textbox', text: `asset:${hash}`, left: 100, top: 100, width: 600, fontSize: 40 }]
 
-  await page.goto('/')
+  await page.goto('/#/radar')
   await page.evaluate(async ({ project, hash, bytes }) => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('post-machine-studio', 2)

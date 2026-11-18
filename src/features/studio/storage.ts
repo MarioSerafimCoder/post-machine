@@ -4,13 +4,14 @@ import { brandSchema, type Brand, type Project } from './model'
 import { imageCreditSchema, type ImageCredit } from '../images/contract'
 import { imageObjects } from '../images/credits'
 
-import { abortTransaction, transaction } from './database'
+import { abortTransaction, projectsChangedEvent, transaction } from './database'
 
 const dataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob) })
 const assetRef = /^asset:([a-f0-9]{64})$/
-const legacyRevisions = new WeakMap<Project, string>()
 type StoredProject = ReturnType<typeof validateProject>
 type RewriteAsset = (source: string, replace: (value: string) => void) => void
+type EncodedAsset = Awaited<ReturnType<typeof encodeAsset>>
+const revisions = new WeakMap<Project, { baseline: string; assets: Map<string, EncodedAsset> }>()
 
 function mapAssetFields<T>(value: T, rewrite: RewriteAsset, fields?: readonly string[]): T {
   if (value === null || typeof value !== 'object') return value
@@ -43,23 +44,30 @@ async function encodeAsset(source: string) {
   return { id, blob: new Blob([bytes], { type: header.slice(5, header.indexOf(';')) }) }
 }
 
-async function pack(project: Project, encodedAssets = new Map<string, ReturnType<typeof encodeAsset>>()) {
+async function pack(project: Project, knownAssets?: ReadonlyMap<string, EncodedAsset>) {
   const assets = new Map<string, Blob>()
+  const bySource = new Map<string, EncodedAsset>()
+  const encoding = new Map<string, Promise<EncodedAsset>>()
   const pending: Promise<void>[] = []
   const packed = mapProjectAssets(validateProject(project), (source, replace) => {
     if (!/^data:(image\/(png|jpeg|webp)|font\/woff2);base64,/.test(source)) return
-    let encoded = encodedAssets.get(source)
+    let encoded = encoding.get(source)
     if (!encoded) {
-      encoded = encodeAsset(source)
-      encodedAssets.set(source, encoded)
+      const known = knownAssets?.get(source)
+      encoded = known ? Promise.resolve(known) : encodeAsset(source)
+      encoding.set(source, encoded)
     }
-    pending.push(encoded.then(({ id, blob }) => { assets.set(id, blob); replace(`asset:${id}`) }))
+    pending.push(encoded.then(asset => {
+      bySource.set(source, asset)
+      assets.set(asset.id, asset.blob)
+      replace(`asset:${asset.id}`)
+    }))
   })
   await Promise.all(pending)
-  return { project: validateProject({ ...packed, assetEncoding: 'media-v1' }), assets }
+  return { project: validateProject({ ...packed, assetEncoding: 'media-v1' }), assets, bySource }
 }
 
-async function hydrate(stored: StoredProject, read: (id: string) => Promise<Blob | undefined>): Promise<Project> {
+async function hydrate(stored: StoredProject, read: (id: string) => Promise<Blob | undefined>, knownAssets?: Map<string, EncodedAsset>): Promise<Project> {
   const { assetEncoding, ...project } = stored
   const cache = new Map<string, Promise<string | undefined>>()
   const pending: Promise<void>[] = []
@@ -69,7 +77,12 @@ async function hydrate(stored: StoredProject, read: (id: string) => Promise<Blob
       if (!id) return
       let loaded = cache.get(id)
       if (!loaded) {
-        loaded = read(id).then(blob => blob && dataUrl(blob))
+        loaded = read(id).then(async blob => {
+          if (!blob) return undefined
+          const source = await dataUrl(blob)
+          if (required) knownAssets?.set(source, { id, blob })
+          return source
+        })
         cache.set(id, loaded)
       }
       pending.push(loaded.then(value => {
@@ -96,17 +109,27 @@ export function saveProject(project: Project, expected?: Project) {
 }
 export class ProjectConflict extends Error {}
 async function writeProject(project: Project, expected?: Project) {
-  const encodedAssets = new Map<string, ReturnType<typeof encodeAsset>>()
-  const packed = await pack(project, encodedAssets)
-  const baseline = expected && (legacyRevisions.get(expected) ?? JSON.stringify((await pack(expected, encodedAssets)).project))
+  const previous = expected && revisions.get(expected)
+  const packed = await pack(project, previous?.assets)
+  const serialized = JSON.stringify(packed.project)
+  const baseline = expected && (previous?.baseline ?? JSON.stringify((await pack(expected, packed.bySource)).project))
   const written = await transaction(['projects', 'assets', 'settings', 'recovery'], 'readwrite', tx => {
     let written = false
     const old = tx.objectStore('projects').get(project.id)
     old.onsuccess = () => {
       try {
         if (expected && (expected.id !== project.id || JSON.stringify(old.result && validateProject(old.result)) !== baseline)) return
-        if (old.result && JSON.stringify(old.result) !== JSON.stringify(packed.project)) tx.objectStore('recovery').put(old.result, project.id)
-        packed.assets.forEach((blob, id) => tx.objectStore('assets').put(blob, id))
+        if (old.result && JSON.stringify(old.result) !== serialized) tx.objectStore('recovery').put(old.result, project.id)
+        const assets = tx.objectStore('assets')
+        packed.assets.forEach((blob, id) => {
+          const lookup = assets.getKey(id)
+          lookup.onsuccess = () => {
+            if (lookup.result === undefined) {
+              try { assets.put(blob, id) }
+              catch { abortTransaction(tx) }
+            }
+          }
+        })
         tx.objectStore('settings').put(packed.project.brand, 'brand')
         tx.objectStore('projects').put(packed.project, project.id)
         written = true
@@ -115,8 +138,30 @@ async function writeProject(project: Project, expected?: Project) {
     return () => written
   })
   if (!written) throw new ProjectConflict('O projeto foi atualizado em outro lugar. Reabra o projeto antes de editar.')
+  revisions.set(project, { baseline: serialized, assets: packed.bySource })
+  window.dispatchEvent(new Event(projectsChangedEvent))
 }
-export async function listProjects(): Promise<Project[]> { return transaction(['projects'], 'readonly', tx => { const req = tx.objectStore('projects').getAll(); return () => req.result.map(validateProject).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt)) }) }
+export function listProjects() {
+  return transaction(['projects'], 'readonly', tx => {
+    const request = tx.objectStore('projects').openCursor()
+    const projects: Project[] = []
+    const damaged: { id: string; name: string }[] = []
+    request.onsuccess = () => {
+      const cursor = request.result
+      if (!cursor) return
+      try {
+        const project = validateProject(cursor.value)
+        if (project.id !== cursor.primaryKey) throw Error('Identificador inconsistente.')
+        projects.push(project)
+      } catch {
+        const name: unknown = cursor.value?.name
+        damaged.push({ id: String(cursor.primaryKey), name: typeof name === 'string' ? name.slice(0, 100) : '' })
+      }
+      cursor.continue()
+    }
+    return () => ({ projects: projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), damaged })
+  })
+}
 export function loadProject(id: string): Promise<Project> {
   return withStudioStorage(() => loadStoredProject(id, 'projects'))
 }
@@ -124,8 +169,9 @@ async function loadStoredProject(id: string, store: 'projects' | 'recovery'): Pr
   const value = await transaction([store], 'readonly', tx => { const req = tx.objectStore(store).get(id); return () => req.result as unknown })
   if (!value) throw Error(store === 'recovery' ? 'Ainda não existe versão anterior salva.' : 'Projeto não encontrado.')
   const stored = validateProject(value)
-  const project = await hydrate(stored, key => transaction(['assets'], 'readonly', tx => { const req = tx.objectStore('assets').get(key); return () => req.result as Blob | undefined }))
-  if (!stored.assetEncoding) legacyRevisions.set(project, JSON.stringify(stored))
+  const assets = new Map<string, EncodedAsset>()
+  const project = await hydrate(stored, key => transaction(['assets'], 'readonly', tx => { const req = tx.objectStore('assets').get(key); return () => req.result as Blob | undefined }), stored.assetEncoding ? assets : undefined)
+  revisions.set(project, { baseline: JSON.stringify(stored), assets })
   return project
 }
 export async function readBrand(): Promise<Brand | undefined> {
@@ -253,11 +299,25 @@ export async function readImageAsset(asset: string) {
   if (!blob) throw Error('Arquivo indisponível no armazenamento local.')
   return blob
 }
+const backupLimits = { total: 150_000_000, entry: 20_000_000, entries: 500 }
+export class BackupLimitError extends Error {
+  constructor() { super('Este projeto excede o limite de restauração do ZIP. Reduza o tamanho do projeto e tente novamente.') }
+}
+
 export async function backupProject(project: Project): Promise<Blob> {
-  const packed = await pack(project); const zip = new JSZip()
-  zip.file('project.json', JSON.stringify(packed.project))
-  for (const [id, blob] of packed.assets) zip.file(`assets/${id}`, await blob.arrayBuffer())
-  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+  const packed = await pack(project)
+  const manifest = new TextEncoder().encode(JSON.stringify(packed.project))
+  let total = manifest.byteLength
+  if (total > backupLimits.entry || packed.assets.size + 1 > backupLimits.entries) throw new BackupLimitError()
+  for (const blob of packed.assets.values()) {
+    total += blob.size
+    if (blob.size > backupLimits.entry || total > backupLimits.total) throw new BackupLimitError()
+  }
+  const zip = new JSZip().file('project.json', manifest)
+  for (const [id, blob] of packed.assets) zip.file(`assets/${id}`, await blob.arrayBuffer(), { createFolders: false })
+  const archive = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+  if (archive.size > backupLimits.total) throw new BackupLimitError()
+  return archive
 }
 
 function readZipEntry(file: JSZip.JSZipObject, maxBytes: number, account: (size: number) => boolean) {
@@ -285,21 +345,21 @@ function readZipEntry(file: JSZip.JSZipObject, maxBytes: number, account: (size:
 }
 
 export async function restoreProject(file: File): Promise<Project> {
-  if (file.size > 150_000_000) throw Error('Backup excede 150 MB.')
+  if (file.size > backupLimits.total) throw Error('Backup excede 150 MB.')
   const zip = await JSZip.loadAsync(await file.arrayBuffer()).catch(() => { throw Error('O arquivo não é um backup ZIP válido.') })
-  if (Object.keys(zip.files).length > 500) throw Error('Backup excede o limite de arquivos.')
+  if (Object.keys(zip.files).length > backupLimits.entries) throw Error('Backup excede o limite de arquivos.')
   const manifest = zip.file('project.json')
   if (!manifest) throw Error('O backup não contém o documento do projeto.')
   let total = 0
-  const account = (size: number) => (total += size) <= 150_000_000
-  const json = await readZipEntry(manifest, 20_000_000, account)
+  const account = (size: number) => (total += size) <= backupLimits.total
+  const json = await readZipEntry(manifest, backupLimits.entry, account)
   let document: StoredProject
   try { document = validateProject(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(json))) }
   catch { throw Error('O documento do backup está corrompido ou usa uma versão incompatível.') }
   const project = await hydrate(document, async id => {
     const asset = zip.file(`assets/${id}`)
     if (!asset) return undefined
-    const data = await readZipEntry(asset, 20_000_000, account)
+    const data = await readZipEntry(asset, backupLimits.entry, account)
     const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map(n => n.toString(16).padStart(2,'0')).join('')
     if (hash !== id) throw Error('Imagem corrompida no backup.')
     const font = String.fromCharCode(...data.slice(0,4)) === 'wOF2'

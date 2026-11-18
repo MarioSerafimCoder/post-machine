@@ -9,10 +9,21 @@ export function ResumeProject({ open }: { open: (id?: string) => void }) {
   const [result, setResult] = useState<{ project?: Summary; error?: boolean }>()
   useEffect(() => {
     let active = true
-    void import('../features/studio/database').then(module => module.latestProject()).then(project => {
-      if (active) setResult({ project })
+    let unsubscribe: (() => void) | undefined
+    void import('../features/studio/database').then(({ latestProject, projectsChangedEvent }) => {
+      if (!active) return
+      let generation = 0
+      const refresh = () => {
+        const request = ++generation
+        void latestProject().then(project => {
+          if (active && request === generation) setResult({ project })
+        }, () => { if (active && request === generation) setResult({ error: true }) })
+      }
+      window.addEventListener(projectsChangedEvent, refresh)
+      unsubscribe = () => window.removeEventListener(projectsChangedEvent, refresh)
+      refresh()
     }, () => { if (active) setResult({ error: true }) })
-    return () => { active = false }
+    return () => { active = false; unsubscribe?.() }
   }, [])
   const project = result?.project
   return <section className="resume-project" aria-labelledby="resume-heading">

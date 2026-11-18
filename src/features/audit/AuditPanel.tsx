@@ -13,7 +13,7 @@ const categories: Record<Category,string> = {
   contrast:'Contraste', branding:'Marca', consistency:'Consistência',
 }
 
-type Props = { view?: 'diagnosis' | 'corrections' | 'results'; project: Project; assistantArea?: 'studio' | 'auditoria'; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => void | Promise<void>; onReport?: (report: AuditReport, project: Project, index?: number) => void; onUndo?: () => void | Promise<void> }
+type Props = { view?: 'diagnosis' | 'corrections' | 'results'; project: Project; assistantArea?: 'studio' | 'auditoria'; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => Promise<Project>; onReport?: (report: AuditReport, project: Project, index?: number) => void; onUndo?: () => void | Promise<void> }
 export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,onUndo,onReport,view='diagnosis'}: Props) {
   const [report,setReport] = useState<AuditReport>()
   const [source,setSource] = useState<Project>()
@@ -64,10 +64,10 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
       if (!window.confirm(`${finding.message}\n${proposal.description}\n\nAplicar correção? Você poderá desfazer.`)) return
       attemptsRef.current[finding.id] = (attemptsRef.current[finding.id] ?? 0) + 1
       setAttempts({ ...attemptsRef.current })
-      await onChange(proposal.project, project, true)
+      const applied = await onChange(proposal.project, project, true)
       fixes.current = [...fixes.current, `${finding.id}: ${proposal.description}`]
-      setUndoSource(proposal.project)
-      await run(scope, proposal.project)
+      setUndoSource(applied)
+      await run(scope, applied)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {

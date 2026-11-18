@@ -1,7 +1,19 @@
+export const projectsChangedEvent = 'post-machine:projects-changed'
+
 function open(): Promise<IDBDatabase> { return new Promise((resolve, reject) => {
-  const request = indexedDB.open('post-machine-studio', 2)
-  request.onupgradeneeded = () => { for (const name of ['projects', 'assets', 'settings', 'recovery']) if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name) }
-  request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error)
+  const request = indexedDB.open('post-machine-studio', 3)
+  request.onupgradeneeded = () => {
+    for (const name of ['projects', 'assets', 'settings', 'recovery']) {
+      if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name)
+    }
+    request.transaction!.objectStore('projects').createIndex('updatedAt', 'updatedAt')
+  }
+  request.onsuccess = () => {
+    const db = request.result
+    db.onversionchange = () => db.close()
+    resolve(db)
+  }
+  request.onerror = () => reject(request.error)
 }) }
 export function abortTransaction(transaction: IDBTransaction) {
   try { transaction.abort() }
@@ -29,14 +41,15 @@ export async function transaction<T>(stores: string[], mode: IDBTransactionMode,
 export function latestProject() {
   return transaction(['projects'], 'readonly', tx => {
     let latest: { id: string; name: string; updatedAt: string } | undefined
-    const request = tx.objectStore('projects').openCursor()
+    const request = tx.objectStore('projects').index('updatedAt').openCursor(null, 'prev')
     request.onsuccess = () => {
       const cursor = request.result
       if (!cursor) return
       const { id, name, updatedAt } = (cursor.value ?? {}) as Record<string, unknown>
-      if (typeof id === 'string' && typeof name === 'string' && typeof updatedAt === 'string' &&
-          Number.isFinite(Date.parse(updatedAt)) && (!latest || updatedAt > latest.updatedAt)) {
+      if (id === cursor.primaryKey && typeof id === 'string' && typeof name === 'string' &&
+          typeof updatedAt === 'string' && Number.isFinite(Date.parse(updatedAt))) {
         latest = { id, name, updatedAt }
+        return
       }
       cursor.continue()
     }

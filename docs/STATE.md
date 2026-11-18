@@ -6,6 +6,12 @@
 - Regressão incluída em `src/features/intelligence/feedback.test.ts`, cobrindo sincronização externa, preservação de decisões, mudança de modo e limpeza do armazenamento.
 - [CI do código](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44356989006) aprovado: lint, Vitest, build, Playwright e dry-run do Wrangler. Refatoração restrita ao módulo de memória; sem mudanças em projetos, editor Fabric, importação ou exportação. Nenhuma publicação de produção foi solicitada nesta auditoria.
 
+## Correções da auditoria da Evolução 09
+
+- O Studio verifica os limites do ZIP antes de encaminhar o download. Criação e restauração compartilham os limites do documento, dos arquivos e do tamanho total. O teste de regressão usa texto multibyte para verificar o limite em bytes.
+- Studio e Auditoria identificam registros incompatíveis sem ocultar os projetos válidos. A abertura da biblioteca migra o IndexedDB para a versão 3 e cria o índice de data usado na retomada da edição. Alterações de slides e demais edições atualizam a data no fluxo comum de salvamento. A página inicial consulta novamente após uma gravação pendente.
+- O salvamento reaproveita identificadores de arquivos da revisão anterior e grava somente mídias ausentes. O backup calcula seus próprios identificadores para exportar um ZIP autocontido.
+
 ## Evolução 09 — Produtividade e consistência da interface
 
 - Base `7756453`. A interface usa Inter local e tokens de tipografia, cor e interação. A barra do Studio separa gestão do projeto, edição, finalização e ações de manutenção. O Assistente Editorial põe a ação principal antes das referências, mantém as demais sugestões recolhidas e aguarda uma pausa da digitação para exibir o balão.

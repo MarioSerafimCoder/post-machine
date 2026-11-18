@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { listProjects, loadProject, saveProject } from '../studio/storage'
 import type { Project } from '../studio/model'
+import { DamagedProjects } from '../studio/DamagedProjects'
 import { AuditPanel } from './AuditPanel'
 import type { Finding } from './contract'
 import { ContextHeader, ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
@@ -8,7 +9,8 @@ import { ContextHeader, ContextRail, ContextWorkspace, type ContextTool } from '
 const projectDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
 
 export function AuditPage() {
-  const [library, setLibrary] = useState<Project[]>()
+  const [libraryResult, setLibrary] = useState<Awaited<ReturnType<typeof listProjects>>>()
+  const library = libraryResult?.projects
   const [loadingProject, setLoadingProject] = useState(false)
   const [project, setProject] = useState<Project>()
   const [selection, setSelection] = useState('')
@@ -49,6 +51,7 @@ export function AuditPage() {
       checkpoint.current = correction ? { before: expected, after: value } : undefined
       active.current = value
       setProject(value)
+      return value
     } finally { writing.current = false; setBusy(false) }
   }
 
@@ -74,6 +77,7 @@ export function AuditPage() {
     }} />}><section className="audit-page">
     {panel === 'Projetos' && <div className="context-panel"><ContextHeader title="Projetos" close={() => setPanel(null)} />
     {!library && !error && <p role="status">Buscando projetos neste navegador…</p>}
+    {libraryResult && <DamagedProjects items={libraryResult.damaged} />}
     {library && library.length === 0 && <div className="audit-start">
       <h2>Nenhum projeto para revisar</h2><p>Crie ou restaure um projeto no Studio para revisar sua arte.</p>
       <a className="button button-dark" href="#/studio">Abrir Studio</a>

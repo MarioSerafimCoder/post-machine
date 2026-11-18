@@ -119,7 +119,7 @@ test('Auditoria identifica imagem local ilegível em vez de perder o relatório'
   await expect(page.getByRole('button', { name: 'Abrir Novo projeto' })).toBeVisible()
   await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open('post-machine-studio', 2)
+      const request = indexedDB.open('post-machine-studio')
       request.onsuccess = () => resolve(request.result)
       request.onerror = () => reject(request.error)
     })
