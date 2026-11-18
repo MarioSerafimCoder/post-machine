@@ -44,7 +44,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   const [restoring, setRestoring] = useState(false)
   const handledRequest = useRef<typeof request>(null)
   const transferPending = useRef(false)
-  const responseInput = useRef<{ id: string; raw: string }>()
+  const responseInput = useRef<{ id: string; raw: string } | undefined>(undefined)
   const [responsePendingId, setResponsePendingId] = useState<string>()
   const trackResponse = useCallback((id: string, raw: string) => {
     responseInput.current = { id, raw }
