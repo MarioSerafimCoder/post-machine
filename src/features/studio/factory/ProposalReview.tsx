@@ -4,6 +4,7 @@ import { renderScene } from '../export'
 import { dimensions, type Project, type Scene } from '../model'
 import { divideBody, type Treatment } from './planning'
 import type { Fabrication, Proposal } from './fabricate'
+import { requiresReview } from './evaluate'
 import './review.css'
 
 const labels: Record<Treatment,[string,string]> = {
@@ -61,7 +62,7 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
     <div className="factory-options">{result.proposals.map((version,index) => {
       const [name,description] = labels[version.treatment]
       const isTypographic = version.treatment === 'photo' && !result.slides.some(item => item.picture)
-      const affected = version.details.filter(detail => detail.issues.some(issue => issue.kind !== 'image' || !issue.message.startsWith('Imagem ainda'))).length
+      const affected = version.details.filter(detail => detail.issues.some(requiresReview)).length
       return <article key={version.treatment} data-active={index === selected}>
         <div className="factory-thumb"><Preview key={version.details[0].composition}
           project={version.project} index={0} scale={.18} label={`Capa ${name}`} /></div>
@@ -83,7 +84,7 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
           <nav className="collection-actions" aria-label="Slides da proposta">{result.slides.map((item,index) =>
             <button key={index} className="button button-outline" aria-label={`Prévia do slide ${index+1}`} aria-pressed={index === slideIndex}
               title={item.content.title} onClick={() => show(selected,index)}>
-              {String(index+1).padStart(2,'0')}{proposal.details[index].issues.some(issue => issue.kind !== 'image' || !issue.message.startsWith('Imagem ainda')) && ' •'}
+              {String(index+1).padStart(2,'0')}{proposal.details[index].issues.some(requiresReview) && ' •'}
             </button>)}</nav>
           <label>Composição do slide<select value={details.composition} disabled={busy} onChange={event => replace(Number(event.target.value))}>
             {compositionNames.map((name,index) => <option key={name} value={index}>{name}</option>)}

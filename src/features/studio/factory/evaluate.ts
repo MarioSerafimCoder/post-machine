@@ -4,6 +4,7 @@ import type { PlannedSlide } from './planning'
 import type { TextMeasurement } from './typography'
 
 export type Issue = { field?: string; kind: 'text' | 'image' | 'layout' | 'font'; message: string }
+export const requiresReview = (issue: Issue) => issue.kind !== 'image' || !issue.message.startsWith('Imagem ainda')
 type Bounds = { left: number; top: number; width: number; height: number }
 const bounds = (object: Record<string,unknown>): Bounds => ({
   left:Number(object.left ?? 0), top:Number(object.top ?? 0),

@@ -15,6 +15,7 @@ import { readImage } from './images'
 import { formatNames, type Brand, type Format, type Project } from './model'
 import { ProposalReview } from './factory/ProposalReview'
 import { useAssistantSignal } from '../intelligence/signals'
+import { requiresReview, type Issue } from './factory/evaluate'
 import './collections.css'
 
 const tools: ContextTool[] = [
@@ -248,16 +249,19 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   }
 
   const reviewedProposal = active && !busy && step === 'Prévia' ? result?.proposals[selected] : undefined
-  const issuePosition = reviewedProposal?.details.findIndex(detail => detail.issues.some(issue => !issue.message.startsWith('Imagem ainda'))) ?? -1
-  const productionIssue = reviewedProposal?.details[issuePosition]?.issues.find(issue => !issue.message.startsWith('Imagem ainda'))
+  const issues = reviewedProposal?.details.flatMap((detail, index) => detail.issues.filter(requiresReview).map(issue => ({ index, issue }))) ?? []
+  const issuePriority: Record<Issue['kind'], number> = { text: 4, layout: 3, image: 2, font: 1 }
+  const primaryIssue = issues.reduce<typeof issues[number] | undefined>((current, entry) =>
+    !current || issuePriority[entry.issue.kind] > issuePriority[current.issue.kind] ? entry : current, undefined)
+  const issuePosition = primaryIssue?.index ?? -1
+  const productionIssue = primaryIssue?.issue
   const lighter = result?.proposals.findIndex((proposal, index) => index !== selected &&
-    proposal.details.reduce((sum, detail) => sum + detail.issues.length, 0) <
-    (reviewedProposal?.details.reduce((sum, detail) => sum + detail.issues.length, 0) ?? 0)) ?? -1
+    proposal.details.reduce((sum, detail) => sum + detail.issues.filter(requiresReview).length, 0) < issues.length) ?? -1
   useAssistantSignal(reviewedProposal && productionIssue ? {
     area: 'studio', scope: reviewedProposal.project.id, priority: 65,
     insight: {
       id: `express:${issuePosition}:${productionIssue.kind}:${productionIssue.field ?? ''}`,
-      ruleId: productionIssue.kind === 'text' ? 'VIS-003' : 'VIS-001',
+      ruleId: productionIssue.kind === 'text' ? 'VIS-003' : productionIssue.kind === 'layout' ? 'VIS-001' : 'OPS-001',
       title: `Revise o slide ${issuePosition + 1} da proposta`,
       detail: productionIssue.message,
       assessment: 'needs_review',

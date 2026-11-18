@@ -87,12 +87,18 @@ test('aplica recomendação explícita, preserva insights de headline e respeita
 
 test('usa aviso da fabricação e abre o slide correspondente', async ({ page }, info) => {
   await page.goto('/#/studio')
+  await page.evaluate(() => {
+    const check = document.fonts.check.bind(document.fonts)
+    document.fonts.check = (font, text) => !font.startsWith('48px') && check(font, text)
+  })
   await button(page, 'Produção Expressa').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill(`Slide 1 — Capa curta\n\nSlide 2 — Explicação detalhada\n${'Um exemplo que precisa de espaço de leitura. '.repeat(140)}`)
   await button(page, 'Organizar slides').click()
   await button(page, 'Prévia').click()
   await button(page, 'Fabricar meu carrossel').click()
-  await expect(page.getByRole('region', { name: 'Propostas de fabricação' }).getByRole('article')).toHaveCount(3)
+  const proposals = page.getByRole('region', { name: 'Propostas de fabricação' })
+  await expect(proposals.getByRole('article')).toHaveCount(3)
+  await expect(proposals).toContainText('Fonte não confirmada')
   await button(page, 'Assistente Editorial').click()
   const dock = assistant(page)
   await expect(dock).toContainText('Revise o slide 2 da proposta')
