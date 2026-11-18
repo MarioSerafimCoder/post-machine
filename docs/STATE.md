@@ -1,5 +1,12 @@
 # Estado real — 18/11/2026
 
+## Revisão editorial durante a produção
+
+- O Studio reaproveita regras da Auditoria para inspecionar o slide ativo após 750 ms de estabilidade. Verifica campos editoriais vazios, transbordamento, visibilidade e geometria nas dimensões da arte. O robô exibe achados localizáveis e heurísticas de título, com dispensas associadas à ocorrência apresentada.
+- A revisão do carrossel localiza títulos repetidos, peças incompletas, papéis fora da sequência e divergências verificáveis em relação ao briefing vinculado. A interpretação semântica fica em um prompt copiável para o ChatGPT externo, com o conteúdo atual dos slides.
+- Campanhas e Produção Expressa mostram a prévia da resposta estruturada e indicam campos JSON fora do modelo antes da aplicação. A Produção Expressa usa a direção de imagem do slide para preencher a busca no Openverse e oferece vinculação explícita com os créditos selecionados.
+- A biblioteca do Studio e da Auditoria lê resumos locais. A versão 4 do IndexedDB prepara o catálogo na primeira consulta e mantém os resumos na transação dos projetos, incluindo a revisão usada para proteger exclusões concorrentes. O Studio isola a revisão em um hook e painel dedicados, memoriza as miniaturas pelos dados da cena e agrupa posição e aparência nas propriedades.
+
 ## Refatoração pontual — memória editorial entre abas
 
 - Commit funcional `f06c7fa`: a memória do Assistente Editorial agora observa alterações do `localStorage` feitas em outras abas, atualiza os assinantes e parte do estado persistido mais recente ao alterar notificações, limpar histórico ou registrar decisões. Em navegadores que bloqueiam o armazenamento, mantém o fallback em memória da sessão.

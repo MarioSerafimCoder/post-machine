@@ -22,6 +22,9 @@ it('remove o sinal resolvido ou obsoleto e distingue versões sem mudar o ID de 
   bus.update(key, updated)
   expect(bus.snapshot()).toHaveLength(1)
   expect(signalVersion(bus.snapshot()[0])).not.toBe(signalVersion(editing))
+  const history = [{ scope: editing.scope, id: editing.insight.id, version: signalVersion(editing) }]
+  expect(visibleSignals([editing], 'studio', history)).toEqual([])
+  expect(visibleSignals([updated], 'studio', history)).toEqual([updated])
   bus.update(key)
   expect(bus.snapshot()).toEqual([])
 })

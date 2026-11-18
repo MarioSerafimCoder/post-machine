@@ -204,7 +204,7 @@ function parseMarkdown(text: string) {
   }
 }
 
-export function importContent(input: string, draft?: Draft): Content {
+export function reviewImport(input: string, draft?: Draft) {
   if (input.length > maxImport) throw Error('O conteúdo excede o limite de 250 mil caracteres.')
   const text = input.trim().replace(/^```(?:json|md|markdown)?[ \t]*\r?\n([\s\S]*?)\r?\n```$/i, '$1').replace(/\r\n/g, '\n')
   let data: unknown
@@ -227,8 +227,25 @@ export function importContent(input: string, draft?: Draft): Content {
   }
   const originals = draft?.opportunity ? draft.opportunity.articles.map(originalSource) :
     draft?.article ? [originalSource(draft.article)] : draft?.creativeOrigin ? [creativeSource(draft.creativeOrigin)] : []
-  if (!originals.length) return parsed.data
+  const ignored: string[] = []
+  function compareFields(raw: unknown, kept: object, prefix = '') {
+    if (!raw || typeof raw !== 'object') return
+    for (const key of Object.keys(raw)) {
+      if (ignored.length >= 21) return
+      if (!Object.hasOwn(kept, key)) ignored.push((prefix + key).slice(0, 140))
+    }
+  }
+  const raw = data as Content
+  compareFields(raw, parsed.data)
+  compareFields(raw.campaign, campaign, 'campaign.')
+  raw.slides.forEach((slide, index) => compareFields(slide, slides[index], `slides[${index + 1}].`))
+  raw.sources.forEach((source, index) => compareFields(source, sources[index], `sources[${index + 1}].`))
+  if (!originals.length) return { content: parsed.data, ignored }
   const uniqueSources = new Map(sources.map(source => [source.url, source]))
   for (const original of originals) uniqueSources.delete(original.url)
-  return { ...parsed.data, sources: [...originals, ...Array.from(uniqueSources.values())].slice(0, 50) }
+  return { content: { ...parsed.data, sources: [...originals, ...Array.from(uniqueSources.values())].slice(0, 50) }, ignored }
+}
+
+export function importContent(input: string, draft?: Draft): Content {
+  return reviewImport(input, draft).content
 }

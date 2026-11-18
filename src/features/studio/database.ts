@@ -1,12 +1,12 @@
 export const projectsChangedEvent = 'post-machine:projects-changed'
 
 function open(): Promise<IDBDatabase> { return new Promise((resolve, reject) => {
-  const request = indexedDB.open('post-machine-studio', 3)
-  request.onupgradeneeded = () => {
-    for (const name of ['projects', 'assets', 'settings', 'recovery']) {
+  const request = indexedDB.open('post-machine-studio', 4)
+  request.onupgradeneeded = event => {
+    for (const name of ['projects', 'assets', 'settings', 'recovery', 'projectLibrary']) {
       if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name)
     }
-    request.transaction!.objectStore('projects').createIndex('updatedAt', 'updatedAt')
+    if (event.oldVersion < 3) request.transaction!.objectStore('projects').createIndex('updatedAt', 'updatedAt')
   }
   request.onsuccess = () => {
     const db = request.result

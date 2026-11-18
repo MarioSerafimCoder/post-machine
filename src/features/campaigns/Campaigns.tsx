@@ -1,4 +1,5 @@
 import type { Opportunity } from '../radar/contract'
+import { ResponsePreview } from './ResponsePreview'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { SaveQueue } from '../../lib/saveQueue'
@@ -355,6 +356,7 @@ function Editor({ draft, active, update, onPreferences }: {
     <section className="campaign-panel" aria-labelledby="campaign-import-heading">
       <h3 id="campaign-import-heading">Importar resposta</h3>
       <label>Conteúdo em JSON ou Markdown<textarea rows={6} value={raw} maxLength={maxImport} onChange={event => { setRaw(event.target.value); setReplacing(false) }} /></label>
+      <ResponsePreview raw={raw} draft={draft} />
       <details className="campaign-example"><summary>Ver sintaxe Markdown</summary>
         <p className="muted">Use os nomes dos campos do modelo. Repita a seção Fonte para cada referência e numere os slides a partir de 1. Use carousel, post ou story no formato e cover, content ou cta na função. Datas usam ISO 8601 ou null.</p>
         <pre>{markdownExample}</pre>

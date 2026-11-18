@@ -18,6 +18,11 @@
 .studio-project-actions { flex: 1 1 auto; }
 .studio-toolbar .studio-more { margin-inline-start: auto; }
 .studio-toolbar button { min-height: 30px; padding: 5px 8px; }
+.studio-properties fieldset.property-grid { min-inline-size: 0; margin: 6px 0; padding: 4px 0; border: 0; }
+.studio-properties fieldset legend { font-weight: 600; }
+.studio-editorial-review textarea { width: 100%; }
+.studio-editorial-review h2 { font-weight: 650; }
+.studio-editorial-review ul { max-height: 14rem; overflow: auto; }
 .studio-backup { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; color: var(--muted); }
 .studio .studio-backup button { padding: 3px 7px; }
 .studio-output { margin-inline-start: auto; }

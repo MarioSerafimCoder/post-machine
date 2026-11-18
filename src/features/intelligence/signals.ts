@@ -12,15 +12,16 @@ export const signalVersion = (item: Signal) => JSON.stringify([item.area, item.s
 export const signalIdentity = (item: Signal) => JSON.stringify([item.scope, item.insight.id])
 
 export function visibleSignals(signals: readonly Signal[], area: Page | 'not-found',
-  history: readonly { scope: string; id: string }[]) {
-  const excluded = new Set(history.map(item => JSON.stringify([item.scope, item.id])))
+  history: readonly { scope: string; id: string; version?: string }[]) {
+  const excluded = new Map(history.map(item => [JSON.stringify([item.scope, item.id]), item.version ?? null]))
   const unique = new Map<string, Signal>()
   const rank = (item: Signal) => (item.severity === 'blocking' ? 1000 : item.category === 'audit' ? 100 : 0) + item.priority
   for (const item of signals) {
     if (item.area !== area) continue
     const key = signalIdentity(item)
     const previous = unique.get(key)
-    if (!excluded.has(key) && (!previous || rank(item) > rank(previous))) unique.set(key, item)
+    const decision = excluded.get(key)
+    if (decision !== null && decision !== signalVersion(item) && (!previous || rank(item) > rank(previous))) unique.set(key, item)
   }
   return [...unique.values()].sort((a, b) => rank(b) - rank(a))
 }

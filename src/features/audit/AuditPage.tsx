@@ -86,7 +86,7 @@ export function AuditPage() {
     {!project && <div className="audit-start"><h2>Projetos recentes</h2><ul className="audit-projects">
       {library.slice(0, 6).map(item => <li key={item.id}>
         <div><strong>{item.name || 'Projeto sem nome'}</strong>
-          <p>{item.slides.length} {item.slides.length === 1 ? 'slide' : 'slides'} · <time dateTime={item.updatedAt}>{projectDate.format(new Date(item.updatedAt))}</time></p></div>
+          <p>{item.slideCount} {item.slideCount === 1 ? 'slide' : 'slides'} · <time dateTime={item.updatedAt}>{projectDate.format(new Date(item.updatedAt))}</time></p></div>
         <button className="button button-dark" aria-label={`Revisar projeto: ${item.name || 'Projeto sem nome'}`} disabled={busy || loadingProject}
           onClick={() => void select(item.id)}>Revisar projeto</button>
       </li>)}

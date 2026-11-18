@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
 import { maxImport, maxSlides, type Draft } from '../campaigns/contract'
 import { readCampaigns } from '../campaigns/storage'
+import { ResponsePreview } from '../campaigns/ResponsePreview'
 import { ImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
+import { editorialImageQuery } from '../images/editorialQuery'
 import type { ImageCredit } from '../images/contract'
 import { fetchExternalImage } from '../images/openverse'
 import { collections, type CollectionSlide, collectionBrand, prepareCollectionImage } from './collections'
@@ -46,6 +48,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [photos, setPhotos] = useState<Photo[]>([])
   const [photoId, setPhotoId] = useState('')
   const [origin, setOrigin] = useState<'local' | 'openverse' | 'library' | 'url'>('local')
+  const [imageBriefSlide, setImageBriefSlide] = useState('')
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -120,7 +123,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       return { id, name:file.name, bytes:file.size, object:prepareCollectionImage(image) }
     } finally { image.dispose() }
   }
-  async function addPhotos(files: File[], credit?: ImageCredit, signal?: AbortSignal) {
+  async function addPhotos(files: File[], credit?: ImageCredit, signal?: AbortSignal, slideKey?: string) {
     if (operation.current) throw Error('Aguarde a importação atual.')
     if (files.length > maxImages) throw Error(`Selecione até ${maxImages} imagens por vez.`)
     operation.current = true
@@ -130,6 +133,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     const next = [...photos]
     const failures: string[] = []
     let added = 0
+    let selectedImage: string | undefined
     try {
       for (const file of files) {
         try {
@@ -138,16 +142,20 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           const previous = next.findIndex(photo => photo.id === item.id)
           if (previous >= 0) {
             if (credit && !next[previous].object.imageCredit) next[previous] = item
+            selectedImage = item.id
             continue
           }
           if (next.length >= maxImages || next.reduce((sum,photo) => sum+photo.bytes,0)+item.bytes > maxImageBytes)
             throw Error('Limite da preparação: 30 imagens e 80 MB no total.')
           next.push(item); added++
+          selectedImage = item.id
         } catch (cause) { failures.push(`${file.name}: ${errorText(cause)}`) }
       }
       if (!live.current) return
+      signal?.throwIfAborted()
       if (!added && failures.length && files.length === 1) throw Error(failures[0])
       setPhotos(next)
+      if (slideKey && selectedImage) change(slideKey, { imageId: selectedImage })
       setPhotoId(current => current || next[0]?.id || '')
       setStatus(added ? `${added} imagem(ns) adicionada(s).` : 'Estas imagens já estão na preparação.')
       if (failures.length) setError(failures.join(' '))
@@ -288,7 +296,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       <label>Cole aqui o conteúdo do seu post ou carrossel<textarea rows={7} value={text} maxLength={maxImport}
         placeholder={'Slide 1 — Seu título\nTexto do primeiro slide\n\nSlide 2\nTexto do segundo slide'}
         onChange={event => setText(event.target.value)} /></label>
-      <p className="muted">Use JSON, Markdown de campanha ou texto com marcações “Slide 1”, “Slide 2” etc.</p>
+      <p className="muted">Cole a resposta do GPT em JSON ou Markdown de campanha, ou use texto com marcações “Slide 1”, “Slide 2” etc.</p>
+      <ResponsePreview raw={text} express />
       <div className="collection-actions">
         <button className="button button-dark" onClick={applyText}>Organizar slides</button>
         {!!campaigns?.length && <label>Carregar campanha do Radar<select value={linked?.id ?? ''} onChange={event => loadCampaign(event.target.value)}>
@@ -331,7 +340,17 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       event.target.value = ''
       if (files.length) void addPhotos(files).catch(cause => setError(errorText(cause)))
     }} /></label><p className="muted">Arraste PNG, JPEG ou WebP. Até 20 MB por imagem.</p></div>}
-    {active && origin === 'openverse' && <ImageSearch initialTerm="" insertLabel="Adicionar à produção" insert={(file,credit,signal) => addPhotos([file],credit,signal)} />}
+    {active && origin === 'openverse' && <div>
+      <label>Buscar pelo conteúdo do slide<select value={imageBriefSlide} disabled={busy} onChange={event => setImageBriefSlide(event.target.value)}>
+        <option value="">Pesquisa livre</option>
+        {slides.map((slide, index) => <option key={slide.key} value={slide.key}>Slide {index + 1} · {slide.title || 'Sem título'}</option>)}
+      </select></label>
+      <ImageSearch key={imageBriefSlide} initialTerm={(() => {
+        const slide = slides.find(item => item.key === imageBriefSlide)
+        return slide ? editorialImageQuery(slide.imageBrief, slide.title) : ''
+      })()} insertLabel={imageBriefSlide ? 'Vincular ao slide com créditos' : 'Adicionar à produção'}
+        insert={(file,credit,signal) => addPhotos([file],credit,signal,imageBriefSlide || undefined)} />
+    </div>}
     {active && origin === 'library' && <ImageLibrary flush={noFlush} success="Imagem adicionada à produção." insert={(file,credit,signal) => addPhotos([file],credit,signal)} />}
     {origin === 'url' && <div className="collection-actions"><label>URL externa da imagem<input type="url" value={url} onChange={event => setUrl(event.target.value)} /></label>
       <button className="button button-dark" disabled={busy || downloading || !url.trim()} onClick={() => void external()}>Importar imagem</button></div>}

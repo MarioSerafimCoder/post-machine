@@ -6,7 +6,7 @@ import { preferences, type Preference } from './types'
 const schema = z.object({
   mode: z.enum(['proactive', 'manual', 'muted']),
   history: z.array(z.object({
-    scope: z.string().max(100), id: z.string().max(180), ruleId: z.string().max(30).optional(),
+    scope: z.string().max(100), id: z.string().max(180), ruleId: z.string().max(30).optional(), version: z.string().optional(),
     preference: z.enum(preferences).optional(),
     outcome: z.enum(['accepted', 'dismissed']), at: z.iso.datetime(),
   })).max(80),

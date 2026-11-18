@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { renderScene } from './export'
 import { dimensions, type Scene, type Format } from './model'
 import type { Project } from './model'
@@ -90,7 +90,7 @@ export function Slides({ project, current, select, action, issues, reorder, open
 
 const thumbnails = new WeakMap<Scene, Map<Format,Blob>>()
 
-function Thumbnail({ scene, format }: { scene: Scene; format: Format }) {
+const Thumbnail = memo(function Thumbnail({ scene, format }: { scene: Scene; format: Format }) {
   const [url, setUrl] = useState('')
   const [seen, setSeen] = useState(false)
   const element = useRef<HTMLSpanElement>(null)
@@ -124,4 +124,4 @@ function Thumbnail({ scene, format }: { scene: Scene; format: Format }) {
   }, [scene, format, seen])
   useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
   return <span ref={element} className="slide-mini" aria-hidden="true">{url ? <img className="slide-thumbnail" src={url} alt="" /> : 'Prévia'}</span>
-}
+})

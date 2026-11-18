@@ -15,19 +15,22 @@ export function locate(canvas: StaticCanvas): Located[] {
 }
 const intersects=(a: Located['box'],b:Located['box']) => Math.max(0,Math.min(a.left+a.width,b.left+b.width)-Math.max(a.left,b.left))*Math.max(0,Math.min(a.top+a.height,b.top+b.height)-Math.max(a.top,b.top))
 const contains=(a:Located['box'],b:Located['box']) => a.left<=b.left+1&&a.top<=b.top+1&&a.left+a.width>=b.left+b.width-1&&a.top+a.height>=b.top+b.height-1
-export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber: number, brand: Brand, layout: string, role: string, options: AuditSettings=defaultSettings): Finding[] {
+export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber: number, brand: Brand, layout: string, role: string, options: AuditSettings=defaultSettings, editingSize?: readonly [number, number]): Finding[] {
  const found: Finding[]=[]; const objects=locate(canvas), margin=brand.margin
+ const [width,height] = editingSize ?? [canvas.width,canvas.height]
  const add=(ruleId:string,severity:Severity,category:Category,item:Located|null,message:string,details:string,suggestion:string,fix=false,confidence:Finding['confidence']='measured')=>found.push({id:`${slideId}:${item?.path??'slide'}:${ruleId}`,ruleId,severity,category,slideId,slideNumber,objectId:item?.path??null,message,details,suggestion,autoFixAvailable:fix,confidence})
  const background=parseColor(canvas.backgroundColor)
  for(const item of objects){
   const {object:o,box}=item; const essential=['title','body','cta','brand'].includes(o.semantic??'')
   if(!Number.isFinite(box.width)||!Number.isFinite(box.height)||box.width<=0||box.height<=0) add('INVALID_SIZE','error','geometry',item,'Dimensões inválidas','A largura ou altura calculada não é positiva.','Ajuste as dimensões manualmente.')
   if(Math.max(Math.abs(o.scaleX),Math.abs(o.scaleY))>10||Math.min(Math.abs(o.scaleX),Math.abs(o.scaleY))<.05) add('EXTREME_SCALE','warning','geometry',item,'Escala extrema',`Escala X ${o.scaleX.toFixed(2)}; Y ${o.scaleY.toFixed(2)}.`, 'Revise o tamanho do elemento.')
-  if(box.left<0||box.top<0||box.left+box.width>canvas.width||box.top+box.height>canvas.height) add('OUTSIDE_CANVAS',essential?'error':'warning','geometry',item,'Elemento fora do canvas','Parte do elemento pode ser cortada na exportação.','Reposicione dentro do canvas.',!item.path.includes('.')&&!o.lockMovementX&&!o.lockMovementY&&box.width<=canvas.width&&box.height<=canvas.height)
+  if(box.left<0||box.top<0||box.left+box.width>width||box.top+box.height>height) add('OUTSIDE_CANVAS',essential?'error':'warning','geometry',item,'Elemento fora do canvas','Parte do elemento pode ser cortada na exportação.','Reposicione dentro do canvas.',!item.path.includes('.')&&!o.lockMovementX&&!o.lockMovementY&&box.width<=width&&box.height<=height)
   if(o instanceof Textbox){
-    if(o.text.trim()&& (box.left<margin-1||box.top<margin-1||box.left+box.width>canvas.width-margin+1||box.top+box.height>canvas.height-margin+1)) add('SAFE_MARGIN','warning','geometry',item,'Texto fora da margem segura','Parte do texto está além da margem configurada.','Reposicione a caixa dentro da área segura.',!item.path.includes('.')&&!o.lockMovementX&&!o.lockMovementY&&box.width<=canvas.width-2*margin&&box.height<=canvas.height-2*margin)
+    if(o.text.trim()&& (box.left<margin-1||box.top<margin-1||box.left+box.width>width-margin+1||box.top+box.height>height-margin+1)) add('SAFE_MARGIN','warning','geometry',item,'Texto fora da margem segura','Parte do texto está além da margem configurada.','Reposicione a caixa dentro da área segura.',!item.path.includes('.')&&!o.lockMovementX&&!o.lockMovementY&&box.width<=width-2*margin&&box.height<=height-2*margin)
     if(o.maxHeight&&o.getScaledHeight()>o.maxHeight+2) add('TEXT_OVERFLOW','error','typography',item,'Texto excede a área',`Altura ${Math.round(o.getScaledHeight())} px; limite ${Math.round(o.maxHeight)} px.`,'Amplie a caixa, troque o template ou reduza o texto editorialmente.')
     if(o.text.trim()&&(!o.visible||o.opacity===0)) add('TEXT_INVISIBLE','error','typography',item,'Texto invisível','O elemento contém texto, mas não aparece.','Torne o elemento visível ou remova-o.')
+    if(editingSize&&!o.text.trim()&&['title','body','cta'].includes(o.semantic??'')) add('EMPTY_TEXT','warning','typography',item,'Campo de texto vazio','Uma caixa editorial está sem conteúdo.','Preencha o campo ou remova a caixa se ela não fizer parte desta peça.')
+    if(editingSize)continue
     const configured=['Inter','Arial','Arial Black','Georgia','Verdana','Courier New',...brand.fonts.map(f=>f.family)]
     if(!configured.includes(o.fontFamily)||!document.fonts.check(`${o.fontSize}px "${o.fontFamily}"`)) add('FONT_UNAVAILABLE','warning','typography',item,'Fonte não confirmada',`Fonte ${o.fontFamily}. O navegador pode usar uma substituta.`,'Carregue uma WOFF2 válida ou escolha uma fonte disponível.',false,'unverifiable')
     if(o.text.trim()&&o.fontSize*Math.min(Math.abs(o.scaleX),Math.abs(o.scaleY))<(o.semantic==='title'?options.minLargeSize:options.minBodySize)) add('SMALL_TEXT','warning','typography',item,'Texto pequeno',`Tamanho efetivo aproximado ${Math.round(o.fontSize*Math.min(Math.abs(o.scaleX),Math.abs(o.scaleY)))} px.`,'Aumente o tamanho da fonte.',false,'estimated')
@@ -43,6 +46,7 @@ export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber
       if(ratio<threshold) add('LOW_CONTRAST','warning','contrast',item,'Contraste abaixo do limite',`Razão calculada ${ratio.toFixed(2)}:1; referência ${threshold}:1.`,'Ajuste a cor ou o fundo após revisar a identidade visual.')
     } else if(o.text.trim()) add('CONTRAST_UNKNOWN','info','contrast',item,'Contraste requer revisão visual','Há fotografia, gradiente, transparência ou camadas que impedem medição confiável.','Confira a legibilidade na prévia e no PNG.',false,'unverifiable')
   }
+  if(editingSize)continue
   if(o instanceof FabricImage){
     const credit = o.imageCredit
     if (credit) {
@@ -65,6 +69,7 @@ export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber
  const semantic=(name:string)=>objects.some(i=>i.object.semantic===name&&(!(i.object instanceof Textbox)||i.object.text.trim()))
  if(layout!=='blank'&&!semantic('title'))add('REQUIRED_FIELD','warning','branding',null,'Título ausente','O template não tem título preenchido.','Escreva um título ou escolha outro template.')
  if(role==='cta'&&!semantic('cta'))add('REQUIRED_FIELD','warning','branding',null,'CTA ausente','O slide de encerramento não tem chamada preenchida.','Escreva uma chamada para ação.')
+ if(editingSize)return found
  if(options.requireBrand&&(!brand.name&&!brand.handle||!semantic('brand')))add('BRAND_MISSING','warning','branding',null,'Marca ausente','Este projeto exige identificação de marca.','Configure e adicione o nome ou identificador da marca.')
  if(options.requireLogo&&(!brand.logo||!semantic('logo')))add('LOGO_MISSING','warning','branding',null,'Logotipo ausente','Este projeto exige logotipo.','Configure e adicione o logotipo da marca.')
  for(let i=0;i<objects.length;i++)for(let j=i+1;j<objects.length;j++){

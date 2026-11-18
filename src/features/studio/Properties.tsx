@@ -133,20 +133,24 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
       {numeric('Direção (°)',gradientOptions.angle,n => updateGradient({angle:n}),-180,180)}
     </div>}
     {!multi && !image && !text && !gradient && <div className="property-grid">{color('Cor','fill')}{border}</div>}
-    {!multi && <details className="studio-advanced"><summary>Propriedades avançadas</summary><div className="property-grid">
+    {!multi && <details className="studio-advanced"><summary>Propriedades avançadas</summary>
+      <fieldset className="property-grid"><legend>Posição e transformação</legend>
       {number('X','left',object.left)}{number('Y','top',object.top)}
-      {number('Rotação','angle',object.angle,-360,360)}{number('Opacidade','opacity',object.opacity,0,1,.05)}
+      {number('Rotação','angle',object.angle,-360,360)}
       {image ? <>
         {number('Recorte X','cropX',image.cropX,0,maxX)}{number('Recorte Y','cropY',image.cropY,0,maxY)}
         {numeric('Escala (%)',image.scaleX * 100,n => scaleImage(n / 100),2,1000)}
         {numeric('Largura',image.width * image.scaleX,n => scaleImage(n / image.width),1,5000)}
         {numeric('Altura',image.height * image.scaleY,n => scaleImage(n / image.height),1,5000)}
-        {border}
       </> : <>
         {number('Largura','width',object.width,1,5000)}{!text && number('Altura','height',object.height,1,5000)}
-        {text && border}
       </>}
-    </div></details>}
+      </fieldset>
+      <fieldset className="property-grid"><legend>Aparência</legend>
+        {number('Opacidade','opacity',object.opacity,0,1,.05)}
+        {(image || text) && border}
+      </fieldset>
+    </details>}
     {!multi && <details className="studio-advanced"><summary>Organizar camada</summary><div className="studio-actions">
       <button onClick={() => set({ lockMovementX: !locked, lockMovementY: !locked, lockScalingX: !locked, lockScalingY: !locked, lockRotation: !locked })}>{locked ? 'Desbloquear' : 'Bloquear'}</button>
       <button onClick={() => act(() => canvas.bringObjectForward(object))}>Para frente</button>

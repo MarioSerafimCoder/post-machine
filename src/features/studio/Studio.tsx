@@ -1,6 +1,7 @@
 import { ContextHeader, ContextRail, type ContextTool } from '../../components/ContextRail'
 import { ImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
+import { editorialImageQuery } from '../images/editorialQuery'
 import type { ImageCredit } from '../images/contract'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
@@ -10,7 +11,7 @@ import { measureTitle } from './headlineFit'
 import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
 import { loadFonts } from './fonts'
 import { useDocument } from './useDocument'
-import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject, saveProject, BackupLimitError } from './storage'
+import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject, saveProject, BackupLimitError, type ProjectSummary } from './storage'
 import { DamagedProjects } from './DamagedProjects'
 import { download } from './export'
 import { ExportPanel } from './ExportPanel'
@@ -18,8 +19,9 @@ import type { Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
 import { Slides, type SlideReview } from './Slides'
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
-import { analyzeHeadline } from '../headlines/analysis'
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEditingReview } from './useEditingReview'
+import { EditorialReview } from './EditorialReview'
 import { ActiveSelection, Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
 import { Properties } from './Properties'
@@ -30,7 +32,7 @@ import './studio.css'
 import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
 import { useAuditAssistant } from '../intelligence/auditSignal'
-import { useAssistantAnchor, useAssistantSignal } from '../intelligence/signals'
+import { useAssistantAnchor } from '../intelligence/signals'
 import { campaignScope } from '../intelligence/feedback'
 import type { AuditReport, Finding } from '../audit/contract'
 import { sameReviewSettings, sameReviewVersion, type Review } from '../audit/review'
@@ -83,6 +85,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const exportToggle = useRef<HTMLButtonElement>(null)
   const exportOpen = !!project && project.id === exportProjectId
   const [auditOpen,setAuditOpen]=useState(false)
+  const [editorialProject, setEditorialProject] = useState<string>()
   const [reviewedSlides, setReviewedSlides] = useState<Map<string, SlideReview>>(() => new Map())
   const [fullReview, setFullReview] = useState<Review>()
   const [guidance, setGuidance] = useState<{ finding: Finding; project: Project }>()
@@ -123,14 +126,16 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [linkedCampaign, setLinkedCampaign] = useState<Draft>()
   const campaignId = project?.campaignId
   useEffect(() => {
-    if (!campaignId) return
+    if (!active || !campaignId) return
     let live = true
     void readCampaign(campaignId).then(value => { if (live) setLinkedCampaign(value) }, () => undefined)
     return () => { live = false }
-  }, [campaignId])
+  }, [active, campaignId])
   const selectedObject = readyCanvas?.getActiveObject()
   const selectedTitle = selectedObject instanceof Textbox && selectedObject.semantic === 'title' ? selectedObject : undefined
-  const campaign = request?.draft.id === campaignId ? request?.draft : linkedCampaign?.id === campaignId ? linkedCampaign : undefined
+  const requestedCampaign = request?.draft.id === campaignId ? request?.draft : undefined
+  const campaign = linkedCampaign && linkedCampaign.id === campaignId && linkedCampaign.updatedAt >= (requestedCampaign?.updatedAt ?? '')
+    ? linkedCampaign : requestedCampaign
   function moveHistory(redoAction: boolean) {
     const id = getCurrent()?.slides[currentRef.current]?.id
     const next = redoAction ? redo() : undo()
@@ -231,7 +236,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     } catch (cause) { setError(cause instanceof BackupLimitError ? cause.message : 'Não foi possível gerar o backup deste projeto.') }
     finally { setBackupPending(false) }
   }
-  async function deleteProject(item: Project) {
+  async function deleteProject(item: ProjectSummary) {
     if (!window.confirm('Excluir este projeto local?')) return
     try {
       const removed = await removeProject(item)
@@ -283,7 +288,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   function openImages(tab: 'search' | 'library', useBrief = false) {
     const slide = project?.slides[current]
     if (!slide) return
-    const term = useBrief ? (slide.imageBrief.trim() || semantics(slide.scene).title.trim()).replace(/\s+/g, ' ').slice(0, 160) : ''
+    const term = useBrief ? editorialImageQuery(slide.imageBrief, semantics(slide.scene).title) : ''
     setPanel('Imagens')
     setImagePanel(value => ({ tab, slideId: slide.id, term, request: (value?.request ?? 0) + 1 }))
   }
@@ -362,38 +367,14 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     },
   })
   const assistantAnchor = useAssistantAnchor(active && !!project)
-  const editingSlide = project?.slides[current]
-  const titleIndex = editingSlide?.scene.objects.findIndex(object => object.semantic === 'title' && typeof object.text === 'string' && object.text.trim()) ?? -1
-  const imageIndex = selectedObject instanceof FabricImage ? readyCanvas?.getObjects().indexOf(selectedObject) ?? -1
-    : editingSlide?.scene.objects.findIndex(object => object.semantic === 'image' && object.visible !== false) ?? -1
-  const selectedTitleIndex = selectedTitle ? readyCanvas?.getObjects().indexOf(selectedTitle) ?? -1 : -1
-  const editingIndex = selectedTitleIndex >= 0 ? selectedTitleIndex : imageIndex >= 0 ? imageIndex : editingSlide?.role === 'cover' ? titleIndex : -1
-  const imageContext = selectedTitleIndex < 0 && imageIndex >= 0
-  const deferredTitle = useDeferredValue(active ? selectedTitle?.text : undefined)
-  const genericTitle = useMemo(() => deferredTitle && analyzeHeadline(deferredTitle, { maxChars: 0, maxWords: 0 },
-    { format: '', sources: [], slides: [] }).heuristic.find(item => item.includes('termos genéricos')), [deferredTitle])
-  const headlineContext = selectedTitle && genericTitle && deferredTitle === selectedTitle.text
-  useAssistantSignal(active && readyCanvas && project && editingSlide && editingIndex >= 0 ? {
-    area: 'studio', category: 'editing', priority: headlineContext ? 54 : selectedObject ? 48 : 18, scope: project.id, subject: editingSlide.id,
-    insight: {
-      id: `edit:${editingSlide.id}:${imageContext ? 'image' : headlineContext ? 'generic-title' : 'title'}`, ruleId: imageContext ? 'ACC-001' : headlineContext ? 'TTL-003' : 'TTL-001',
-      title: imageContext ? `Slide ${current + 1} · Revise a descrição da imagem` : headlineContext
-        ? `Slide ${current + 1} · O título tem termos genéricos` : `Slide ${current + 1} · Leia o título isoladamente`,
-      detail: headlineContext ? genericTitle : imageContext ? 'Este slide tem uma camada de imagem. Se ela transmitir informação, prepare uma descrição para acompanhar a publicação no canal de destino.'
-        : editingSlide.role === 'cover' ? 'A capa tem um título editável. Leia a abertura fora da sequência e confira se ela comunica o assunto que os demais slides desenvolvem.'
-          : 'Você selecionou um título. Confira se ele nomeia o recorte da peça e corresponde ao texto que vem em seguida.',
-      assessment: 'heuristic',
-      actions: [{ label: headlineContext ? 'Analisar título' : imageContext ? 'Selecionar imagem' : 'Selecionar título', run: () => {
-        if (headlineContext && selectedTitle) {
-          setHeadlineTarget(selectedTitle)
-          requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio-headlines .headline-diagnosis')?.focus())
-          return
-        }
-        selectPath(String(editingIndex))
-        document.querySelector<HTMLElement>('.canvas-stage')?.focus({ preventScroll: true })
-      } }],
-    },
-  } : undefined)
+  const editorialOpen = !!project && editorialProject === project.id
+  useEditingReview(active && !auditOpen && !exportOpen && !editorialOpen, readyCanvas, project, current, focusFinding, () => {
+    const title = readyCanvas?.getObjects().find(object => object instanceof Textbox && object.semantic === 'title')
+    if (!(title instanceof Textbox)) return
+    selectPath(String(readyCanvas?.getObjects().indexOf(title)))
+    setHeadlineTarget(title)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio-headlines .headline-diagnosis')?.focus())
+  })
   if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
     <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format} cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} />
   </Suspense>
@@ -408,7 +389,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => { setExpressDraft(undefined); setEntry('express') }}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => createEmptyProject()}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
-    <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><DamagedProjects items={libraryResult.damaged} /><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
+    <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><DamagedProjects items={libraryResult.damaged} /><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slideCount} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
     <header className="studio-toolbar" aria-label="Ações do projeto">
       <div className="studio-toolbar-row">
@@ -463,6 +444,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         </div>
         <div className="studio-actions studio-output" role="group" aria-label="Finalização">
           <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Auditar design</button>
+          <button aria-expanded={editorialOpen} onClick={() => setEditorialProject(editorialOpen ? undefined : project.id)}>Revisar carrossel</button>
           <button ref={exportToggle} className="export-primary" aria-expanded={exportOpen} aria-controls={exportOpen ? 'studio-export' : undefined}
             onClick={() => setExportProjectId(exportOpen ? undefined : project.id)}>Finalizar e exportar</button>
         </div>
@@ -494,6 +476,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         selectedTitle.set({ headlines })
         snapshotCanvas(text !== undefined)
       }} /></div>}
+    {editorialOpen && <EditorialReview project={project} campaign={campaign} select={index => {
+      chooseSlide(index)
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('.canvas-stage')?.focus())
+    }} close={() => setEditorialProject(undefined)} />}
     {auditOpen&&<AuditPanel project={project} assistantArea={active && !exportOpen ? 'studio' : undefined} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected) => {
       await flush()
       if (getCurrent() !== expected) throw Error('O projeto mudou. Rode novamente a auditoria.')

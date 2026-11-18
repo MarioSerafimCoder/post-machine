@@ -104,7 +104,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
     launcher.current?.focus({ preventScroll: true })
   }
   function dismiss(item: Signal) {
-    recordEditorialFeedback({ scope: item.scope, id: item.insight.id, ruleId: item.insight.ruleId, preference: item.preference, outcome: 'dismissed' })
+    recordEditorialFeedback({ scope: item.scope, id: item.insight.id, version: signalVersion(item), ruleId: item.insight.ruleId, preference: item.preference, outcome: 'dismissed' })
     close()
   }
   const assistant = <aside ref={dock} className="editorial-dock" data-workspace={workspace ? 'studio' : undefined} aria-label="Assistente Editorial" onKeyDown={event => {

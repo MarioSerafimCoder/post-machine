@@ -74,7 +74,7 @@ export function ImageSearch({ initialTerm, insert, insertLabel = 'Inserir no Stu
   return <section className="image-workspace" aria-label="Pesquisa de imagens no Openverse">
     <form className="image-filters" onSubmit={event => { event.preventDefault(); void run({ ...form, page: 1 }) }}>
       <label>Termo de pesquisa<input value={form.query} required maxLength={160} onChange={event => setForm({ ...form, query: event.target.value })} /></label>
-      <label>Licença<select value={form.license} onChange={event => setForm({ ...form, license: event.target.value })}>
+      <label>Licença<select aria-label="Licença" value={form.license} onChange={event => setForm({ ...form, license: event.target.value })}>
         <option value="">Todas</option>{licenses.map(value => <option key={value} value={value}>{licenseName(value)}</option>)}
       </select></label>
       <label>Proporção<select value={form.ratio} onChange={event => setForm({ ...form, ratio: event.target.value })}><option value="">Todas</option><option value="wide">Horizontal</option><option value="tall">Vertical</option><option value="square">Quadrada</option></select></label>

@@ -113,7 +113,7 @@ async function writeProject(project: Project, expected?: Project) {
   const packed = await pack(project, previous?.assets)
   const serialized = JSON.stringify(packed.project)
   const baseline = expected && (previous?.baseline ?? JSON.stringify((await pack(expected, packed.bySource)).project))
-  const written = await transaction(['projects', 'assets', 'settings', 'recovery'], 'readwrite', tx => {
+  const written = await transaction(['projects', 'projectLibrary', 'assets', 'settings', 'recovery'], 'readwrite', tx => {
     let written = false
     const old = tx.objectStore('projects').get(project.id)
     old.onsuccess = () => {
@@ -132,6 +132,7 @@ async function writeProject(project: Project, expected?: Project) {
         })
         tx.objectStore('settings').put(packed.project.brand, 'brand')
         tx.objectStore('projects').put(packed.project, project.id)
+        tx.objectStore('projectLibrary').put(summarizeProject(packed.project), project.id)
         written = true
       } catch { abortTransaction(tx) }
     }
@@ -141,25 +142,49 @@ async function writeProject(project: Project, expected?: Project) {
   revisions.set(project, { baseline: serialized, assets: packed.bySource })
   window.dispatchEvent(new Event(projectsChangedEvent))
 }
-export function listProjects() {
-  return transaction(['projects'], 'readonly', tx => {
+export type ProjectSummary = Pick<Project, 'id' | 'name' | 'format' | 'updatedAt'> & { slideCount: number; revision: string }
+type LibraryEntry = ProjectSummary | { id: string; name: string; damaged: true }
+
+function summarizeProject(project: Project): ProjectSummary {
+  const { id, name, format, updatedAt } = project
+  return { id, name, format, updatedAt, slideCount: project.slides.length, revision: crypto.randomUUID() }
+}
+
+export async function listProjects() {
+  const cached = await transaction(['projects', 'projectLibrary'], 'readonly', tx => {
+    const count = tx.objectStore('projects').count()
+    const entries = tx.objectStore('projectLibrary').getAll()
+    return () => count.result === entries.result.length ? entries.result as LibraryEntry[] : undefined
+  })
+  const entries = cached ?? await rebuildProjectLibrary()
+  const projects = entries.filter(entry => 'revision' in entry).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const damaged = entries.filter(entry => 'damaged' in entry)
+  return { projects, damaged }
+}
+
+function rebuildProjectLibrary() {
+  return transaction(['projects', 'projectLibrary'], 'readwrite', tx => {
+    const library = tx.objectStore('projectLibrary')
+    library.clear()
     const request = tx.objectStore('projects').openCursor()
-    const projects: Project[] = []
-    const damaged: { id: string; name: string }[] = []
+    const entries: LibraryEntry[] = []
     request.onsuccess = () => {
       const cursor = request.result
       if (!cursor) return
+      let entry: LibraryEntry
       try {
         const project = validateProject(cursor.value)
         if (project.id !== cursor.primaryKey) throw Error('Identificador inconsistente.')
-        projects.push(project)
+        entry = summarizeProject(project)
       } catch {
         const name: unknown = cursor.value?.name
-        damaged.push({ id: String(cursor.primaryKey), name: typeof name === 'string' ? name.slice(0, 100) : '' })
+        entry = { id: String(cursor.primaryKey), name: typeof name === 'string' ? name.slice(0, 100) : '', damaged: true }
       }
+      library.put(entry, cursor.primaryKey)
+      entries.push(entry)
       cursor.continue()
     }
-    return () => ({ projects: projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), damaged })
+    return () => entries
   })
 }
 export function loadProject(id: string): Promise<Project> {
@@ -196,16 +221,17 @@ async function resolveBrandAsset(source: string) {
   if (!blob) throw Error('Arquivo da marca ausente.')
   return dataUrl(blob)
 }
-export function removeProject(expected: Project) {
-  const baseline = JSON.stringify(validateProject(expected))
-  return withStudioStorage(() => transaction(['projects', 'recovery'], 'readwrite', tx => {
+export function removeProject(expected: ProjectSummary) {
+  return withStudioStorage(() => transaction(['projects', 'projectLibrary', 'recovery'], 'readwrite', tx => {
     const projects = tx.objectStore('projects')
-    const latest = projects.get(expected.id)
+    const library = tx.objectStore('projectLibrary')
+    const latest = library.get(expected.id)
     let removed = false
     latest.onsuccess = () => {
       try {
-        if (latest.result !== undefined && JSON.stringify(validateProject(latest.result)) !== baseline) return
+        if (latest.result?.revision !== expected.revision) return
         projects.delete(expected.id)
+        library.delete(expected.id)
         tx.objectStore('recovery').delete(expected.id)
         removed = true
       } catch { abortTransaction(tx) }
