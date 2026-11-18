@@ -1,5 +1,11 @@
 # Estado real — 18/11/2026
 
+## Refatoração pontual — memória editorial entre abas
+
+- Commit funcional `f06c7fa`: a memória do Assistente Editorial agora observa alterações do `localStorage` feitas em outras abas, atualiza os assinantes e parte do estado persistido mais recente ao alterar notificações, limpar histórico ou registrar decisões. Em navegadores que bloqueiam o armazenamento, mantém o fallback em memória da sessão.
+- Regressão incluída em `src/features/intelligence/feedback.test.ts`, cobrindo sincronização externa, preservação de decisões, mudança de modo e limpeza do armazenamento.
+- [CI do código](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44356989006) aprovado: lint, Vitest, build, Playwright e dry-run do Wrangler. Refatoração restrita ao módulo de memória; sem mudanças em projetos, editor Fabric, importação ou exportação. Nenhuma publicação de produção foi solicitada nesta auditoria.
+
 ## Evolução 09 — Produtividade e consistência da interface
 
 - Base `7756453`. A interface usa Inter local e tokens de tipografia, cor e interação. A barra do Studio separa gestão do projeto, edição, finalização e ações de manutenção. O Assistente Editorial põe a ação principal antes das referências, mantém as demais sugestões recolhidas e aguarda uma pausa da digitação para exibir o balão.
