@@ -20,14 +20,24 @@ const evidenceScope: Record<string, string> = {
 const seen = new Set<string>()
 let lastBalloonAt = 0
 function scheduleBalloon(key: string, show: (key: string) => void) {
-  const now = Date.now()
-  const timer = window.setTimeout(() => {
+  const showWhenIdle = () => {
     seen.add(key)
     if (seen.size > 80) seen.delete(seen.values().next().value!)
     lastBalloonAt = Date.now()
     show(key)
-  }, Math.max(850, 12_000 - (now - lastBalloonAt)))
-  return () => window.clearTimeout(timer)
+  }
+  let timer: number
+  const schedule = (idle: number) => {
+    window.clearTimeout(timer)
+    timer = window.setTimeout(showWhenIdle, Math.max(idle, 12_000 - (Date.now() - lastBalloonAt)))
+  }
+  const deferEditing = () => schedule(2_000)
+  schedule(1_200)
+  document.addEventListener('input', deferEditing)
+  return () => {
+    window.clearTimeout(timer)
+    document.removeEventListener('input', deferEditing)
+  }
 }
 
 export function RuleDetails({ insight }: { insight: Insight }) {
@@ -104,15 +114,23 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
       <header><h2 id="editorial-assistant-heading" ref={heading} tabIndex={-1}>Assistente Editorial</h2>
         <button onClick={close}>Fechar</button></header>
       {items.length === 0 && <p>Abra uma pauta, uma análise de título ou uma revisão para receber orientações.</p>}
-      {items.map((item, index) => <article key={signalIdentity(item)} className="editorial-insight">
+      {items.slice(0, 1).map(item => <article key={signalIdentity(item)} className="editorial-insight">
         <h3>{item.insight.title}</h3>
         <small>{assessments[item.insight.assessment]}</small>
-        <details open={index === 0 || undefined}><summary>Explicação e referências</summary><RuleDetails insight={item.insight} /></details>
         <div className="editorial-buttons">
-          {item.insight.actions?.map(action => <button key={action.label} onClick={() => { setOpen(false); setShown(undefined); action.run() }}>{action.label}</button>)}
+          {item.insight.actions?.map((action, index) => <button className={index === 0 ? 'editorial-main-action' : undefined} key={action.label} onClick={() => { setOpen(false); setShown(undefined); action.run() }}>{action.label}</button>)}
           <button onClick={() => dismiss(item)}>Dispensar insight</button>
         </div>
+        <details open><summary>Explicação e referências</summary><RuleDetails insight={item.insight} /></details>
       </article>)}
+      {items.length > 1 && <details><summary>Outras recomendações</summary>
+        {items.slice(1).map(item => <article key={signalIdentity(item)} className="editorial-insight">
+          <h3>{item.insight.title}</h3><small>{assessments[item.insight.assessment]}</small>
+          <details><summary>Explicação e referências</summary><RuleDetails insight={item.insight} /></details>
+          <div className="editorial-buttons">{item.insight.actions?.map(action => <button key={action.label} onClick={() => { setOpen(false); setShown(undefined); action.run() }}>{action.label}</button>)}
+            <button onClick={() => dismiss(item)}>Dispensar insight</button></div>
+        </article>)}
+      </details>}
       <label>Notificações<select value={memory.mode} onChange={event => setAssistantMode(event.target.value as typeof memory.mode)}>
         <option value="proactive">Proativas</option><option value="manual">Somente ao abrir</option><option value="muted">Silenciadas</option>
       </select></label>

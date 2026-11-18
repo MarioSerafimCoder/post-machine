@@ -56,7 +56,7 @@ function readBackupDate(id: string) {
   } catch { return undefined }
 }
 
-export function Studio({ request, active, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; onStartCampaign: (mode: CampaignStartMode) => void }) {
+export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; homeEntry?: { projectId?: string }; onStartCampaign: (mode: CampaignStartMode) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
   const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent } = useDocument()
@@ -191,6 +191,28 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
   const receiveAuditFocus=useEffectEvent(async(raw:string)=>{try{const target=JSON.parse(raw) as {projectId:string;slideId:string;objectId:string|null};await flush();const value=await loadProject(target.projectId);const index=value.slides.findIndex(slide=>slide.id===target.slideId);focusPath.current=target.objectId;chooseSlide(Math.max(0,index));replace(value, true);setAuditOpen(true)}catch(cause){setError(String(cause))}})
   useEffect(()=>{const receive=()=>{if(window.location.hash!=='#/studio')return;const raw=sessionStorage.getItem('post-machine:audit-focus')??sessionStorage.getItem('direto:audit-focus');if(!raw)return;sessionStorage.removeItem('post-machine:audit-focus');sessionStorage.removeItem('direto:audit-focus');queueMicrotask(()=>void receiveAuditFocus(raw))};receive();window.addEventListener('hashchange',receive);return()=>window.removeEventListener('hashchange',receive)},[])
   async function openProject(id: string) { try { await flush(); const value = await loadProject(id); chooseSlide(0); replace(value, true); setError('') } catch (e) { setError(String(e)) } }
+  function createEmptyProject(projectBrand = brand) {
+    chooseSlide(0)
+    setEntry(undefined)
+    setProject({ ...newProject(format), brand: projectBrand, slides: [emptySlide(projectBrand.background)] })
+  }
+  const openFromHome = useEffectEvent(async (id?: string) => {
+    if (id) {
+      if (getCurrent()?.id !== id) await openProject(id)
+      return
+    }
+    try {
+      await flush()
+      createEmptyProject(newProjectBrand(await readBrand()))
+    } catch { setError('Não foi possível criar o projeto. Confira o salvamento e tente novamente.') }
+  })
+  const handledHomeEntry = useRef<typeof homeEntry>(undefined)
+  useEffect(() => {
+    if (active && homeEntry && handledHomeEntry.current !== homeEntry) {
+      handledHomeEntry.current = homeEntry
+      void openFromHome(homeEntry.projectId)
+    }
+  }, [active, homeEntry])
   async function downloadBackup() {
     const snapshot = getCurrent()
     if (!snapshot || backupPending) return
@@ -381,20 +403,18 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
       <CollectionGallery format={format} setFormat={setFormat} use={style => void createFromCollection(style)} />
     </Suspense>
   </section>
-  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => { setExpressDraft(undefined); setEntry('express') }}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => { chooseSlide(0); setProject({ ...newProject(format), brand, slides:[emptySlide(brand.background)] }) }}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
+  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => { setExpressDraft(undefined); setEntry('express') }}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => createEmptyProject()}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
     <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slides.length} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
     <header className="studio-toolbar" aria-label="Ações do projeto">
       <div className="studio-toolbar-row">
+        <div className="studio-actions studio-project-actions" role="group" aria-label="Gestão do projeto">
         <button onClick={() => void back()}>Projetos</button>
         <label className="studio-project-name">Projeto<input value={project.name} maxLength={100} onChange={event => setProject({ ...project, name: event.target.value, updatedAt: new Date().toISOString() })} /></label>
         <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
-        <span className="studio-save-status" role="status">{status}</span>
-        <div className="studio-actions" role="group" aria-label="Histórico">
-          <button disabled={!history.undo} onClick={() => moveHistory(false)}>Desfazer</button>
-          <button disabled={!history.redo} onClick={() => moveHistory(true)}>Refazer</button>
+        <span className="studio-save-status" data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
         </div>
         <details className="studio-more" onBlur={event => {
           if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
@@ -425,6 +445,11 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
         </details>
       </div>
       <div className="studio-toolbar-row">
+        <div className="studio-actions" role="group" aria-label="Edição">
+        <div className="studio-actions" role="group" aria-label="Histórico">
+          <button disabled={!history.undo} onClick={() => moveHistory(false)}>Desfazer</button>
+          <button disabled={!history.redo} onClick={() => moveHistory(true)}>Refazer</button>
+        </div>
         <span className="muted">{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span>
         <label className="studio-inline-field">Zoom<select aria-label="Zoom" value={zoom} onChange={event => setManualZoom(Number(event.target.value))}>
           {[...new Set([zoom, .2, .25, .32, .4, .5, .75, 1, 1.25, 1.5, 2])].sort((a,b) => a - b).map(value => <option key={value} value={value}>{Math.round(value * 100)}%</option>)}
@@ -433,7 +458,8 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
         <button aria-label="Ampliar zoom" disabled={zoom >= 2} onClick={() => setManualZoom(Math.min(2, Math.round(zoom * 125) / 100))}>+</button>
         <button aria-pressed={manualZoom === undefined} onClick={() => setManualZoom(undefined)}>Ajustar à tela</button>
         <label className="studio-inline-field"><input type="checkbox" checked={guides} onChange={event => setGuides(event.target.checked)} />Área segura</label>
-        <div className="studio-actions studio-output" role="group" aria-label="Revisão e exportação">
+        </div>
+        <div className="studio-actions studio-output" role="group" aria-label="Finalização">
           <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Auditar design</button>
           <button ref={exportToggle} className="export-primary" aria-expanded={exportOpen} aria-controls={exportOpen ? 'studio-export' : undefined}
             onClick={() => setExportProjectId(exportOpen ? undefined : project.id)}>Finalizar e exportar</button>

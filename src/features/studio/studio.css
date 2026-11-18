@@ -1,6 +1,6 @@
 .studio-welcome { padding: 44px; background: #fff; border: 1px solid #dedfd6; border-radius: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
 .studio-welcome h2 { font-size: 36px; letter-spacing: -1.3px; }
-.studio { margin-top: 18px; font-size: 12px; }
+.studio { margin-top: 18px; font-size: var(--ui-label); }
 .studio button, .studio select, .studio input, .studio textarea { font: inherit; }
 .studio button { cursor: pointer; padding: 8px 10px; border: 1px solid #d7d7d7; border-radius: 6px; background: white; text-align: left; }
 .studio button:hover, .studio button[aria-pressed=true] { background: #e6e6e6; border-color: #818181; }
@@ -12,7 +12,12 @@
 .studio-toolbar-row, .studio-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .studio-toolbar .studio-project-name { display: flex; align-items: center; gap: 6px; max-width: 260px; flex: 1 1 170px; }
 .studio-toolbar .studio-inline-field { display: inline-flex; align-items: center; gap: 6px; }
-.studio-save-status { flex: 1 1 70px; color: var(--muted); min-width: 60px; }
+.studio-save-status { color: var(--muted); font-size: var(--ui-meta); }
+.studio-save-status[data-saved] { color: var(--ui-success); }
+.studio-save-status[data-error] { color: var(--ui-error); font-weight: 700; }
+.studio-project-actions { flex: 1 1 auto; }
+.studio-toolbar .studio-more { margin-inline-start: auto; }
+.studio-toolbar button { min-height: 30px; padding: 5px 8px; }
 .studio-backup { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; color: var(--muted); }
 .studio .studio-backup button { padding: 3px 7px; }
 .studio-output { margin-inline-start: auto; }

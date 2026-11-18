@@ -1,5 +1,11 @@
 # Estado real — 18/11/2026
 
+## Evolução 09 — Produtividade e consistência da interface
+
+- Base `7756453`. A interface usa Inter local e tokens de tipografia, cor e interação. A barra do Studio separa gestão do projeto, edição, finalização e ações de manutenção. O Assistente Editorial põe a ação principal antes das referências, mantém as demais sugestões recolhidas e aguarda uma pausa da digitação para exibir o balão.
+- A página inicial consulta metadados locais para criar ou retomar a edição. A Auditoria oferece projetos recentes com nome, número de slides e data, preservando a seleção completa da biblioteca. A consulta inicial usa um módulo próprio de armazenamento de 0,63 kB gzip. O JavaScript de entrada, incluindo o runtime separado, passou de 74,75 para 75,40 kB gzip. O CSS principal passou de 5,42 para 5,81 kB gzip.
+- Lint, build, dry-run, 113 testes Vitest e 92 cenários Playwright aprovados, com seis repetições omitidas no laptop. Doze cenários direcionados passaram no Wrangler local. Capturas e verificações de overflow cobriram 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080. O navegador confirmou que a página inicial consulta a biblioteca sem carregar os módulos de edição, fabricação e auditoria.
+
 ## Evolução do Assistente Editorial
 
 - Base `d5c0c43`. O GIF e o quadro estático originais permanecem. No editor, um portal ancora o avatar transparente, o balão pixel-art e o painel flutuante ao espaço cinza, fora da cena Fabric e dos controles dos Frames. Abrir ou fechar os detalhes preserva a grade e a rolagem.

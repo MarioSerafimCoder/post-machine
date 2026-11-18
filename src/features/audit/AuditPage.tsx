@@ -5,8 +5,11 @@ import { AuditPanel } from './AuditPanel'
 import type { Finding } from './contract'
 import { ContextHeader, ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
 
+const projectDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' })
+
 export function AuditPage() {
-  const [library, setLibrary] = useState<Project[]>([])
+  const [library, setLibrary] = useState<Project[]>()
+  const [loadingProject, setLoadingProject] = useState(false)
   const [project, setProject] = useState<Project>()
   const [selection, setSelection] = useState('')
   const [busy, setBusy] = useState(false)
@@ -28,11 +31,13 @@ export function AuditPage() {
     setProject(undefined)
     setSelection(id)
     setError('')
+    setLoadingProject(Boolean(id))
     if (!id) return
     try {
       const value = await loadProject(id)
       if (request === generation.current) { active.current = value; setProject(value) }
-    } catch (cause) { if (request === generation.current) setError(String(cause)) }
+    } catch { if (request === generation.current) setError('Não foi possível abrir o projeto. Selecione-o novamente ou restaure um backup no Studio.') }
+    finally { if (request === generation.current) setLoadingProject(false) }
   }
 
   async function change(value: Project, expected: Project, correction = false) {
@@ -68,13 +73,28 @@ export function AuditPage() {
         document.getElementById(`audit-${value}`)?.focus())
     }} />}><section className="audit-page">
     {panel === 'Projetos' && <div className="context-panel"><ContextHeader title="Projetos" close={() => setPanel(null)} />
+    {!library && !error && <p role="status">Buscando projetos neste navegador…</p>}
+    {library && library.length === 0 && <div className="audit-start">
+      <h2>Nenhum projeto para revisar</h2><p>Crie ou restaure um projeto no Studio para revisar sua arte.</p>
+      <a className="button button-dark" href="#/studio">Abrir Studio</a>
+    </div>}
+    {library && library.length > 0 && <>
+    {!project && <div className="audit-start"><h2>Projetos recentes</h2><ul className="audit-projects">
+      {library.slice(0, 6).map(item => <li key={item.id}>
+        <div><strong>{item.name || 'Projeto sem nome'}</strong>
+          <p>{item.slides.length} {item.slides.length === 1 ? 'slide' : 'slides'} · <time dateTime={item.updatedAt}>{projectDate.format(new Date(item.updatedAt))}</time></p></div>
+        <button className="button button-dark" aria-label={`Revisar projeto: ${item.name || 'Projeto sem nome'}`} disabled={busy || loadingProject}
+          onClick={() => void select(item.id)}>Revisar projeto</button>
+      </li>)}
+    </ul></div>}
     <label>Projeto<select aria-label="Projeto para auditar" value={selection} disabled={busy} onChange={event => void select(event.target.value)}>
       <option value="">Selecione um projeto</option>
       {library.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select></label></div>}
+    </select></label></>}</div>}
+    {loadingProject && <p role="status">Abrindo projeto para revisão…</p>}
     {error && <p role="alert">{error}</p>}
     {project ? <div hidden={!panel}><AuditPanel key={project.id} project={project} assistantArea={panel ? 'auditoria' : undefined} onFocus={focus} onChange={change} onUndo={undo}
       view={panel === 'Correções' ? 'corrections' : panel === 'Resultados' ? 'results' : 'diagnosis'} /></div>
-      : <p>Selecione um projeto salvo neste navegador ou <a className="text-button" href="#/studio">abra o Studio</a>.</p>}
+      : error && <a className="button button-outline" href="#/studio">Abrir Studio</a>}
   </section></ContextWorkspace>
 }

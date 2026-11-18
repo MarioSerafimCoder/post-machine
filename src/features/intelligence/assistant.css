@@ -1,4 +1,3 @@
-.app-shell:has(.editorial-dock) .active-workspace { padding-inline-end: 62px; }
 .editorial-dock {
   position: fixed;
   inset: auto 12px 13px auto;
@@ -32,6 +31,8 @@
   cursor: pointer;
 }
 .editorial-dock button:hover { border-color: var(--accent); }
+.editorial-dock .editorial-main-action { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.editorial-dock .editorial-main-action:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .editorial-dock button:disabled { opacity: .56; cursor: default; }
 .editorial-dock .editorial-launcher {
   position: relative;

@@ -1,0 +1,33 @@
+import { expect, test } from '@playwright/test'
+
+test('início cria e retoma projeto, e Auditoria lista revisão recente', async ({ page }, info) => {
+  await page.goto('/#/')
+  const resume = page.getByRole('region', { name: 'Continue de onde parou' })
+  await expect(resume.getByRole('link', { name: 'Explorar pautas' })).toBeVisible()
+  await page.getByRole('link', { name: 'Auditoria', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Abrir Studio', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Início', exact: true }).click()
+  await resume.getByRole('button', { name: 'Criar projeto' }).press('Enter')
+  const project = page.getByLabel('Projeto', { exact: true })
+  await project.fill('Projeto UX 09')
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
+  await page.getByRole('link', { name: 'Início', exact: true }).click()
+  await expect(resume).toContainText('Projeto UX 09')
+  await expect(resume.locator('time')).toHaveAttribute('datetime', /T/)
+  await page.screenshot({ path: info.outputPath('inicio-ux09.png') })
+  await resume.getByRole('button', { name: 'Continuar editando' }).click()
+  await expect(project).toHaveValue('Projeto UX 09')
+  for (const [width, height] of [[1024, 768], [1280, 800], [1440, 900], [1920, 1080]]) {
+    await page.setViewportSize({ width, height })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+    await expect(page.getByRole('group', { name: 'Edição', exact: true })).toBeVisible()
+    await page.screenshot({ path: info.outputPath(`studio-${width}.png`) })
+  }
+  await page.getByRole('link', { name: 'Auditoria', exact: true }).click()
+  const review = page.getByRole('button', { name: 'Revisar projeto: Projeto UX 09' })
+  await expect(review).toBeVisible()
+  await page.screenshot({ path: info.outputPath('auditoria-ux09.png') })
+  await review.press('Enter')
+  await expect(page.getByRole('button', { name: 'Auditar todos os slides', exact: true })).toBeEnabled()
+})

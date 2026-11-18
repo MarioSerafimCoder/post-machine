@@ -14,13 +14,13 @@ test('navegação, histórico, estados vazios e ausência de overflow', async ({
   await page.goBack()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Radar')
   await navigation.getByRole('link', { name: 'Auditoria', exact: true }).click()
-  await expect(page.getByLabel('Projeto para auditar')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Nenhum projeto para revisar' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
 test('roteiro acessível fecha com Escape e devolve foco', async ({ page }) => {
   await page.goto('/')
-  const trigger = page.getByRole('button', { name: 'Roteiro do produto', exact: true })
+  const trigger = page.getByRole('button', { name: 'Como funciona', exact: true })
   await trigger.click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()

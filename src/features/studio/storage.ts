@@ -4,33 +4,8 @@ import { brandSchema, type Brand, type Project } from './model'
 import { imageCreditSchema, type ImageCredit } from '../images/contract'
 import { imageObjects } from '../images/credits'
 
-function open(): Promise<IDBDatabase> { return new Promise((resolve, reject) => {
-  const request = indexedDB.open('post-machine-studio', 2)
-  request.onupgradeneeded = () => { for (const name of ['projects', 'assets', 'settings', 'recovery']) if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name) }
-  request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error)
-}) }
-function abortTransaction(transaction: IDBTransaction) {
-  try { transaction.abort() }
-  catch (cause) {
-    if (!(cause instanceof DOMException && cause.name === 'InvalidStateError')) throw cause
-  }
-}
-async function transaction<T>(stores: string[], mode: IDBTransactionMode, action: (tx: IDBTransaction) => () => T): Promise<T> {
-  const db = await open()
-  try {
-    return await new Promise<T>((resolve, reject) => {
-      const tx = db.transaction(stores, mode)
-      tx.onabort = () => reject(tx.error ?? Error('Falha no armazenamento.'))
-      try {
-        const result = action(tx)
-        tx.oncomplete = () => { try { resolve(result()) } catch (cause) { reject(cause) } }
-      } catch (cause) {
-        reject(cause)
-        abortTransaction(tx)
-      }
-    })
-  } finally { db.close() }
-}
+import { abortTransaction, transaction } from './database'
+
 const dataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob) })
 const assetRef = /^asset:([a-f0-9]{64})$/
 const legacyRevisions = new WeakMap<Project, string>()

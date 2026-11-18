@@ -5,16 +5,24 @@
 @theme {
   --color-ink: #111111;
   --color-paper: #f5f6f5;
-  --font-sans: 'Segoe UI', Arial, sans-serif;
+  --font-sans: 'Inter', 'Segoe UI', Arial, sans-serif;
 }
 :root { font-family: var(--font-sans); color: var(--ink); background: var(--surface-muted); font-synthesis: none; text-rendering: optimizeLegibility; --surface: #ffffff; --ink: #111111; --accent: #d60016; --accent-hover: #b40012; --accent-soft: #fff0f1; --surface-muted: #f5f6f5; --muted: #555555; --line: #dedede; }
+:root {
+  --ui-body: 14px; --ui-label: 13px; --ui-meta: 12px;
+  --ui-title: 20px; --ui-section: 25px;
+  --ui-hover: #efefef; --ui-selected: var(--accent-soft); --ui-focus: var(--accent);
+  --ui-success: #236044; --ui-warning: #73500f; --ui-error: #a0001a;
+  --ui-duration: 150ms;
+}
+.app-shell { font-size: var(--ui-body); }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; font: inherit; }
 a { color: inherit; text-decoration: none; }
 button, a { transition: background .16s, color .16s, border-color .16s; }
-:is(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+:is(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 3px; }
 h1:focus, main:focus { outline: none; }
 h1, h2, h3, p { margin: 0; }
 .app-shell { display: flex; min-height: 100vh; }
@@ -154,7 +162,26 @@ h1 { font-size: clamp(24px, 2.3vw, 34px); font-weight: 550; line-height: 1.3; le
 .primary-nav .nav-link[aria-current=page], .context-rail button[aria-pressed=true] { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
 .home-workspace > h1 { margin-bottom: 20px; }
 .active-workspace { padding: 12px 20px 24px; max-width: none; }
-.active-workspace > h1 { font-size: 19px; font-weight: 650; margin: 0 0 12px; letter-spacing: -.3px; }
+.active-workspace { padding-inline-end: 62px; }
+.active-workspace > h1 { font-size: var(--ui-title); font-weight: 700; margin: 0 0 12px; letter-spacing: -.3px; }
+.app-shell :is(button, summary, .button, .module-card, .nav-link) { transition: background-color var(--ui-duration), color var(--ui-duration), border-color var(--ui-duration), box-shadow var(--ui-duration); }
+.button-outline:hover, .button-outline:focus-visible { background-color: var(--ui-hover); border-color: #818181; }
+.text-button:hover { color: var(--accent-hover); }
+.app-shell button:disabled { cursor: default; }
+.resume-project { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 20px 0; padding: 18px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.resume-project-copy, .resume-actions { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.resume-project-copy svg { flex: none; color: var(--accent); }
+.resume-project h2, .audit-start h2 { font-size: var(--ui-title); line-height: 1.25; }
+.resume-project p, .audit-start p { color: var(--muted); margin-top: 5px; overflow-wrap: anywhere; }
+.resume-project time { font-size: var(--ui-meta); margin-inline-start: 8px; }
+.resume-actions { flex: none; }
+.audit-start { margin-block: 6px 14px; }
+.audit-start > a { margin-top: 12px; }
+.audit-projects { list-style: none; margin: 12px 0; padding: 0; }
+.audit-projects li { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.audit-projects strong { overflow-wrap: anywhere; }
+.audit-projects p { font-size: var(--ui-meta); margin-top: 2px; }
+.audit-projects button { flex: none; }
 .context-workspace { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: start; gap: 14px; }
 .context-content { min-width: 0; }
 .context-rail { display: grid; gap: 4px; align-content: start; padding: 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }

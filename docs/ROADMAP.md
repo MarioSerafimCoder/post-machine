@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Evolução 09 — Produtividade e consistência da interface
+
+- Retomar o último projeto local pelo início e iniciar a revisão pelos projetos recentes da Auditoria.
+- Padronizar a apresentação dos controles desktop, organizar a barra do Studio e adiar os balões do assistente durante a digitação.
+
 ## Editorial Intelligence 2.0
 
 - EI-01 e EI-02 incorporam o catálogo v2.0.0 e usam regras rastreáveis para selecionar, comparar e explicar recomendações conforme o contexto.
