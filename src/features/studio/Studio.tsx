@@ -17,7 +17,8 @@ import type { Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
 import { Slides, type SlideReview } from './Slides'
-import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { analyzeHeadline } from '../headlines/analysis'
 import { ActiveSelection, Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
 import { Properties } from './Properties'
@@ -28,6 +29,7 @@ import './studio.css'
 import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
 import { useAuditAssistant } from '../intelligence/auditSignal'
+import { useAssistantAnchor, useAssistantSignal } from '../intelligence/signals'
 import { campaignScope } from '../intelligence/feedback'
 import type { AuditReport, Finding } from '../audit/contract'
 import { sameReviewSettings, sameReviewVersion, type Review } from '../audit/review'
@@ -335,6 +337,39 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
       focusFinding(finding)
     },
   })
+  const assistantAnchor = useAssistantAnchor(active && !!project)
+  const editingSlide = project?.slides[current]
+  const titleIndex = editingSlide?.scene.objects.findIndex(object => object.semantic === 'title' && typeof object.text === 'string' && object.text.trim()) ?? -1
+  const imageIndex = selectedObject instanceof FabricImage ? readyCanvas?.getObjects().indexOf(selectedObject) ?? -1
+    : editingSlide?.scene.objects.findIndex(object => object.semantic === 'image' && object.visible !== false) ?? -1
+  const selectedTitleIndex = selectedTitle ? readyCanvas?.getObjects().indexOf(selectedTitle) ?? -1 : -1
+  const editingIndex = selectedTitleIndex >= 0 ? selectedTitleIndex : imageIndex >= 0 ? imageIndex : editingSlide?.role === 'cover' ? titleIndex : -1
+  const imageContext = selectedTitleIndex < 0 && imageIndex >= 0
+  const deferredTitle = useDeferredValue(active ? selectedTitle?.text : undefined)
+  const genericTitle = useMemo(() => deferredTitle && analyzeHeadline(deferredTitle, { maxChars: 0, maxWords: 0 },
+    { format: '', sources: [], slides: [] }).heuristic.find(item => item.includes('termos genéricos')), [deferredTitle])
+  const headlineContext = selectedTitle && genericTitle && deferredTitle === selectedTitle.text
+  useAssistantSignal(active && readyCanvas && project && editingSlide && editingIndex >= 0 ? {
+    area: 'studio', category: 'editing', priority: headlineContext ? 54 : selectedObject ? 48 : 18, scope: project.id, subject: editingSlide.id,
+    insight: {
+      id: `edit:${editingSlide.id}:${imageContext ? 'image' : headlineContext ? 'generic-title' : 'title'}`, ruleId: imageContext ? 'ACC-001' : headlineContext ? 'TTL-003' : 'TTL-001',
+      title: imageContext ? `Slide ${current + 1} · Revise a descrição da imagem` : headlineContext
+        ? `Slide ${current + 1} · O título tem termos genéricos` : `Slide ${current + 1} · Leia o título isoladamente`,
+      detail: headlineContext ? genericTitle : imageContext ? 'Este slide tem uma camada de imagem. Se ela transmitir informação, prepare uma descrição para acompanhar a publicação no canal de destino.'
+        : editingSlide.role === 'cover' ? 'A capa tem um título editável. Leia a abertura fora da sequência e confira se ela comunica o assunto que os demais slides desenvolvem.'
+          : 'Você selecionou um título. Confira se ele nomeia o recorte da peça e corresponde ao texto que vem em seguida.',
+      assessment: 'heuristic',
+      actions: [{ label: headlineContext ? 'Analisar título' : imageContext ? 'Selecionar imagem' : 'Selecionar título', run: () => {
+        if (headlineContext && selectedTitle) {
+          setHeadlineTarget(selectedTitle)
+          requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio-headlines .headline-diagnosis')?.focus())
+          return
+        }
+        selectPath(String(editingIndex))
+        document.querySelector<HTMLElement>('.canvas-stage')?.focus({ preventScroll: true })
+      } }],
+    },
+  } : undefined)
   if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
     <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format} cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} />
   </Suspense>
@@ -465,7 +500,9 @@ export function Studio({ request, active, onStartCampaign }: { request: { draft:
     </aside><Properties brand={project.brand} canvas={readyCanvas} changed={changed} replaceImage={() => { setPanel('Imagens'); requestAnimationFrame(() => document.getElementById('studio-image-upload')?.focus()) }}>
     {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
     </Properties></div>
-      <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} />
+      <div className="studio-canvas-workspace" ref={assistantAnchor}>
+        <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} />
+      </div>
       <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame} open={framesOpen} toggle={() => setFramesOpen(value => !value)} />
     </div>
     {project.campaignId && <p>Design vinculado à campanha. Alterações editoriais posteriores não substituem este design: gere uma nova versão pela campanha.</p>}

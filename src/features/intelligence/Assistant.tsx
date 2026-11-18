@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Page } from '../../lib/navigation'
 import { explainRule } from './knowledge'
 import { recordEditorialFeedback, resetEditorialMemory, setAssistantMode, useEditorialMemory } from './feedback'
-import { useAssistantSignals, type Signal } from './signals'
+import { signalIdentity, signalVersion, useAssistantSignals, useStudioAnchor, visibleSignals, type Signal } from './signals'
 import { assessments, type Insight } from './types'
 import './assistant.css'
 
@@ -18,7 +19,16 @@ const evidenceScope: Record<string, string> = {
 }
 const seen = new Set<string>()
 let lastBalloonAt = 0
-const signalKey = (item: Signal) => JSON.stringify([item.scope, item.insight.id])
+function scheduleBalloon(key: string, show: (key: string) => void) {
+  const now = Date.now()
+  const timer = window.setTimeout(() => {
+    seen.add(key)
+    if (seen.size > 80) seen.delete(seen.values().next().value!)
+    lastBalloonAt = Date.now()
+    show(key)
+  }, Math.max(850, 12_000 - (now - lastBalloonAt)))
+  return () => window.clearTimeout(timer)
+}
 
 export function RuleDetails({ insight }: { insight: Insight }) {
   const trace = insight.ruleId && explainRule(insight.ruleId)
@@ -38,31 +48,33 @@ export function RuleDetails({ insight }: { insight: Insight }) {
 }
 
 export default function Assistant({ page }: { page: Page | 'not-found' }) {
-  const signals = useAssistantSignals(page)
+  const signals = useAssistantSignals()
+  const anchor = useStudioAnchor()
+  const workspace = page === 'studio' ? anchor : null
   const memory = useEditorialMemory()
-  const candidate = signals.find(item => !memory.history.some(entry => entry.scope === item.scope && entry.id === item.insight.id && entry.outcome === 'dismissed'))
+  const items = visibleSignals(signals, page, memory.history).slice(0, 4)
+  const candidate = items[0]
+  const [previousPage, setPreviousPage] = useState(page)
   const [open, setOpen] = useState(false)
   const [shown, setShown] = useState<string>()
   const launcher = useRef<HTMLButtonElement>(null)
   const dock = useRef<HTMLElement>(null)
   const heading = useRef<HTMLHeadingElement>(null)
-  const previousScroll = useRef(0)
-  const candidateKey = candidate && signalKey(candidate)
+  if (previousPage !== page) {
+    setPreviousPage(page)
+    setOpen(false)
+    setShown(undefined)
+  }
+  const candidateKey = candidate && signalVersion(candidate)
   const proactive = memory.mode === 'proactive' && Boolean(candidateKey)
-  const showBalloon = proactive && page !== 'studio' && !open && shown === candidateKey
+  const showBalloon = proactive && !open && shown === candidateKey
   useEffect(() => {
-    if (open || !proactive || !candidateKey || page === 'studio' || seen.has(candidateKey)) return
-    const timer = window.setTimeout(() => {
-      seen.add(candidateKey)
-      if (seen.size > 80) seen.delete(seen.values().next().value!)
-      lastBalloonAt = Date.now()
-      setShown(candidateKey)
-    }, Math.max(850, 12_000 - (Date.now() - lastBalloonAt)))
-    return () => window.clearTimeout(timer)
+    if (open || !proactive || !candidateKey || seen.has(candidateKey)) return
+    return scheduleBalloon(candidateKey, setShown)
   }, [candidateKey, open, page, proactive])
   useEffect(() => {
     if (!open) return
-    heading.current?.focus()
+    heading.current?.focus({ preventScroll: true })
     const outside = (event: PointerEvent) => {
       if (event.target instanceof Node && !dock.current?.contains(event.target)) {
         setShown(undefined)
@@ -71,29 +83,28 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
     }
     document.addEventListener('pointerdown', outside)
     return () => document.removeEventListener('pointerdown', outside)
-  }, [open])
+  }, [open, workspace])
 
-  function close() {
-    if (candidateKey) seen.add(candidateKey)
+  function hideBalloon() {
     setShown(undefined)
+  }
+  function close() {
+    hideBalloon()
     setOpen(false)
-    if (page === 'studio' && open) window.scrollTo({ top: previousScroll.current, behavior: 'instant' })
     launcher.current?.focus({ preventScroll: true })
   }
   function dismiss(item: Signal) {
     recordEditorialFeedback({ scope: item.scope, id: item.insight.id, ruleId: item.insight.ruleId, preference: item.preference, outcome: 'dismissed' })
     close()
   }
-  const current = candidate ?? signals[0]
-  const items = current ? [current, ...signals.filter(item => item !== current)].slice(0, 4) : []
-  return <aside ref={dock} className="editorial-dock" data-in-flow={page === 'studio' && open || undefined} aria-label="Assistente Editorial" onKeyDown={event => {
+  const assistant = <aside ref={dock} className="editorial-dock" data-workspace={workspace ? 'studio' : undefined} aria-label="Assistente Editorial" onKeyDown={event => {
     if (event.key === 'Escape' && (open || showBalloon)) { event.stopPropagation(); close() }
   }}>
     {open && <section className="editorial-popover" id="editorial-assistant-panel" aria-labelledby="editorial-assistant-heading">
       <header><h2 id="editorial-assistant-heading" ref={heading} tabIndex={-1}>Assistente Editorial</h2>
         <button onClick={close}>Fechar</button></header>
       {items.length === 0 && <p>Abra uma pauta, uma análise de título ou uma revisão para receber orientações.</p>}
-      {items.map((item, index) => <article key={signalKey(item)} className="editorial-insight">
+      {items.map((item, index) => <article key={signalIdentity(item)} className="editorial-insight">
         <h3>{item.insight.title}</h3>
         <small>{assessments[item.insight.assessment]}</small>
         <details open={index === 0 || undefined}><summary>Explicação e referências</summary><RuleDetails insight={item.insight} /></details>
@@ -112,18 +123,15 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
         <button disabled={!memory.history.length} onClick={() => { if (window.confirm('Limpar o histórico e as preferências editoriais deste navegador?')) resetEditorialMemory() }}>Redefinir memória editorial</button>
       </details>
     </section>}
-    {showBalloon && candidate && <section className="editorial-popover editorial-balloon" aria-label="Insight editorial">
-      <p role="status">{candidate.insight.title}</p>
-      <div className="editorial-buttons">
-        <button onClick={() => setOpen(true)}>Ver detalhes</button>
-        <button onClick={() => dismiss(candidate)}>Dispensar</button>
-        <button onClick={() => { setAssistantMode('muted'); close() }}>Silenciar</button>
-      </div>
+    {showBalloon && candidate && <section className="editorial-balloon" aria-label="Insight editorial">
+      <button aria-label={`Ocultar mensagem: ${candidate.insight.title}`} onClick={() => { hideBalloon(); launcher.current?.focus({ preventScroll: true }) }}>
+        <span role="status">{candidate.insight.title}</span>
+      </button>
     </section>}
     <button className="editorial-launcher" ref={launcher} aria-label="Assistente Editorial" aria-expanded={open}
       aria-controls={open ? 'editorial-assistant-panel' : undefined} onClick={() => {
         if (open) close()
-        else { previousScroll.current = window.scrollY; setOpen(true) }
+        else { hideBalloon(); setOpen(true) }
       }}>
       <picture>
         <source media="(prefers-reduced-motion: reduce)" srcSet="/assistant/avatar.png" />
@@ -132,4 +140,5 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
       {memory.mode !== 'muted' && candidate && <span className="editorial-indicator" aria-hidden="true" />}
     </button>
   </aside>
+  return workspace ? createPortal(assistant, workspace) : assistant
 }

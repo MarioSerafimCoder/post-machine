@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Icon, type IconName } from '../../components/Icon'
 import { opportunityTypes, type Opportunity } from './contract'
+import { useAssistantSignal } from '../intelligence/signals'
 
 const icons: Record<Opportunity['type'], IconName> = {
   'Em alta': 'trend', 'Boa oportunidade de pauta': 'spark',
@@ -8,8 +9,8 @@ const icons: Record<Opportunity['type'], IconName> = {
 }
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeZone: 'America/Sao_Paulo' })
 const batch = 6
-export function Opportunities({ items, editionAt, favorites, saving, save, create }: {
-  items?: Opportunity[]; editionAt: string; favorites?: string[]; saving: boolean
+export function Opportunities({ active, items, editionAt, favorites, saving, save, create }: {
+  active: boolean; items?: Opportunity[]; editionAt: string; favorites?: string[]; saving: boolean
   save: (id: string) => void; create: (opportunity: Opportunity) => void
 }) {
   const [category, setCategory] = useState('')
@@ -18,11 +19,22 @@ export function Opportunities({ items, editionAt, favorites, saving, save, creat
   const [type, setType] = useState('')
   const [savedOnly, setSavedOnly] = useState(false)
   const [limit, setLimit] = useState(batch)
+  const [reading, setReading] = useState<string>()
   const cutoff = Date.parse(editionAt) - Number(period) * 86_400_000
   const results = items?.filter(item => (!category || item.articles[0].category === category) &&
     (!type || item.type === type) && (!source || item.articles.some(article => article.source === source)) &&
     (!period || item.articles.some(article => article.publishedAt && Date.parse(article.publishedAt) >= cutoff)) &&
     (!savedOnly || favorites?.includes(item.articles[0].id))) ?? []
+  const match = active ? results.slice(0, limit).find(item => item.articles[0].id === reading) : undefined
+  useAssistantSignal(match ? {
+    area: 'radar', priority: 18, scope: match.articles[0].id, category: 'research',
+    insight: {
+      id: 'radar:opportunity', title: `${match.approach} · ${match.articles.length} referência(s)`,
+      detail: `${match.reason} Considere este recorte no briefing: ${match.angle}`,
+      assessment: 'heuristic',
+      actions: [{ label: 'Preparar briefing da oportunidade', run: () => create(match) }],
+    },
+  } : undefined)
 
   function filter(label: string, selected: string, change: (value: string) => void, options: string[]) {
     return <label>{label}<select value={selected} onChange={event => { change(event.target.value); setLimit(batch) }}>
@@ -49,7 +61,7 @@ export function Opportunities({ items, editionAt, favorites, saving, save, creat
     <div className="news-grid">{results.slice(0, limit).map(item => {
       const article = item.articles[0]
       const saved = favorites?.includes(article.id) ?? false
-      return <article className="news-card opportunity-card" key={article.id}>
+      return <article className="news-card opportunity-card" key={article.id} onFocus={() => setReading(article.id)}>
         <div className="opportunity-type"><Icon name={icons[item.type]} /><strong>{item.type}</strong></div>
         <p className="muted">{article.category}</p>
         <h3>{article.title}</h3>

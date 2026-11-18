@@ -19,7 +19,8 @@ export function useAuditAssistant({ area, project, source, report, current, loca
   const priority = (item: Finding) => (item.slideId === project?.slides[current ?? -1]?.id ? 3 : 0) + (item.severity === 'error' ? 2 : 0)
   const issue = issues.reduce<Finding | undefined>((best, item) => !best || priority(item) > priority(best) ? item : best, undefined)
   useAssistantSignal(area && project && issue ? {
-    area, scope: project.id, priority: 80,
+    area, scope: project.id, priority: 80, category: 'audit', subject: issue.slideId,
+    severity: issue.severity === 'error' ? 'blocking' : 'warning',
     insight: {
       id: `audit:${issue.id}`, ruleId: ruleByAudit[issue.ruleId] ?? 'OPS-001',
       title: `Slide ${issue.slideNumber} · ${issue.message}`,

@@ -43,7 +43,7 @@ export function Radar({ active, start, onDesign }: { active: boolean; start?: { 
     <ContextRail label="Seções do Radar" tools={radarSections} selected={radarSections[section].label}
       choose={label => showSection(radarSections.findIndex(item => item.label === label))} />
   }>
-    <div hidden={section === 1 || section === 2}><News favoritesView={section === 4} opportunitiesView={section === 3} onCreatePost={selectArticle}
+    <div hidden={section === 1 || section === 2}><News active={active && section !== 1 && section !== 2} favoritesView={section === 4} opportunitiesView={section === 3} onCreatePost={selectArticle}
       onCreateOpportunity={opportunity => { setRequest({ article: opportunity.articles[0], opportunity }); showSection(1); focusTool(1) }} /></div>
     <div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1}
       onBack={references => { const destination = references ? 2 : request?.opportunity ? 3 : 0; showSection(destination); focusTool(destination) }} /></div>

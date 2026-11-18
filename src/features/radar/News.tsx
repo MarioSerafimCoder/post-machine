@@ -2,6 +2,7 @@ import { Opportunities } from './Opportunities'
 import { ContextHeader } from '../../components/ContextRail'
 import type { Opportunity } from './contract'
 import { useEffect, useState } from 'react'
+import { useAssistantSignal } from '../intelligence/signals'
 import { normalize, snapshotSchema, type Article, type Snapshot } from './contract'
 import { editorialCategories } from './categories'
 
@@ -41,7 +42,8 @@ async function writeFavorite(id: string, saved: boolean) {
   } finally { db.close() }
 }
 
-export function News({ onCreatePost, favoritesView, opportunitiesView, onCreateOpportunity }: { favoritesView?: boolean; opportunitiesView: boolean; onCreateOpportunity: (value: Opportunity) => void; onCreatePost: (article: Article) => void }) {
+export function News({ active, onCreatePost, favoritesView, opportunitiesView, onCreateOpportunity }: { active: boolean; favoritesView?: boolean; opportunitiesView: boolean; onCreateOpportunity: (value: Opportunity) => void; onCreatePost: (article: Article) => void }) {
+  const [reading, setReading] = useState<string>()
   const [data, setData] = useState<Snapshot>()
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [reload, setReload] = useState(0)
@@ -100,6 +102,17 @@ export function News({ onCreatePost, favoritesView, opportunitiesView, onCreateO
     (!language || item.language === language) && (!period || (item.publishedAt && Date.parse(item.publishedAt) >= cutoff)) &&
     (!kind || item.trend) && (!scope || item.editorial?.scope === scope) && (!(onlyFavorites || favoritesView) || favorites?.includes(item.id)) &&
     terms.every(term => normalize([item.title,item.summary,item.category,item.source,item.trend,...(item.feedTags ?? [])].join(' ')).includes(term)))
+  const article = active && !opportunitiesView ? results.slice(0, limit).find(item => item.id === reading) : undefined
+  useAssistantSignal(article ? {
+    area: 'radar', priority: 16, scope: article.id, category: 'research', subject: article.id,
+    insight: {
+      id: 'radar:article', ruleId: 'SRC-002',
+      title: article.summary ? `Confira a íntegra em ${article.source}` : `${article.source} forneceu a manchete, sem resumo`,
+      detail: 'Consulte a fonte para distinguir o que ela documenta do recorte que entrará no briefing.',
+      assessment: 'insufficient_data',
+      actions: [{ label: 'Preparar briefing desta notícia', run: () => onCreatePost(article) }],
+    },
+  } : undefined)
   const select = (label: string, value: string, update: (value: string) => void, choices: [string,string][]) =>
     <label>{label}<select value={value} onChange={event => { update(event.target.value); setLimit(pageSize) }}><option value="">Todos</option>{choices.map(([key,text]) => <option key={key} value={key}>{text}</option>)}</select></label>
 
@@ -109,7 +122,7 @@ export function News({ onCreatePost, favoritesView, opportunitiesView, onCreateO
     {state === 'loading' && <p role="status">Carregando notícias…</p>}
     {state === 'error' && <p role="alert" className="info-strip">Não foi possível carregar as notícias.{data ? ' Exibindo a última edição aberta.' : ' Tente recarregar.'}</p>}
     {storageError && <p role="alert" className="info-strip">Não foi possível acessar os favoritos neste navegador.</p>}
-    {data && <div hidden={!opportunitiesView}><Opportunities items={data.opportunities} editionAt={data.attemptedAt} favorites={favorites} saving={saving} save={id => void toggle(id)} create={onCreateOpportunity} /></div>}
+    {data && <div hidden={!opportunitiesView}><Opportunities active={active && opportunitiesView} items={data.opportunities} editionAt={data.attemptedAt} favorites={favorites} saving={saving} save={id => void toggle(id)} create={onCreateOpportunity} /></div>}
     {data && <div hidden={opportunitiesView} className="news">
       {!filtersOpen && <button className="button button-outline" onClick={() => setFiltersOpen(true)}>Mostrar filtros de notícias</button>}
       <div hidden={!filtersOpen} className="context-panel news-filter-panel">
@@ -127,7 +140,7 @@ export function News({ onCreatePost, favoritesView, opportunitiesView, onCreateO
       </div>
       <p role="status" className="muted">{results.length} {results.length === 1 ? 'notícia' : 'notícias'}</p>
       {!results.length && <div className="empty-state"><h3>Nenhuma notícia encontrada</h3><p>{items.length ? 'Experimente outros filtros ou termos de busca.' : 'Ainda não há notícias nesta edição.'}</p></div>}
-      <div className="news-grid">{results.slice(0,limit).map(item => <article className="news-card" key={item.id}>
+      <div className="news-grid">{results.slice(0,limit).map(item => <article className="news-card" key={item.id} onFocus={() => setReading(item.id)}>
         <div className="news-meta"><span className="badge badge-green">{item.category}</span><button type="button" className="news-favorite" aria-label={`Favoritar: ${item.title}`} aria-pressed={favorites?.includes(item.id) ?? false} disabled={!favorites || saving} onClick={() => void toggle(item.id)}>{favorites?.includes(item.id) ? '★' : '☆'}</button></div>
         <h3><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></h3>
         <p className="muted">{item.source} · {item.publishedAt ? <time dateTime={item.publishedAt}>{format(item.publishedAt)}</time> : 'Data de publicação não informada'}{item.editorial?.scope === 'adjacent' && ' · Contexto criativo'}</p>

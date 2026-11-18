@@ -1,5 +1,11 @@
 # Estado real — 18/11/2026
 
+## Evolução do Assistente Editorial
+
+- Base `d5c0c43`. O GIF e o quadro estático originais permanecem. No editor, um portal ancora o avatar transparente, o balão pixel-art e o painel flutuante ao espaço cinza, fora da cena Fabric e dos controles dos Frames. Abrir ou fechar os detalhes preserva a grade e a rolagem.
+- O assistente acompanha notícias e oportunidades em foco no Radar e, antes da Auditoria, reconhece capa, título selecionado e camada de imagem no Studio. A Produção Expressa orienta a comparação de propostas e prioriza avisos reais. A fila deduplica sinais, respeita a área ativa e retira ocorrências obsoletas. Ocultar o balão só afeta a apresentação. O feedback explícito continua no histórico local.
+- Lint, build, dry-run do Wrangler, 113 testes Vitest e 90 cenários Playwright aprovados. Seis repetições foram omitidas no perfil laptop. Dez cenários passaram no Wrangler local, incluindo enquadramento, teclado, ausência de mudança de altura e rolagem, descarte e fluxo integrado com exportação e backup. A inspeção visual cobriu 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080, com o robô recolhido, o balão e os detalhes.
+
 ## Editorial Intelligence 2.0 e Assistente Editorial
 
 - Base `8deaf49`, com lint, build, 105 testes Vitest e 81 cenários Playwright aprovados antes da edição. A entrega inclui as 38 regras, 56 fontes, três evidências e seis perfis de plataforma do pacote v2.0.0. O carregamento do catálogo valida IDs, associações e referências. A biblioteca mantém separadas as fontes bibliográficas, alegações de evidência e datas de revisão documental.

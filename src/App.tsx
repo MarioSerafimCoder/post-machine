@@ -65,7 +65,7 @@ export function App() {
       </main>
     </div>
     {roadmap && <Roadmap onClose={() => setRoadmap(false)} />}
-    <Suspense fallback={null}><Assistant key={page} page={page} /></Suspense>
+    <Suspense fallback={null}><Assistant page={page} /></Suspense>
   </div></AssistantSignals.Provider>
 }
 

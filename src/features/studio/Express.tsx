@@ -258,7 +258,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const lighter = result?.proposals.findIndex((proposal, index) => index !== selected &&
     proposal.details.reduce((sum, detail) => sum + detail.issues.filter(requiresReview).length, 0) < issues.length) ?? -1
   useAssistantSignal(reviewedProposal && productionIssue ? {
-    area: 'studio', scope: reviewedProposal.project.id, priority: 65,
+    area: 'studio', scope: reviewedProposal.project.id, priority: 65, category: 'production',
+    subject: reviewedProposal.project.slides[issuePosition]?.id, severity: 'warning',
     insight: {
       id: `express:${issuePosition}:${productionIssue.kind}:${productionIssue.field ?? ''}`,
       ruleId: productionIssue.kind === 'text' ? 'VIS-003' : productionIssue.kind === 'layout' ? 'VIS-001' : 'OPS-001',
@@ -270,6 +271,14 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         { label: 'Ver slide da proposta', run: () => { setPreviewIndex(issuePosition); document.getElementById('express-proposal-preview')?.focus() } },
         ...(lighter >= 0 ? [{ label: 'Comparar proposta com menos avisos', run: () => { setSelected(lighter); document.getElementById('express-proposal-preview')?.focus() } }] : []),
       ],
+    },
+  } : reviewedProposal && result ? {
+    area: 'studio', scope: reviewedProposal.project.id, priority: 25, category: 'production',
+    insight: {
+      id: 'express:compare', ruleId: 'VIS-004', title: `Compare as ${result.proposals.length} propostas fabricadas`,
+      detail: `A proposta selecionada tem ${reviewedProposal.details.length} peça(s), sem avisos que exijam revisão do motor de fabricação. Confira a leitura e o enquadramento antes de escolher.`,
+      assessment: 'heuristic',
+      actions: [{ label: 'Abrir comparação', run: () => document.getElementById('express-proposal-preview')?.focus() }],
     },
   } : undefined)
 
