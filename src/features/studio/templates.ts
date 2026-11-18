@@ -52,7 +52,9 @@ export function fromCampaign(draft: Draft, brand: Brand) {
   project.name = draft.content.campaign.title; project.caption = draft.content.campaign.caption; project.brand = brand; project.campaignId = draft.id; project.campaignUpdatedAt = draft.updatedAt
   project.slides = draft.content.slides.map((s): VisualSlide => {
     const layout = s.role === 'cover' ? 'editorial' : s.role === 'cta' ? 'cta' : 'text'
-    const scene = compose(layout, { title: s.title, body: s.body, cta: s.role === 'cta' ? draft.content!.campaign.cta : '' }, brand, project.format, s.role)
+    const scene = compose(layout, { title: s.title, body: s.body,
+      cta: s.role === 'cta' || draft.content!.slides.length === 1 ? draft.content!.campaign.cta : '',
+    }, brand, project.format, s.role)
     const title = scene.objects.find(object => object.semantic === 'title')
     if (title && s.headlines) title.headlines = structuredClone(s.headlines)
     return { id: crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, scene }

@@ -122,4 +122,5 @@ test('importa a resposta do GPT com datas parciais ao salvar e abre o projeto ed
   await expect(page.getByRole('region', { name: 'Slides' }).getByRole('button', { name: 'Slide 1' })).toBeVisible()
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
   await expect(page.getByRole('button', { name: /Título importado diretamente/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Conheça o contexto/ })).toBeVisible()
 })
