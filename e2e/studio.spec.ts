@@ -74,7 +74,7 @@ test('campanha gera carrossel editável, troca template e organiza slides', asyn
   await page.getByLabel('Quantidade de slides').selectOption('3')
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({ schemaVersion: 1, campaign: { title: 'Carrossel de teste', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'carousel', caption: '', cta: 'Salve esta ideia' }, sources: [], slides: ['cover', 'content', 'cta'].map((role, i) => ({ order: i+1, role, title: `Título ${i+1}`, body: 'Conteúdo editorial editável.', imageBrief: '', layoutType: 'editorial' })) }))
   await page.getByRole('button', { name: 'Importar conteúdo', exact: true }).click()
-  await page.getByRole('button', { name: 'Criar design no Studio' }).click()
+  await page.getByRole('button', { name: 'Salvar e abrir no Studio' }).click()
   await expect(page.getByRole('region', { name: 'Slides', exact: true }).getByRole('button', { name: /Slide [123]$/ })).toHaveCount(3)
   page.on('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Templates', exact: true }).click()

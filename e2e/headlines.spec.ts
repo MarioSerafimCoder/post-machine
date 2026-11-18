@@ -30,7 +30,7 @@ test('compara, aplica, preserva a arte e reabre headlines', async ({ page }) => 
   await campaign.getByRole('button', { name: 'Favorita' }).click()
   await campaign.getByRole('button', { name: 'Aplicar', exact: true }).click()
   await expect(page.getByLabel('Título', { exact: true })).toHaveValue(title)
-  await page.getByRole('button', { name: 'Criar design no Studio' }).click()
+  await page.getByRole('button', { name: 'Salvar e abrir no Studio' }).click()
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
   const layer = page.getByRole('button', { name: /^2 ·/ })
   await layer.click()

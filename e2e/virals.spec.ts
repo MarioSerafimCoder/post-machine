@@ -87,7 +87,7 @@ test('cria pauta com origem criativa e abre o resultado no Studio', async ({ pag
   }))
   await page.getByRole('button', { name: 'Importar conteúdo', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Revisão editorial' }).locator('..').getByRole('link', { name: 'Formas de comparar soluções' })).toBeVisible()
-  await page.getByRole('button', { name: 'Criar design no Studio' }).click()
+  await page.getByRole('button', { name: 'Salvar e abrir no Studio' }).click()
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Design da referência')
   const exportEvent = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()

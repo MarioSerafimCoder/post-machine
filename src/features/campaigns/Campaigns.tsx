@@ -46,6 +46,11 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   const transferPending = useRef(false)
   const responseInput = useRef<{ id: string; raw: string } | undefined>(undefined)
   const [responsePendingId, setResponsePendingId] = useState<string>()
+  const [editorRevision, setEditorRevision] = useState(0)
+  const clearPendingResponse = () => {
+    responseInput.current = undefined
+    setResponsePendingId(undefined)
+  }
   const trackResponse = useCallback((id: string, raw: string) => {
     responseInput.current = { id, raw }
     const pending = raw.trim() ? id : undefined
@@ -76,13 +81,19 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   }, [queue])
   useEffect(() => { if (!active) void queue.flushAll().catch(() => undefined) }, [active, queue])
   async function select(id: string) {
-    try { await queue.flushAll(); setSelected(id); setDeleteId(undefined) } catch { /* Keep the unsaved document open. */ }
+    try {
+      await queue.flushAll()
+      clearPendingResponse()
+      setSelected(id)
+      setDeleteId(undefined)
+    } catch { /* Keep the unsaved document open. */ }
   }
   async function create() {
     if (!backup) return
     try { await queue.flushAll() } catch { return }
     const item = newDraft(null, backup.preferences)
     persist(item, true)
+    clearPendingResponse()
     setSelected(item.id)
     setCreating(false)
   }
@@ -119,8 +130,8 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       const saved = persist(raw ? { ...item, content } : item)
       await queue.flushAll()
       if (raw) {
-        responseInput.current = undefined
-        setResponsePendingId(undefined)
+        clearPendingResponse()
+        setEditorRevision(current => current + 1)
       }
       setStatus('Campanha salva.')
       if (destination !== 'save' && saved.content) onDesign(saved, destination === 'express' ? 'express' : undefined)
@@ -146,6 +157,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       const preferences = backup?.preferences ?? defaultPreferences
       const item = request.reference ? draftFromReference(request.reference, preferences) : newDraft(request.article, preferences, request.opportunity)
       if (!backup) setBackup({ schemaVersion: 2, campaigns: [], preferences })
+      clearPendingResponse()
       setSelected(item.id)
       persist(item)
     }, 0)
@@ -165,6 +177,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       persisted.delete(item.id)
       setBackup(current => current && { ...current, campaigns: current.campaigns.filter(entry => entry.id !== item.id) })
       setSelected(current => current === item.id ? undefined : current)
+      clearPendingResponse()
       setDeleteId(undefined)
       setDirty(current => current.filter(id => id !== item.id))
       setStatus('Campanha excluída.')
@@ -189,6 +202,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       ...item.content.campaign, title: `${item.content.campaign.title.slice(0, 492)} (cópia)`,
     } }
     const copy = { ...item, id: crypto.randomUUID(), createdAt: now, content }
+    clearPendingResponse()
     setSelected(copy.id)
     persist(copy, true)
   }
@@ -229,6 +243,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       persisted.clear()
       restored.campaigns.forEach(item => persisted.set(item.id, item))
       setBackup(restored)
+      clearPendingResponse()
       setLoadError(false)
       setStatus('Backup restaurado. Campanhas com o mesmo ID foram adicionadas como cópias.')
     } catch { setError('Não foi possível concluir a restauração.') }
@@ -268,7 +283,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
         </div>
       </aside>
       {draft && <div className="campaign-editor">
-        <Editor key={draft.id} draft={draft} active={active} update={persist}
+        <Editor key={`${draft.id}:${editorRevision}`} draft={draft} active={active} update={persist}
           onPreferences={briefing => void savePreferences(briefing)}
           onRawChange={raw => trackResponse(draft.id, raw)} externalError={error} />
         <div className="campaign-actions">

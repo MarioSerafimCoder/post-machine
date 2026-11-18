@@ -27,7 +27,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   const headlines = page.getByRole('region', { name: 'Agente de Headlines' })
   await headlines.getByRole('button', { name: 'Gerar propostas por regras' }).click()
   await headlines.getByRole('button', { name: 'Aplicar', exact: true }).first().click()
-  await page.getByRole('button', { name: 'Criar design no Studio' }).click()
+  await page.getByRole('button', { name: 'Salvar e abrir no Studio' }).click()
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Acervo de teste')
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
   await page.getByRole('button', { name: /^2 ·/ }).click()
