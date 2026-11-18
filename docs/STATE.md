@@ -6,6 +6,8 @@
 - A revisão do carrossel localiza títulos repetidos, peças incompletas, papéis fora da sequência e divergências verificáveis em relação ao briefing vinculado. A interpretação semântica fica em um prompt copiável para o ChatGPT externo, com o conteúdo atual dos slides.
 - Campanhas e Produção Expressa mostram a prévia da resposta estruturada e indicam campos JSON fora do modelo antes da aplicação. A Produção Expressa usa a direção de imagem do slide para preencher a busca no Openverse e oferece vinculação explícita com os créditos selecionados.
 - A biblioteca do Studio e da Auditoria lê resumos locais. A versão 4 do IndexedDB prepara o catálogo na primeira consulta e mantém os resumos na transação dos projetos, incluindo a revisão usada para proteger exclusões concorrentes. O Studio isola a revisão em um hook e painel dedicados, memoriza as miniaturas pelos dados da cena e agrupa posição e aparência nas propriedades.
+- Lint, build, dry-run, 115 testes Vitest e 98 cenários Playwright aprovados. Seis repetições foram omitidas no perfil laptop. Oito cenários direcionados passaram no Wrangler local. A revisão visual e os testes de regressão cobriram 1280 e 1440 px, incluindo descarte de aviso resolvido e atualização somente da miniatura editada. A busca Openverse foi exercitada com fixture de imagem licenciada.
+- O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44362321646) aprovou `807f587`. O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/44362335806) promoveu a versão `85e9f797-68b8-47ac-949c-41b7279c1eda` a 100% do tráfego. O domínio, os dois feeds e o favicon responderam com HTTP 302 para o Cloudflare Access após a publicação.
 
 ## Refatoração pontual — memória editorial entre abas
 
