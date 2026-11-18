@@ -47,10 +47,10 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   const responseInput = useRef<{ id: string; raw: string } | undefined>(undefined)
   const [responsePendingId, setResponsePendingId] = useState<string>()
   const [editorRevision, setEditorRevision] = useState(0)
-  const clearPendingResponse = () => {
+  const clearPendingResponse = useCallback(() => {
     responseInput.current = undefined
     setResponsePendingId(undefined)
-  }
+  }, [])
   const trackResponse = useCallback((id: string, raw: string) => {
     responseInput.current = { id, raw }
     const pending = raw.trim() ? id : undefined
@@ -162,7 +162,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       persist(item)
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [request, backup, loadError, persist])
+  }, [request, backup, loadError, persist, clearPendingResponse])
 
   useEffect(() => {
     if (active && selected) heading.current?.focus()
