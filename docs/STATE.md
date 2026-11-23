@@ -7,6 +7,7 @@
 - A edição local manteve as 80 notícias e 48 oportunidades e recebeu duas miniaturas do B9 por correspondência de URL canônica. O coletor aceita miniaturas explícitas de cinco feeds em hosts verificados, sem consultar as páginas de artigos. A cobertura depende dos metadados fornecidos pelos veículos.
 - Lint, 130 testes unitários, build e dry-run do Wrangler aprovados. A suíte completa do Playwright passou 146 cenários, com 10 repetições omitidas no perfil laptop. O Radar e as oportunidades também passaram 11 cenários pelo Wrangler local, com uma repetição omitida.
 - Inspeção no Chromium em 1024 × 768, 1280 × 800 e 1440 × 900 confirmou miniatura real, painel sem sobreposição e ausência de rolagem horizontal. O painel aberto deixa uma coluna de notícias em 1024 px e duas nas larguras maiores. Abaixo de 1024 px, apenas o aviso para usar desktop é exibido.
+- O [primeiro CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45246672169) expôs uma corrida no teste de carregamento. A resposta controlada de erro agora cobre todas as requisições de montagem até que o teste autorize a nova tentativa.
 
 ## Simplificação do fluxo de criação — validação local
 

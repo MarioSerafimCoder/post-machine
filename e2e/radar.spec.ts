@@ -108,7 +108,7 @@ test('mostra carregamento, permite repetir falhas e respeita o movimento reduzid
   await page.route('**/radar.json', async route => {
     await pending
     await route.fulfill({ status: 503 })
-  }, { times: 1 })
+  })
   await page.goto('/#/radar')
   await expect(page.locator('.news-skeleton').first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Verificando…' })).toBeDisabled()
