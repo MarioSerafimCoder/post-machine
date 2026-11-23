@@ -235,3 +235,26 @@ dialog:is(.roadmap-dialog, .collection-dialog, .studio-dialog)[open] { opacity: 
 .create-content-paths { display: grid; gap: 8px; margin: 14px 0; }
 .create-content-paths .button { justify-content: flex-start; }
 .info-strip[role="alert"] { background: #fff0f1; border-inline-start: 3px solid var(--ui-error); color: var(--ui-error); }
+
+.news-filter-panel .primary-filters { grid-template-columns: 2fr 1.25fr 1fr auto; align-items: end; padding-top: 0; }
+.news-filter-panel [hidden] { display: none; }
+.edition-age, .filter-chips button { display: inline-flex; border-radius: 20px; padding: 3px 10px; font-size: 13px; }
+.edition-age { margin-left: 8px; background: #f7ebd4; color: #634411; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-chips:empty { display: none; }
+.filter-chips button { background: #fff; border: 1px solid var(--line); cursor: pointer; }
+.resume-project .library-preview { display: grid; place-items: center; width: 64px; height: 72px; overflow: hidden; border-radius: 6px; background: #f2f1ee; }
+.resume-project .library-preview img { width: 100%; height: 100%; object-fit: contain; }
+.app-shell :is(.express, .campaign-panel, .news-filters) :is(input:not([type=checkbox]), textarea, select) {
+  border-radius: 7px; padding: 9px 11px; border: 1px solid #969b9c; background-color: #fff;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.app-shell :is(.express, .campaign-panel, .news-filters) :is(input, textarea, select):focus-visible {
+  border-color: var(--ink); outline: 2px solid var(--ink); outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-shell :is(button:enabled, a.button, summary) { transition-property: background-color, color, border-color, box-shadow, scale; transition-duration: 160ms; }
+  .app-shell :is(button:enabled, a.button, summary):active { scale: .975; transition-duration: 75ms; }
+  .review-menu[open] .studio-more-menu, #news-advanced:not([hidden]), .express-slides { animation: reveal-controls 160ms ease-out; }
+  @keyframes reveal-controls { from { opacity: .25; translate: 0 3px; } to { opacity: 1; translate: 0; } }
+}

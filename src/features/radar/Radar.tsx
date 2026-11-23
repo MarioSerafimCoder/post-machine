@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CampaignStartMode } from '../campaigns/CampaignStart'
 import { Campaigns } from '../campaigns/Campaigns'
 import type { Draft } from '../campaigns/contract'
@@ -15,8 +15,11 @@ const radarSections: ContextTool[] = [
   { label: 'Oportunidades', icon: 'spark' }, { label: 'Favoritos', icon: 'star' },
 ]
 export function Radar({ active, start, onDesign }: { active: boolean; start?: { mode: CampaignStartMode }; onDesign: (draft: Draft, mode?: 'express') => void }) {
-  const [section, setSection] = useState(0)
+  const [section, setSection] = useState(() => window.history.state?.campaignId && window.history.state?.campaignOpen ? 1 : 0)
   const [request, setRequest] = useState<{ article: Article | null; reference?: Reference; opportunity?: Opportunity } | null>(null)
+  useEffect(() => {
+    if (active) window.history.replaceState({ ...window.history.state, campaignOpen: section === 1 }, '')
+  }, [active, section])
   const rail = useRef<HTMLDivElement>(null)
 
 

@@ -99,7 +99,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const exportOpen = !!project && project.id === exportProjectId
   const [auditOpen,setAuditOpen]=useState(false)
   const [editorialProject, setEditorialProject] = useState<string>()
-  const editorialToggle = useRef<HTMLButtonElement>(null)
+  const editorialToggle = useRef<HTMLElement>(null)
   const [reviewedSlides, setReviewedSlides] = useState<Map<string, SlideReview>>(() => new Map())
   const [fullReview, setFullReview] = useState<Review>()
   const [guidance, setGuidance] = useState<{ finding: Finding; project: Project }>()
@@ -349,8 +349,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       up: `Slide movido para a posição ${next + 1}.`, down: `Slide movido para a posição ${next + 1}.`,
     }[action], id: crypto.randomUUID() })
   }
-  function openImages(tab: 'search' | 'library', useBrief = false) {
-    const slide = project?.slides[current]
+  function openImages(tab: 'search' | 'library', useBrief = false, index = current) {
+    const slide = project?.slides[index]
     if (!slide) return
     const term = useBrief ? editorialImageQuery(slide.imageBrief, semantics(slide.scene).title) : ''
     setPanel('Imagens')
@@ -495,6 +495,11 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <label className="studio-project-name">Projeto<input value={project.name} maxLength={100} onChange={event => setProject({ ...project, name: event.target.value, updatedAt: new Date().toISOString() })} /></label>
         <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
         <span key={status} className={status === 'Salvo' ? 'studio-save-status studio-feedback' : 'studio-save-status'} data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
+        <div className="studio-backup">
+          {(backupDue || saveFailed) && <button title={lastBackup === undefined ? 'Nenhum backup ZIP registrado para este projeto.' : 'Atualize sua cópia de segurança'} disabled={backupPending} onClick={() => void downloadBackup()}>{backupPending ? 'Gerando backup…' : 'Baixar backup ZIP'}</button>}
+          {lastBackup !== undefined && <time title="Último backup enviado para download" dateTime={new Date(lastBackup).toISOString()}>{backupDate.format(lastBackup)}</time>}
+          {saveFailed && <span role="alert">Baixe o ZIP antes de fechar para preservar sua edição.</span>}
+        </div>
         {slideFeedback && <span key={slideFeedback.id} className="studio-save-status studio-feedback" role="status">{slideFeedback.text}</span>}
         </div>
         <details className="studio-more" onBlur={event => {
@@ -544,21 +549,27 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <label className="studio-inline-field"><input type="checkbox" checked={guides} onChange={event => setGuides(event.target.checked)} />Área segura</label>
         </div>
         <div className="studio-actions studio-output" role="group" aria-label="Finalização">
-          <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Auditar design</button>
-          <button ref={editorialToggle} aria-expanded={editorialOpen} aria-controls={editorialOpen ? 'studio-editorial-review' : undefined}
+          <details className="review-menu" onKeyDown={event => {
+            if (event.key === 'Escape') { event.currentTarget.open = false; editorialToggle.current?.focus() }
+          }} onBlur={event => {
+            if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false
+          }}>
+            <summary ref={editorialToggle}>Revisar</summary>
+            <div className="studio-more-menu" onClick={event => {
+              event.currentTarget.parentElement?.removeAttribute('open')
+              editorialToggle.current?.focus()
+            }}>
+          <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Problemas técnicos</button>
+          <button aria-expanded={editorialOpen} aria-controls={editorialOpen ? 'studio-editorial-review' : undefined}
             onClick={() => {
               setEditorialProject(editorialOpen ? undefined : project.id)
               if (!editorialOpen) requestAnimationFrame(() => document.getElementById('studio-editorial-heading')?.focus())
-            }}>Revisar carrossel</button>
+            }}>Texto e sequência</button>
+            </div>
+          </details>
           <button ref={exportToggle} className="export-primary" aria-expanded={exportOpen} aria-controls={exportOpen ? 'studio-export' : undefined}
             onClick={() => setExportProjectId(exportOpen ? undefined : project.id)}>Finalizar e exportar</button>
         </div>
-      </div>
-      <div className="studio-backup">
-        <span aria-live="polite">{lastBackup === undefined ? 'Nenhum backup ZIP registrado para este projeto.' : <>Último backup enviado para download · <time dateTime={new Date(lastBackup).toISOString()}>{backupDate.format(lastBackup)}</time></>}</span>
-        {saveFailed ? <span>Baixe o ZIP antes de fechar. Se precisar, use Restaurar projeto ZIP na biblioteca.</span>
-          : backupDue && <span>{lastBackup === undefined ? 'Guarde uma cópia fora do perfil do navegador.' : 'Já é hora de atualizar sua cópia de segurança.'}</span>}
-        {(backupDue || saveFailed) && <button disabled={backupPending} onClick={() => void downloadBackup()}>{backupPending ? 'Gerando backup…' : 'Baixar backup ZIP'}</button>}
       </div>
     </header>
     {exportOpen && <ExportPanel key={project.id} project={project} current={current} active={active} getCurrent={getCurrent} flush={flush} review={fullReview} onReport={receiveReview}
@@ -644,7 +655,17 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       <div className="studio-canvas-workspace" ref={assistantAnchor}>
         <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={(_, target) => snapshotCanvas(true, target)} onTextEnd={endTextSession} onSelection={() => refresh(n => n + 1)} onError={setError} />
       </div>
-      <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame}
+      <Slides locatePhoto={(index, operation) => {
+        chooseSlide(index)
+        setPanel('Imagens')
+        if (operation === 'empty') openImages('search', true, index)
+        else if (operation === 'error') {
+          const failed = new Set(frameTargets.filter(item => autoSearch.status(item) === 'error').map(item => item.key))
+          setProject(latest => latest && ({ ...latest, slides: latest.slides.map(slide =>
+            slide.visualChoice?.mode === 'automatic' && failed.has(latest.id + '/' + slide.id)
+              ? { ...slide, visualChoice: { ...slide.visualChoice, revision: (slide.visualChoice.revision ?? 0) + 1 } } : slide) }))
+        }
+      }} issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame}
         imageStatus={id => autoSearch.status(frameTargets.find(item => item.key === project.id + '/' + id))}
         open={framesOpen} toggle={() => setFramesOpen(value => !value)} />
     </div>

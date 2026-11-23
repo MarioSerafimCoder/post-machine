@@ -108,7 +108,7 @@
   --studio-inspector: 228px;
   --studio-frames: 148px;
   grid-template-columns: 76px var(--studio-visible-inspector, var(--studio-inspector)) minmax(0, 1fr) var(--studio-visible-frames, var(--studio-frames));
-  height: clamp(378px, calc(100dvh - 242px), 925px);
+  height: clamp(378px, calc(100dvh - 205px), 925px);
   gap: 0;
   align-items: stretch;
   background: var(--surface-muted);
@@ -140,3 +140,7 @@
 .studio :is(input, textarea, select):not(:disabled) { border-color: var(--ui-control-line); }
 .studio :is(button, select, input):not([type=checkbox], [type=radio], [type=file]) { min-height: var(--ui-compact-height); }
 .studio .studio-slides :is(header button, .slide-caption, .slide-actions button) { font-size: 12px; }
+
+.review-menu { position: relative; }
+.review-menu summary { padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+.photo-summary { display: grid; gap: 3px; }

@@ -62,6 +62,8 @@ test('cola, busca em paralelo, usa apoio editorial e retoma escolhas e créditos
   release()
   await expect(exactStatus(page, 'Imagem editorial aplicada')).toBeVisible()
   await expect(exactStatus(page, 'Sem sugestão automática confiável.')).toBeVisible()
+  await button(page, 'Escolher imagem · 1').click()
+  await expect(page.getByLabel('Buscar pelo conteúdo do slide').locator('option:checked')).toContainText('Cidade abstrata')
   await page.screenshot({ path: info.outputPath('apoio-editorial.png'), fullPage: true })
   expect(queries.some(query => query.endsWith('photograph'))).toBe(true)
   expect(queries.every(query => !query.includes('conceitual') && !query.includes('abstrata'))).toBe(true)
@@ -97,6 +99,9 @@ test('cola, busca em paralelo, usa apoio editorial e retoma escolhas e créditos
 
 test('abre conteúdo importado no Studio e preenche o frame em segundo plano', async ({ page }, info) => {
   await mockImages(page)
+  let interrupted = true
+  await page.route('https://api.openverse.org/v1/images/?*', route => interrupted
+    ? route.fulfill({ status: 503 }) : route.fallback())
   await page.goto('/#/radar')
   await button(page, 'Criar post').first().click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
@@ -107,8 +112,11 @@ test('abre conteúdo importado no Studio e preenche o frame em segundo plano', a
   }))
   await button(page, 'Importar conteúdo').click()
   await button(page, 'Salvar e abrir no Studio').click()
+  await expect(button(page, 'Tentar novamente · 1')).toBeVisible()
+  interrupted = false
+  await button(page, 'Tentar novamente · 1').press('Enter')
   await expect(page.getByRole('button', { name: 'Slide 1', exact: true })).toHaveAttribute('aria-description', /Foto documental/)
-  await button(page, 'Imagens').click()
+  await button(page, 'Fotos aplicadas · 1').click()
   await expect(exactStatus(page, 'Imagem documental encontrada')).toBeVisible()
   await expect(page.locator('.slide-thumbnail')).toBeVisible()
   await page.screenshot({ path: info.outputPath('studio-frame-documental.png') })

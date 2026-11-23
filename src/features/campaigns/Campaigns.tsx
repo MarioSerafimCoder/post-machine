@@ -28,6 +28,10 @@ const dateOnly = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone
 // An ISO calendar date has no time zone: render its original day without shifting it.
 const publicationDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value)
   ? dateOnly.format(new Date(value + 'T00:00:00.000Z')) : date.format(new Date(value))
+const replyKey = (id: string) => 'post-machine:awaiting-reply:' + id
+function finishReply(id: string) {
+  try { localStorage.removeItem(replyKey(id)) } catch { /* O armazenamento de preferências pode estar desativado. */ }
+}
 const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imageBrief: '', layoutType: 'editorial' }
 
 export function Campaigns({ request, active, onBack, onDesign }: {
@@ -37,7 +41,10 @@ export function Campaigns({ request, active, onBack, onDesign }: {
   onDesign: (draft: Draft, mode?: 'express') => void
 }) {
   const [backup, setBackup] = useState<Backup>()
-  const [selected, setSelected] = useState<string>()
+  const [selected, setSelected] = useState<string | undefined>(() => window.history.state?.campaignId)
+  useEffect(() => {
+    if (active) window.history.replaceState({ ...window.history.state, campaignId: selected }, '')
+  }, [active, selected])
   const [loadError, setLoadError] = useState(false)
   const [saving, setSaving] = useState(0)
   const [dirty, setDirty] = useState<string[]>([])
@@ -134,6 +141,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       const saved = persist({ ...item, content })
       await queue.flushAll()
       if (raw) {
+        finishReply(item.id)
         clearPendingResponse()
         setEditorRevision(current => current + 1)
       }
@@ -168,9 +176,6 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     return () => window.clearTimeout(timer)
   }, [request, backup, loadError, persist, clearPendingResponse])
 
-  useEffect(() => {
-    if (active && selected) heading.current?.focus()
-  }, [active, selected])
 
   async function remove(item: Draft) {
     setSaving(count => count + 1)
@@ -178,6 +183,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     try {
       await queue.flush(item.id)
       await deleteCampaign(persisted.get(item.id) ?? item)
+      finishReply(item.id)
       persisted.delete(item.id)
       setBackup(current => current && { ...current, campaigns: current.campaigns.filter(entry => entry.id !== item.id) })
       setSelected(current => current === item.id ? undefined : current)
@@ -324,6 +330,33 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
   const [error, setError] = useState('')
   const [copyStatus, setCopyStatus] = useState('')
   const [replacing, setReplacing] = useState(false)
+  const reply = useRef<HTMLTextAreaElement>(null)
+  const returnKey = replyKey(draft.id)
+  const [awaiting, setAwaiting] = useState(() => {
+    try { return localStorage.getItem(returnKey) === '1' } catch { return false }
+  })
+  const entryStage = useRef(awaiting ? 'reply' : draft.content ? 'review' : 'briefing')
+  useEffect(() => {
+    if (!active) return
+    if (entryStage.current === 'reply') reply.current?.focus()
+    else document.getElementById(entryStage.current === 'review' ? 'campaign-review-heading' : 'campaign-briefing-heading')?.focus()
+  }, [active])
+  useEffect(() => {
+    if (!active || !awaiting) return
+    function returnToReply() {
+      if (document.visibilityState === 'visible') reply.current?.focus()
+    }
+    document.addEventListener('visibilitychange', returnToReply)
+    return () => document.removeEventListener('visibilitychange', returnToReply)
+  }, [active, awaiting])
+  function rememberReply(value: boolean) {
+    entryStage.current = value ? 'reply' : 'review'
+    setAwaiting(value)
+    try {
+      if (value) localStorage.setItem(returnKey, '1')
+      else localStorage.removeItem(returnKey)
+    } catch { /* A etapa continua disponível nesta sessão. */ }
+  }
   const { article, briefing } = draft
   const deferred = useDeferredValue(draft)
   const { history } = useEditorialMemory()
@@ -346,6 +379,7 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
   async function copy() {
     try {
       await navigator.clipboard.writeText(draft.prompt)
+      rememberReply(true)
       setCopyStatus('Prompt copiado.')
     } catch { setCopyStatus('Selecione o texto do prompt e copie pelo teclado.') }
   }
@@ -368,6 +402,7 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
     try {
       const content = importContent(raw, draft)
       editContent(content)
+      rememberReply(false)
       changeRaw('')
       setCopyStatus('')
       window.requestAnimationFrame(() => document.getElementById('campaign-review-heading')?.focus())
@@ -423,10 +458,11 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
         <a className="button button-outline" href={platforms[platform]} target="_blank" rel="noreferrer">Abrir {platform} ↗</a>
       </div>
       <p className="campaign-status" role="status">{copyStatus}</p>
+      {awaiting && <button className="button button-dark" onClick={() => reply.current?.focus()}>Colar resposta desta campanha</button>}
     </section>}
     <section className="campaign-panel" aria-labelledby="campaign-import-heading">
       <h3 id="campaign-import-heading">Importar resposta</h3>
-      <label>Conteúdo em JSON ou Markdown<textarea rows={6} value={raw} maxLength={maxImport}
+      <label>Conteúdo em JSON ou Markdown<textarea ref={reply} rows={6} value={raw} maxLength={maxImport}
         onChange={event => changeRaw(event.target.value)} /></label>
       <p className="muted">Cole a resposta do GPT. Depois de validar, você pode salvar e seguir diretamente para o Studio.</p>
       <ResponsePreview raw={raw} draft={draft} hideError={Boolean(error || externalError)} />

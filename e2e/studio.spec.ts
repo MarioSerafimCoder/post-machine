@@ -145,7 +145,7 @@ test('falha de IndexedDB mantém alterações e permite retentativa', async ({ p
   await page.goto('/#/studio')
   await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
-  await expect(page.getByText('Nenhum backup ZIP registrado para este projeto.')).toBeVisible()
+  await expect(page.getByTitle('Nenhum backup ZIP registrado para este projeto.')).toBeVisible()
   await page.getByRole('button', { name: 'Salvar', exact: true }).click()
   await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
   await page.evaluate(() => {

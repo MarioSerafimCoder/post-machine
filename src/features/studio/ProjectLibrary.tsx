@@ -3,57 +3,15 @@ import { Icon } from '../../components/Icon'
 import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
 import { normalize } from '../radar/contract'
 import { DamagedProjects } from './DamagedProjects'
-import { download, renderScene } from './export'
-import { loadFonts } from './fonts'
-import { newProjectIdentity, dimensions, formatNames, type Format } from './model'
+import { download } from './export'
+import ProjectPreview from './ProjectPreview'
+import { newProjectIdentity, formatNames, type Format } from './model'
 import { backupProject, listProjects, loadProject, removeProject, restoreProject, saveLibraryProject, type ProjectSummary } from './storage'
 import { StorageSettings } from './StorageSettings'
 import './projectLibrary.css'
 
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' })
 const collator = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' })
-const previews = new Map<string, Blob>()
-let previewQueue = Promise.resolve()
-
-function ProjectPreview({ item }: { item: ProjectSummary }) {
-  const target = useRef<HTMLSpanElement>(null)
-  const [src, setSrc] = useState<string>()
-  useEffect(() => {
-    const node = target.current
-    if (!node) return
-    const controller = new AbortController()
-    let url: string | undefined
-    const key = item.id + ':' + item.revision
-    const observer = new IntersectionObserver(entries => {
-      if (!entries.some(entry => entry.isIntersecting)) return
-      observer.disconnect()
-      previewQueue = previewQueue.then(async () => {
-        controller.signal.throwIfAborted()
-        let blob = previews.get(key)
-        if (!blob) {
-          const project = await loadProject(item.id)
-          controller.signal.throwIfAborted()
-          const first = project.slides[0]
-          if (!first?.scene.objects.length) return
-          await loadFonts(project.brand)
-          const [width, height] = dimensions[project.format]
-          blob = (await renderScene(first.scene, width, height, { scale: 320 / Math.max(width, height), signal: controller.signal })).blob
-          if (previews.size >= 48) previews.delete(previews.keys().next().value!)
-          previews.set(key, blob)
-        }
-        controller.signal.throwIfAborted()
-        url = URL.createObjectURL(blob)
-        setSrc(url)
-      }).catch(() => undefined)
-    }, { rootMargin: '120px' })
-    observer.observe(node)
-    return () => { controller.abort(); observer.disconnect(); if (url) URL.revokeObjectURL(url) }
-  }, [item.id, item.revision])
-  return <span ref={target} className="library-preview" aria-hidden="true">
-    {src ? <img src={src} alt="" /> : <span className="library-placeholder" data-format={item.format}><Icon name="studio" /></span>}
-  </span>
-}
-
 type Library = Awaited<ReturnType<typeof listProjects>>
 type Props = {
   result?: Library; refresh: () => Promise<void>; error: string; flush: () => Promise<void>;

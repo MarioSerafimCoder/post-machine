@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
 import { maxImport, maxSlides, type Draft } from '../campaigns/contract'
 import { readCampaigns } from '../campaigns/storage'
@@ -49,6 +49,17 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   editTemplate: (template: AuthorTemplate) => Promise<void>
 }) {
   const [step, setStep] = useState<Step>('Conteúdo')
+  const [editingSlides, setEditingSlides] = useState(Boolean(campaign?.content))
+  const contentFile = useRef<HTMLInputElement>(null)
+  const firstTitle = useRef<HTMLInputElement>(null)
+  const [focusRequest, setFocusRequest] = useState(0)
+  useLayoutEffect(() => {
+    if (focusRequest) firstTitle.current?.focus()
+  }, [focusRequest])
+  function showSlides() {
+    setEditingSlides(true)
+    setFocusRequest(previous => previous + 1)
+  }
   const [text, setText] = useState('')
   const [slides, setSlides] = useState<Entry[]>(() => campaign?.content ? fromStructured(campaign.content, campaign.briefing).map(entry) : [entry()])
   const [campaigns, setCampaigns] = useState<Draft[]>()
@@ -208,6 +219,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       id === null ? `Slide ${index + 1} definido sem imagem.` : `Slide ${index + 1} voltou à distribuição automática.`)
   }
   function organize(values: CollectionSlide[]) {
+    showSlides()
     setSlides(previous => reconcileExpressSlides(values, previous, key))
   }
   function applyText(raw = text, onlyStructured = false) {
@@ -226,7 +238,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         if (!author) setFormat(result.structured.campaign.format === 'story' ? 'story' : initialFormat === 'story' ? 'portrait' : initialFormat)
       }
       setError('')
-      setStatus(`${result.slides.length} slide(s) organizados. Confira o conteúdo e avance para Imagens ou Templates.`)
+      setStatus(`${result.slides.length} ${result.slides.length === 1 ? 'slide organizado' : 'slides organizados'}. Confira o conteúdo e avance para Imagens ou Templates.`)
     } catch (cause) { setError(errorText(cause)) }
   }
 
@@ -296,7 +308,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       setPhotos(next)
       if (slideKey && selectedImage) change(slideKey, { imageId: selectedImage })
       setPhotoId(current => current || next[0]?.id || '')
-      setStatus(added ? `${added} imagem(ns) adicionada(s).` : 'Estas imagens já estão na preparação.')
+      setStatus(added ? `${added} ${added === 1 ? 'imagem adicionada' : 'imagens adicionadas'}.` : 'Estas imagens já estão na preparação.')
       if (failures.length) setError(failures.join(' '))
     } finally { operation.current = false; if (live.current) setBusy(false) }
   }
@@ -451,10 +463,12 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     },
   } : undefined)
 
+  const interrupted = requests.filter(item => search.status(item) === 'error')
+  const missing = requests.filter(item => search.status(item) === 'empty')
   let panel: ReactNode
   if (step === 'Conteúdo') panel = <div className="express-content">
     <div className="express-paste">
-      <label>Cole aqui o conteúdo do seu post ou carrossel<textarea rows={7} value={text} maxLength={maxImport}
+      <label>Cole aqui o conteúdo do seu post ou carrossel<textarea rows={4} value={text} maxLength={maxImport}
         placeholder={'Slide 1 — Seu título\nTexto do primeiro slide\n\nSlide 2\nTexto do segundo slide'}
         onPaste={event => {
           if (text.trim() || slides.some(slide => slide.title.trim() || slide.body.trim())) return
@@ -463,11 +477,13 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           event.preventDefault(); setText(raw); applyText(raw)
         }}
         onChange={event => updateRaw(event.target.value)} /></label>
-      <p className="muted">Cole a resposta do GPT em JSON ou Markdown de campanha, ou use texto com marcações “Slide 1”, “Slide 2” etc.</p>
+      <p className="muted">Cole uma resposta pronta ou separe seu texto com “Slide 1”, “Slide 2” e assim por diante.</p>
       <ResponsePreview raw={text} express />
       <div className="collection-actions">
-        <button className={`button ${lastOrganized === text ? 'button-outline' : 'button-dark'}`} onClick={() => applyText()}>Organizar slides</button>
-        <label>Importar arquivo JSON ou Markdown<input type="file" accept=".json,.md,application/json,text/markdown" onChange={async event => {
+        {text.trim() && lastOrganized !== text && <button className="button button-dark" onClick={() => applyText()}>Organizar slides</button>}
+        <button className="button button-outline" onClick={() => contentFile.current?.click()}>Importar arquivo</button>
+        {!editingSlides && <button className="button button-outline" onClick={showSlides}>Escrever slide a slide</button>}
+        <input hidden ref={contentFile} aria-label="Importar arquivo JSON ou Markdown" type="file" accept=".json,.md,application/json,text/markdown" onChange={async event => {
           const file = event.currentTarget.files?.[0]
           event.currentTarget.value = ''
           if (!file) return
@@ -475,16 +491,16 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
             if (file.size > maxImport * 4) throw Error('O arquivo excede o limite de importação.')
             const raw = await file.text()
             if (raw.length > maxImport) throw Error('O conteúdo excede o limite de importação.')
-            if (live.current) updateRaw(raw)
+            if (live.current) { setText(raw); applyText(raw) }
           } catch (cause) { if (live.current) setError(errorText(cause)) }
-        }} /></label>
+        }} />
         {!!campaigns?.length && <label>Carregar campanha do Radar<select value={linked?.id ?? ''} onChange={event => loadCampaign(event.target.value)}>
           <option value="">Selecione uma campanha</option>
           {campaigns.map(draft => <option key={draft.id} value={draft.id}>{draft.content?.campaign.title}</option>)}
         </select></label>}
       </div>
     </div>
-    <label>Nome do projeto<input value={name} maxLength={100} onChange={event => setName(event.target.value)} placeholder="Opcional" /></label>
+    {editingSlides && <><label>Nome do projeto<input value={name} maxLength={100} onChange={event => setName(event.target.value)} placeholder="Opcional" /></label>
     <div className="express-slides">{slides.map((slide,index) => <article key={slide.key}>
       <header><h3>Slide {String(index+1).padStart(2,'0')}</h3><div className="collection-actions">
         {([-1,1] as const).map(delta => <button key={delta} className="button button-outline" disabled={!slides[index+delta]}
@@ -495,7 +511,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         <button className="button button-outline" aria-label={`Remover slide ${index+1}`} disabled={slides.length <= 1}
           onClick={() => setSlides(items => items.filter(item => item.key !== slide.key))}>Remover</button>
       </div></header>
-      <label>Título<input value={slide.title} onChange={event => change(slide.key,{title:event.target.value, headlines:undefined})} /></label>
+      <label>Título<input ref={index === 0 ? firstTitle : undefined} value={slide.title} onChange={event => change(slide.key,{title:event.target.value, headlines:undefined})} /></label>
       {style.premium && <label>Trecho em destaque<input value={slide.emphasis ?? ''} maxLength={titleLimit}
         placeholder="Parte exata do título" aria-invalid={!!slide.emphasis?.trim() && !slide.title.includes(slide.emphasis.trim())}
         onChange={event => change(slide.key,{emphasis:event.target.value})} />
@@ -511,7 +527,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
             match={automaticBySlide.get(slide.key)?.automatic?.match} />
         </div>}
     </article>)}</div>
-    <button className="button button-outline" disabled={slides.length >= maxSlides} onClick={() => setSlides(items => [...items,entry()])}>Adicionar slide</button>
+    <button className="button button-outline" disabled={slides.length >= maxSlides} onClick={() => setSlides(items => [...items,entry()])}>Adicionar slide</button></>}
   </div>
   else if (step === 'Imagens') panel = <>
     <nav aria-label="Origem das imagens da produção" className="collection-actions">
@@ -696,6 +712,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         data = { ...data, step: 'Templates' }
       } finally { setBusy(false) }
     }
+    setEditingSlides(true)
     setText(data.text); setSlides(data.slides); setLinked(data.linked); setName(data.name)
     setCaption(data.caption); setPhotos(data.photos); setPhotoId(data.photos[0]?.id ?? '')
     setFormat(data.format); setStyle(collections.find(item => item.id === data.styleId) ?? collections[0])
@@ -722,7 +739,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     {draftGate === 'error' && <button className="button button-outline" onClick={() => setDraftGate('ready')}>Continuar com a preparação atual</button>}
     {draftGate === 'recover' && candidate && <div className="express-panel">
       <h3>Preparação anterior disponível</h3>
-      <p>{candidate.name || 'Produção Expressa'} · {candidate.slides.length} slide(s) · {candidate.photos.length} imagem(ns)</p>
+      <p>{candidate.name || 'Produção Expressa'} · {candidate.slides.length} {candidate.slides.length === 1 ? 'slide' : 'slides'} · {candidate.photos.length} {candidate.photos.length === 1 ? 'imagem' : 'imagens'}</p>
       <div className="collection-actions">
         <button className="button button-dark" disabled={busy} onClick={() => void recover(candidate)}>Retomar preparação</button>
         <button className="button button-outline" disabled={busy} onClick={() => void discard()}>Descartar rascunho</button>
@@ -737,7 +754,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       <div className="express-panel">
         <header className="express-step">
           <h3>{step}</h3>
-          <span className="muted">{slides.length - invalid.length} de {slides.length} slide(s) com conteúdo · {photos.length} imagem(ns) · {author?.name ?? style.name}</span>
+          {(editingSlides || step !== 'Conteúdo') && <span className="muted">{slides.length - invalid.length} de {slides.length} {slides.length === 1 ? 'slide' : 'slides'} com conteúdo · {photos.length} {photos.length === 1 ? 'imagem' : 'imagens'} · {author?.name ?? style.name}</span>}
         </header>
         {(busy || downloading) && <p role="status">{downloading ? 'Baixando imagem…' : 'Preparando…'}</p>}
         {error && <p className="express-warning" role="alert">{error}</p>}
@@ -747,8 +764,24 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           {' · '}{matchedPhotos.filter(match => match.strategy === 'editorial').length} em apoio editorial
           {' · '}{requests.filter(item => search.status(item) === 'empty').length} sem resultado confiável
         </p>}
+        {(missing.length > 0 || interrupted.length > 0 || matchedPhotos.length > 0) && <div className="collection-actions" role="group" aria-label="Fotografias da preparação">
+          {matchedPhotos.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
+            const index = slides.findIndex(slide => automaticBySlide.has(slide.key) || photos.some(photo => photo.id === slide.imageId && photo.automatic))
+            selectStep('Imagens')
+            setEditTarget({ index, field: 'image' })
+          }}>Ver fotos sugeridas · {matchedPhotos.length}</button>}
+          {missing.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
+            selectStep('Imagens')
+            setOrigin('openverse')
+            setImageBriefSlide(missing[0].key)
+          }}>Escolher imagem · {missing.length}</button>}
+          {interrupted.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
+            const keys = new Set(interrupted.map(item => item.key))
+            setSlides(items => items.map(slide => keys.has(slide.key) ? { ...slide, searchRevision: (slide.searchRevision ?? 0) + 1 } : slide))
+          }}>Tentar novamente · {interrupted.length}</button>}
+        </div>}
         <div className="express-stage" key={step}>{panel}</div>
-        {step !== 'Prévia' && <div className="collection-actions express-next">
+        {step !== 'Prévia' && (step !== 'Conteúdo' || editingSlides) && <div className="collection-actions express-next">
           <button className="button button-dark" disabled={busy || downloading || (step === 'Conteúdo' && !!invalid.length)}
             onClick={() => selectStep(step === 'Conteúdo' ? 'Imagens' : step === 'Imagens' ? 'Templates' : 'Prévia')}>
             {step === 'Conteúdo' ? 'Avançar para imagens' : step === 'Imagens' ? 'Avançar para templates' : 'Avançar para prévia'}

@@ -1,9 +1,26 @@
 # Estado real — 23/11/2026
 
+## Simplificação do fluxo de criação — validação local
+
+- Lint, 129 testes unitários, build, dry-run do Wrangler e 142 cenários Playwright passaram. Dez repetições são omitidas pela configuração dos testes de laptop. A suíte cobre retomada do prompt após recarga, filtros temporais, escrita e importação por teclado e repetição de busca fotográfica interrompida.
+
+- Radar usa o relógio atual nos filtros de publicação, informa a idade da edição e mantém busca, categoria e período à vista. Filtros adicionais podem ser removidos mesmo recolhidos. Iniciar um briefing guarda os filtros de origem no histórico da aba.
+- A primeira visita oferece começar um projeto. Havendo trabalho salvo, a retomada vem antes da apresentação, com a prévia da primeira página quando disponível. Campanhas reabrem na etapa de resposta após copiar o prompt, inclusive depois de recarregar a página.
+- Produção Expressa revela os campos dos slides ao colar, importar ou começar a escrita manual. O título recebe foco após organizar o conteúdo. O Studio reúne as revisões técnica e editorial e posiciona o backup junto ao salvamento. Os dois fluxos oferecem acesso às imagens sugeridas, à escolha manual e à repetição das buscas interrompidas.
+- Botões têm resposta de pressão e painéis aparecem com transições curtas. No Chromium, a escala pressionada foi 0,975 e a duração da transição foi 0 s com movimento reduzido. Em 1280 × 800 e 1440 × 900, o primeiro cartão do Radar passou de 547 para 360 px do topo. O editor de um projeto vazio em retrato passou de 39% para 41% e de 46% para 49%, respectivamente, sem rolagem horizontal nas telas medidas.
+- O workflow registra a edição e as fontes com erro após a coleta, e registra a promoção e a verificação de acesso separadamente. O YAML e a sintaxe dos 16 blocos de shell passaram na verificação local. A execução do workflow atualizado no GitHub e a publicação continuam pendentes.
+
+## Avaliação local de UI e UX — 23/11/2026
+
+- Inspeção no Chromium em 1280 × 800 e 1440 × 900 de Início, Radar, biblioteca do Studio, editor vazio, Produção Expressa e Auditoria sem projetos. Com os filtros abertos, a primeira notícia começou a 547 px do topo nas duas larguras. O canvas retrato iniciou com zoom de 39% e 46%, respectivamente.
+- Pendência reproduzida no snapshot local: em 23/11 o filtro “Últimas 24 horas” incluiu notícia de 16/11, pois usa `attemptedAt` como referência. O botão de recarga consulta o JSON publicado. A fotografia automática e o deploy foram avaliados pelo código e pelos registros existentes.
+- Verificação desta análise: lint aprovado, 129 testes unitários aprovados e build concluído. Revisão sem alteração na aplicação.
+
 ## Biblioteca visual do Studio
 
 - A entrada do Studio ganhou cabeçalho compacto, menu **Novo projeto**, biblioteca em grade ou lista, busca por nome e ordenação por edição, nome e criação. A data de criação é registrada a partir desta entrega e fica ausente nos registros anteriores. O esquema mantém a leitura de projetos e backups anteriores.
 - Os cards usam a primeira página renderizada sob demanda, com fila local e cache por revisão. Projetos vazios ou com prévia indisponível recebem um placeholder. O menu permite renomear, duplicar, baixar o backup ZIP e confirmar exclusão. Importação, campanhas, templates, Produção Expressa e ferramentas de armazenamento seguem acessíveis pelos fluxos existentes.
+- Lint, 129 testes unitários, build, dry-run do Wrangler e 138 cenários Playwright passaram, com 10 repetições omitidas. A biblioteca foi testada em 1024, 1280 e 1440 px. O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45212948829) aprovou `1fa5459`. O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45214183823) promoveu a versão `3cb0e64b-a8b6-4bec-bb9e-c8e299ebbbd0` a 100%. O Cloudflare Access respondeu após a publicação e a sessão autenticada confirmou a nova biblioteca com miniatura real.
 
 ## Evolução 12 — Busca fotográfica automática
 

@@ -1,5 +1,11 @@
 # Arquitetura e decisões
 
+## Retomada e interação no desktop
+
+- A página inicial e a biblioteca compartilham a renderização sob demanda da primeira página do projeto. O histórico da aba guarda a campanha aberta e os filtros de origem. Um marcador local por campanha permite retomar a importação após copiar o prompt. O conteúdo editorial continua no armazenamento existente.
+- Studio e Produção Expressa agrupam os estados da fila fotográfica existente. Repetir uma busca incrementa a revisão apenas das consultas interrompidas, mantendo os controles manuais e a concorrência existentes.
+- As microinterações usam CSS nativo e respeitam a preferência de movimento reduzido. A entrega reutiliza as dependências e licenças existentes.
+
 ## Evolução 12
 
 - A Produção Expressa inicia a busca após organizar o conteúdo. O Studio direto inicia a busca quando a peça pede imagem e tem um frame compatível. No catálogo, os dois caminhos pedem apenas a categoria `photograph`. A consulta usa termos selecionados localmente do título, subtítulo, corpo, CTA, briefing e campanha.

@@ -52,7 +52,21 @@ jobs:
             gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact/zip" > "$RUNNER_TEMP/radar.zip"
             unzip -p "$RUNNER_TEMP/radar.zip" radar.json > public/radar.json
           fi
-      - run: npm run radar:collect
+      - name: Coletar notícias
+        id: radar
+        run: npm run radar:collect
+      - name: Resumir edição do Radar
+        if: always()
+        env:
+          COLLECTION: ${{ steps.radar.outcome }}
+        shell: bash
+        run: |
+          echo "Resultado da coleta: $COLLECTION" >> "$GITHUB_STEP_SUMMARY"
+          if test -s public/radar.json; then
+            jq -r '"### Edição disponível após a tentativa\n\nÚltima coleta válida: \(.collectedAt // "indisponível")\n\nÚltima tentativa registrada: \(.attemptedAt)\n\nItens na edição: \(.items | length)\n\nFontes com falha na tentativa registrada: \([.sources[] | select(.error) | .name] | join(", ") | if length == 0 then "nenhuma" else . end)"' public/radar.json >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Nenhuma edição disponível para publicação." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Restaurar orçamento e cache opcional do YouTube
         env:
           GH_TOKEN: ${{ github.token }}
@@ -117,6 +131,7 @@ jobs:
           name: radar-dist
           path: dist
       - name: Publicar Static Assets
+        id: promote
         shell: bash
         run: |
           # O token edita o Worker. O domínio já está vinculado na Cloudflare.
@@ -137,4 +152,16 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - run: npm run deploy:verify-access
+      - name: Verificar acesso após a publicação
+        id: access_after
+        run: npm run deploy:verify-access
+      - name: Registrar resultado da publicação
+        if: always()
+        env:
+          PROMOTION: ${{ steps.promote.outcome }}
+          ACCESS: ${{ steps.access_after.outcome }}
+        run: |
+          echo "Promoção da versão: $PROMOTION · Verificação de acesso: $ACCESS" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PROMOTION" = success ]; then
+            jq -r '"Edição publicada: \(.collectedAt) · \(.items | length) itens"' dist/radar.json >> "$GITHUB_STEP_SUMMARY"
+          fi

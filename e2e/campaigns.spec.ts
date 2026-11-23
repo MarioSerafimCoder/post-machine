@@ -29,6 +29,11 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   await expect(page.getByText('Prompt copiado.')).toBeVisible()
   const pastedPrompt = await page.evaluate(() => navigator.clipboard.readText())
   expect(pastedPrompt.replace(/\r\n/g, '\n')).toBe(await prompt.inputValue())
+  await page.getByRole('button', { name: 'Colar resposta desta campanha' }).press('Enter')
+  await expect(page.getByLabel('Conteúdo em JSON ou Markdown')).toBeFocused()
+  await page.reload()
+  await expect(page.getByLabel('Conteúdo em JSON ou Markdown')).toBeFocused()
+  await expect(prompt).toHaveValue(/Diretores de arte/)
   await page.getByLabel('Ferramenta de IA').selectOption('Claude')
   await expect(page.getByRole('link', { name: 'Abrir Claude' })).toHaveAttribute('href', 'https://claude.ai/new')
 

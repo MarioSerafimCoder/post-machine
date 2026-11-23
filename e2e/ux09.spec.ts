@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('início cria e retoma projeto, e Auditoria lista revisão recente', async ({ page }, info) => {
   await page.goto('/#/')
-  const resume = page.getByRole('region', { name: 'Continue de onde parou' })
+  const resume = page.getByRole('region', { name: /Continue de onde parou|Comece seu primeiro projeto/ })
   await expect(resume.getByRole('link', { name: 'Explorar pautas' })).toBeVisible()
   await page.getByRole('link', { name: 'Auditoria', exact: true }).click()
   await expect(page.getByRole('link', { name: 'Abrir Studio', exact: true })).toBeVisible()

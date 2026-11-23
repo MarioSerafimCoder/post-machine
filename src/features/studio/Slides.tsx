@@ -8,10 +8,11 @@ import { sameReviewSettings } from '../audit/review'
 import type { VisualStatus } from '../images/automaticSearch'
 
 export type SlideReview = { project: Project; scene: Scene; errors: number; warnings: number }
-export function Slides({ project, current, select, action, issues, reorder, open, toggle, imageStatus }: {
+export function Slides({ project, current, select, action, issues, reorder, open, toggle, imageStatus, locatePhoto }: {
   project: Project; issues: ReadonlyMap<string,SlideReview>; current: number; select: (index: number) => void
   reorder: (from: number, to: number) => void; open: boolean; toggle: () => void
   action: (action: 'add' | 'duplicate' | 'remove' | 'up' | 'down') => void
+  locatePhoto: (index: number, group: 'applied' | 'empty' | 'error') => void
   imageStatus?: (id: string) => VisualStatus | undefined
 }) {
   const list = useRef<HTMLDivElement>(null)
@@ -25,8 +26,18 @@ export function Slides({ project, current, select, action, issues, reorder, open
     if (active.top < bounds.top) row.scrollTop -= bounds.top-active.top
     else if (active.bottom > bounds.bottom) row.scrollTop += active.bottom-bounds.bottom
   }, [current,open,project.slides.length])
+  const photos = { applied: [] as number[], empty: [] as number[], error: [] as number[] }
+  project.slides.forEach((slide, index) => {
+    const state = imageStatus?.(slide.id)
+    if (state === 'empty' || state === 'error') photos[state].push(index)
+    else if (!state && slide.visualChoice?.match) photos.applied.push(index)
+  })
   return <section className="studio-slides" aria-label="Slides">
     <header><strong>Frames</strong><button aria-expanded={open} onClick={toggle}>{open ? 'Recolher frames' : 'Mostrar frames'}</button></header>
+    {open && Object.values(photos).some(indices => indices.length) && <div className="photo-summary" role="group" aria-label="Fotografias do projeto">
+      {([{ group: 'applied', label: 'Fotos aplicadas' }, { group: 'empty', label: 'Escolher imagem' }, { group: 'error', label: 'Tentar novamente' }] as const).map(({ group, label }) =>
+        photos[group].length > 0 && <button key={group} onClick={() => locatePhoto(photos[group][0], group)}>{label} · {photos[group].length}</button>)}
+    </div>}
     {open && <><div className="slide-list" ref={list} role="group" aria-label="Setas navegam. Alt e setas movem o frame ativo.">{project.slides.map((slide, index) => {
       const review = issues.get(slide.id)
       const status = imageStatus?.(slide.id)

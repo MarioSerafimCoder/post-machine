@@ -21,10 +21,11 @@ test('mantém assistente fora da arte e devolve o foco da revisão nas quatro la
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
     await page.screenshot({ path: info.outputPath(`studio-assistente-${width}.png`) })
     await page.keyboard.press('Escape')
-    await button('Revisar carrossel').click()
+    await page.getByText('Revisar', { exact: true }).click()
+    await button('Texto e sequência').click()
     await expect(page.getByRole('heading', { name: 'Revisão editorial do projeto' })).toBeFocused()
     await button('Fechar revisão editorial').click()
-    await expect(button('Revisar carrossel')).toBeFocused()
+    await expect(page.getByText('Revisar', { exact: true })).toBeFocused()
   }
   await button('Salvar').click()
   await expect(page.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
@@ -87,7 +88,8 @@ test('confirma e desfaz em uma ação dois ajustes de margem verificados', async
     await page.getByText('Propriedades avançadas', { exact: true }).click()
     await page.getByLabel('X', { exact: true }).fill('20')
   }
-  await button('Auditar design').click()
+  await page.getByText('Revisar', { exact: true }).click()
+  await button('Problemas técnicos').click()
   await button('Auditar todos os slides').click()
   const heading = page.getByRole('heading', { name: 'Texto fora da margem segura' })
   await expect(heading).toHaveCount(2)
@@ -114,7 +116,7 @@ test('cria conteúdo pela entrada unificada e organiza o JSON na colagem', async
   }))
   await expect(page.getByLabel('Nome do projeto')).toHaveValue('Um novo recorte')
   await expect(page.getByLabel('Título', { exact: true })).toHaveValue('A luz organiza a leitura')
-  await expect(page.getByRole('status').filter({ hasText: '1 slide(s) organizados' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: '1 slide organizado' })).toBeVisible()
 })
 
 test('desfaz uma sequência de digitação e alinha pela margem da marca', async ({ page }) => {

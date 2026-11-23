@@ -111,3 +111,6 @@
 .visual-search-status p { margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
 .studio-visual-choice { display: grid; gap: 6px; padding-block: 5px 10px; border-bottom: 1px solid var(--line); }
 .express-assignment:not(:has(> img)) { grid-template-columns: minmax(0, 1fr); }
+
+.express-paste { padding: 18px; background: white; border: 1px solid var(--line); border-radius: 10px; }
+.express-slides article { border-top: 3px solid var(--ink); padding: 16px; gap: 12px; }
