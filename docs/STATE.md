@@ -1,5 +1,9 @@
 # Estado real — 18/11/2026
 
+## Aviso de leitura da matéria no Radar
+
+- Criar uma pauta a partir de uma notícia do Radar não gera mais o aviso de íntegra pendente. A recomendação de acesso à fonte aparece quando o editor a marca como inacessível. O prompt continua indicando que o Radar forneceu título ou resumo, conforme os dados disponíveis.
+
 ## Revisão editorial durante a produção
 
 - O Studio reaproveita regras da Auditoria para inspecionar o slide ativo após 750 ms de estabilidade. Verifica campos editoriais vazios, transbordamento, visibilidade e geometria nas dimensões da arte. O robô exibe achados localizáveis e heurísticas de título, com dispensas associadas à ocorrência apresentada.

@@ -40,9 +40,8 @@ export function recommend(draft: Draft, score: (preference: Preference) => numbe
     recommendations.push({ id: ruleId, ruleId, title, detail, assessment, ...fields })
 
   if (context.sourceConflict) add('SRC-005', 'As fontes divergem', 'Registre o que cada fonte sustenta, com seu trecho e contexto. Mantenha a divergência explícita enquanto ela não for resolvida.', 'needs_review')
-  if (context.access === 'unavailable' || (context.articles.length && context.access === 'metadata')) {
-    const access = context.access === 'unavailable' ? 'A fonte foi marcada como inacessível' : 'A íntegra ainda não foi confirmada'
-    add('SRC-002', access, `${context.metadata}. Restrinja alegações ao material verificável e mantenha lacunas para revisão humana.`, 'insufficient_data')
+  if (context.access === 'unavailable') {
+    add('SRC-002', 'A fonte foi marcada como inacessível', `${context.metadata}. Restrinja alegações ao material verificável e mantenha lacunas para revisão humana.`, 'insufficient_data')
   } else if (!context.articles.length && !context.content?.sources.length && !context.reference) {
     add('SRC-001', 'Confira se a pauta precisa de fontes', 'Uma opinião identificada pode partir do seu repertório. Vincule uma fonte e um trecho a cada alegação verificável antes de publicar.', 'insufficient_data')
   }
@@ -146,7 +145,7 @@ export function reviewEditorial(draft: Draft): Insight[] {
   } else if (articles.some(article => !present.has(article.url) && !present.has(article.canonicalUrl))) {
     note('origin-missing', 'SRC-001', 'Uma referência de origem ficou fora', 'Confirme se a omissão é intencional e se o conteúdo continua sustentado.', 'needs_review')
   }
-  if (access === 'unavailable' || (articles.length && access === 'metadata')) {
+  if (access === 'unavailable') {
     note('access', 'SRC-002', 'Acesso à fonte exige revisão', 'Valide as alegações no material efetivamente consultado antes de aprovar.', 'needs_review')
   }
   if (sourceConflict) note('conflict', 'SRC-005', 'Divergência registrada', 'Atribua as versões e preserve a incerteza enquanto as fontes não forem conciliadas.', 'needs_review')

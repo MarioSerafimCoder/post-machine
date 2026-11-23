@@ -25,14 +25,17 @@ describe('Editorial Intelligence', () => {
     expect(() => validateKnowledge({ ...data, rules: [{ ...data.rules[0], sourceIds: ['F99'] }] })).toThrow('Referência inválida')
   })
 
-  it('mantém uma fonte inacessível ou parcial como pendência e preserva a saída v1', () => {
+  it('avisa somente quando a fonte foi marcada como inacessível e preserva a saída v1', () => {
     const draft = withContent(newDraft(article(), defaultPreferences), 'O estudo provou aumento de 80%')
     expect(editorialContext(draft).metadata).toContain('apenas título')
-    expect(recommend(draft).find(item => item.id === 'SRC-002')?.assessment).toBe('insufficient_data')
+    expect(recommend(draft).some(item => item.id === 'SRC-002')).toBe(false)
+    expect(reviewEditorial(draft).some(item => item.ruleId === 'SRC-002')).toBe(false)
     expect(reviewEditorial(draft).filter(item => ['SRC-001', 'SRC-002', 'TTL-003'].includes(item.ruleId!)).map(item => item.assessment)).toEqual(
       expect.arrayContaining(['needs_review', 'heuristic']),
     )
     const limited = { ...draft, briefing: { ...draft.briefing, sourceAccess: 'unavailable' as const, slideCount: 5 } }
+    expect(recommend(limited).find(item => item.id === 'SRC-002')?.assessment).toBe('insufficient_data')
+    expect(reviewEditorial(limited).find(item => item.ruleId === 'SRC-002')?.assessment).toBe('needs_review')
     const prompt = createPrompt(limited, briefingInstructions(limited, recommend(limited)))
     expect(prompt).toContain('Acesso à fonte marcado como indisponível')
     expect(prompt).toContain('Peça 5: sintetize')
