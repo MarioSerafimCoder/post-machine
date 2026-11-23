@@ -1,6 +1,6 @@
 import { originalHosts, openverseOrigin, responseSchema, safeWebUrl, type ImageResult } from './contract'
 
-export type Search = { query: string; page: number; license: string; commercial: boolean; ratio: string; source: string; photographs?: boolean }
+export type Search = { query: string; page: number; license: string; commercial: boolean; ratio: string; source: string; photographs?: boolean; illustrations?: boolean }
 type SearchResult = ReturnType<typeof responseSchema.parse>
 const cache = new Map<string, { expires: number; data: SearchResult }>()
 type PendingPhotographs = { controller: AbortController; users: number; result: Promise<SearchResult> }
@@ -20,7 +20,7 @@ export class SearchLimit extends Error {
   constructor(readonly until: number) { super('Limite de buscas do Openverse atingido. Tente novamente depois.'); this.name = 'SearchLimit' }
 }
 export async function searchImages(search: Search, signal: AbortSignal) {
-  if (!search.photographs) return fetchResults(search, signal)
+  if (!search.photographs && !search.illustrations) return fetchResults(search, signal)
   signal.throwIfAborted()
   const key = JSON.stringify(search)
   let pending = pendingPhotographs.get(key)
@@ -60,6 +60,7 @@ async function fetchResults(search: Search, signal: AbortSignal) {
   if (['wide', 'tall', 'square'].includes(search.ratio)) url.searchParams.set('aspect_ratio', search.ratio)
   if (search.source) url.searchParams.set('source', search.source)
   if (search.photographs) url.searchParams.set('category', 'photograph')
+  else if (search.illustrations) url.searchParams.set('category', 'illustration')
   const key = String(url)
   const now = Date.now()
   const cached = cache.get(key)

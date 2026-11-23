@@ -1,5 +1,5 @@
-import type { CampaignStartMode } from './features/campaigns/CampaignStart'
-import type { Draft } from './features/campaigns/contract'
+import type { CampaignEntry } from './features/campaigns/CampaignStart'
+import type { DesignMode, Draft } from './features/campaigns/contract'
 import { lazy, Suspense } from 'react'
 import { AssistantSignals, createAssistantSignals } from './features/intelligence/signals'
 const Assistant = lazy(() => import('./features/intelligence/Assistant'))
@@ -27,7 +27,7 @@ export function App() {
   const page = usePage()
   const [assistantSignals] = useState(createAssistantSignals)
   const [visited, setVisited] = useState({ studio: false, radar: false })
-  const [radarStart, setRadarStart] = useState<{ mode: CampaignStartMode }>()
+  const [radarStart, setRadarStart] = useState<CampaignEntry>()
   const [studioEntry, setStudioEntry] = useState<{ projectId?: string; mode?: 'express' }>()
   const [creating, setCreating] = useState(false)
   function startContent(origin: ContentOrigin) {
@@ -45,7 +45,7 @@ export function App() {
     const timer = setTimeout(() => setVisited(current => current[page] ? current : { ...current, [page]: true }), 0)
     return () => clearTimeout(timer)
   }, [page])
-  const [designRequest, setDesignRequest] = useState<{ draft: Draft; mode?: 'express' } | null>(null)
+  const [designRequest, setDesignRequest] = useState<{ draft: Draft; mode?: DesignMode } | null>(null)
   const [roadmap, setRoadmap] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
   const label = nav.find(item => item.id === page)?.label ?? 'Página não encontrada'
@@ -78,9 +78,9 @@ export function App() {
         <h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'Ideias boas merecem espaço.' : label}</h1>
         {page === 'inicio' && <Overview onRoadmap={() => setRoadmap(true)} openProject={projectId => { setStudioEntry({ projectId }); window.location.hash = '/studio' }} />}
         {(page === 'radar' || visited.radar) && <div hidden={page !== 'radar'}><Suspense fallback={<p role="status">Carregando o Radar…</p>}>
-          <Radar active={page === 'radar'} start={radarStart} onDesign={(draft,mode) => { setDesignRequest({draft,mode}); window.location.hash = '/studio' }} />
+          <Radar active={page === 'radar'} start={radarStart} onDesign={(draft,mode) => { setStudioEntry(undefined); setDesignRequest({draft,mode}); window.location.hash = '/studio' }} />
         </Suspense></div>}
-        {(page === 'studio' || visited.studio) && <div hidden={page !== 'studio'}><Suspense fallback={<p role="status">Carregando Studio…</p>}><Studio request={designRequest} homeEntry={studioEntry} active={page === 'studio'} onStartCampaign={mode => { setRadarStart({ mode }); window.location.hash = '/radar' }} /></Suspense></div>}
+        {(page === 'studio' || visited.studio) && <div hidden={page !== 'studio'}><Suspense fallback={<p role="status">Carregando Studio…</p>}><Studio request={designRequest} homeEntry={studioEntry} active={page === 'studio'} onStartCampaign={(mode, campaignId) => { setRadarStart({ mode, campaignId }); window.location.hash = '/radar' }} /></Suspense></div>}
         {page === 'auditoria' && <Suspense fallback={<p>Carregando auditoria…</p>}><AuditPage /></Suspense>}
         {page === 'not-found' && <section className="empty-state"><Icon name="home" /><h2>Este caminho ainda não existe.</h2><p>Volte à visão geral para explorar seu espaço.</p><a className="button button-dark" href="#/inicio">Voltar ao início</a></section>}
       </main>

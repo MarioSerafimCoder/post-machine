@@ -108,6 +108,8 @@ test('analisa a notícia escolhida ao lado dos cartões e mantém o acesso à fo
   await expect(search).toHaveValue('')
   await expect(cards).toHaveCount(2)
   await panel.getByRole('button', { name: 'Criar post com esta notícia' }).click()
+  await expect(page.getByRole('region', { name: 'Editor Studio' })).toBeVisible()
+  await page.getByRole('button', { name: 'Editar briefing', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Briefing editorial' })).toBeVisible()
 })
 

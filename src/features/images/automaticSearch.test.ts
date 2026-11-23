@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rankPhotographs, visualQueries } from './automaticSearch'
+import { rankAutomaticImages as rankPhotographs, visualQueries } from './automaticSearch'
 import { responseSchema, type ImageResult } from './contract'
 
 const photo = (patch: Partial<ImageResult> = {}): ImageResult => responseSchema.parse({ page_count: 1, results: [{
@@ -46,5 +46,22 @@ describe('política visual automática', () => {
     const movie = photo({ title: 'Stop-motion animation behind the scenes' })
     const waterfall = photo({ title: 'Waterfall captured with stop motion' })
     expect(rankPhotographs([movie, waterfall], visual, 'editorial', new Set(), context).map(item => item.result.title)).toEqual([movie.title])
+  })
+  it('prioriza correspondência exata com a fonte e exige licença mesmo para a foto original', () => {
+    const sourcePage = 'https://example.org/noticia'
+    const visual = visualQueries({ title: 'Ponte e arquitetura urbana', sourcePage })!
+    const original = photo({ title: 'Foto de abertura', foreign_landing_url: sourcePage })
+    const blocked = photo({ foreign_landing_url: sourcePage, license: undefined })
+    expect(rankPhotographs([photo(), original, blocked], visual, 'documental', new Set())[0]).toMatchObject({
+      result: original, original: true,
+    })
+    expect(rankPhotographs([blocked], visual, 'documental', new Set())).toHaveLength(0)
+  })
+  it('usa ilustração licenciada apenas como apoio explícito e temático', () => {
+    const visual = visualQueries({ title: 'Ponte e arquitetura urbana', imageBrief: 'Ilustração da ponte', allowIllustration: true })!
+    expect(visual.stages.at(-1)?.strategy).toBe('illustration')
+    const original = photo({ category: 'illustration' })
+    const generic = photo({ category: 'illustration', title: 'Ponte arquitetura, imagem genérica abstrata' })
+    expect(rankPhotographs([generic, original], visual, 'illustration', new Set()).map(item => item.result)).toEqual([original])
   })
 })

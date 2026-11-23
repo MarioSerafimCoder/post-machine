@@ -43,8 +43,9 @@ export function Slides({ project, current, select, action, issues, reorder, open
       const status = imageStatus?.(slide.id)
       const match = slide.visualChoice?.match
       const photoStatus = status === 'documental' ? 'Busca documental' : status === 'editorial' ? 'Busca editorial' :
+        status === 'illustration' ? 'Busca de ilustração' :
         status === 'empty' ? 'Sem sugestão' : status === 'error' ? 'Busca indisponível' :
-          match ? match.strategy === 'editorial' ? 'Foto editorial' : 'Foto documental' : ''
+          match ? match.strategy === 'illustration' ? 'Ilustração de apoio' : match.strategy === 'editorial' ? 'Foto editorial' : 'Foto documental' : ''
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]
       const label = composition === undefined ? templates[slide.layout as keyof typeof templates] ?? 'Livre' : compositionNames[Number(composition)] ?? 'Livre'
       const stale = review && (review.scene !== slide.scene || !sameReviewSettings(review.project,project))

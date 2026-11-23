@@ -20,6 +20,9 @@ export function frameRequest(project: Project, slide: VisualSlide) {
   if (!Number.isFinite(ratio) || ratio <= 0) return
   const query = visualQueries({ ...semantics(slide.scene), imageBrief: slide.imageBrief, role: slide.role, campaign: project.name,
     subtitle: slide.scene.objects.filter(object => object.semantic === 'subtitle').map(object => String(object.text ?? '')).join(' ') || slide.visualSubtitle,
+    sourcePage: slide.role === 'cover' ? project.editorialSource?.url : undefined,
+    sourceImage: slide.role === 'cover' ? project.editorialSource?.imageUrl : undefined,
+    allowIllustration: !!project.editorialSource,
     ratio })
   return query ? requestFor(project.id + '/' + slide.id, query, slide.visualChoice?.revision) : undefined
 }

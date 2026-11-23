@@ -111,8 +111,21 @@ export function saveProject(project: Project, expected?: Project) {
 export function saveLibraryProject(project: Project, expected?: Project) {
   return withStudioStorage(() => writeProject(project, expected, false))
 }
+export async function openOrCreateStudioProject(id: string, create: () => Promise<Project>): Promise<Project> {
+  try { return await loadProject(id) }
+  catch (error) { if (!(error instanceof ProjectNotFound)) throw error }
+  const candidate = { ...await create(), id }
+  try {
+    await withStudioStorage(() => writeProject(candidate, undefined, false, true))
+    return candidate
+  } catch (error) {
+    if (!(error instanceof ProjectConflict)) throw error
+    return loadProject(id)
+  }
+}
 export class ProjectConflict extends Error {}
-async function writeProject(project: Project, expected?: Project, rememberBrand = true) {
+class ProjectNotFound extends Error {}
+async function writeProject(project: Project, expected?: Project, rememberBrand = true, createOnly = false) {
   const previous = expected && revisions.get(expected)
   const packed = await pack(project, previous?.assets)
   const serialized = JSON.stringify(packed.project)
@@ -122,6 +135,7 @@ async function writeProject(project: Project, expected?: Project, rememberBrand 
     const old = tx.objectStore('projects').get(project.id)
     old.onsuccess = () => {
       try {
+        if (createOnly && old.result !== undefined) return
         if (expected && (expected.id !== project.id || JSON.stringify(old.result && validateProject(old.result)) !== baseline)) return
         if (old.result && JSON.stringify(old.result) !== serialized) tx.objectStore('recovery').put(old.result, project.id)
         const assets = tx.objectStore('assets')
@@ -196,7 +210,7 @@ export function loadProject(id: string): Promise<Project> {
 }
 async function loadStoredProject(id: string, store: 'projects' | 'recovery'): Promise<Project> {
   const value = await transaction([store], 'readonly', tx => { const req = tx.objectStore(store).get(id); return () => req.result as unknown })
-  if (!value) throw Error(store === 'recovery' ? 'Ainda não existe versão anterior salva.' : 'Projeto não encontrado.')
+  if (!value) throw new ProjectNotFound(store === 'recovery' ? 'Ainda não existe versão anterior salva.' : 'Projeto não encontrado.')
   const stored = validateProject(value)
   const assets = new Map<string, EncodedAsset>()
   const project = await hydrate(stored, key => transaction(['assets'], 'readonly', tx => { const req = tx.objectStore('assets').get(key); return () => req.result as Blob | undefined }), stored.assetEncoding ? assets : undefined)

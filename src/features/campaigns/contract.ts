@@ -57,6 +57,7 @@ export const backupSchema = z.object({
 
 export type Preferences = z.infer<typeof preferencesSchema>
 export type Draft = z.infer<typeof draftSchema>
+export type DesignMode = 'radar' | 'express'
 export type Briefing = Draft['briefing']
 export type Content = z.infer<typeof contentSchema>
 export type Slide = Content['slides'][number]

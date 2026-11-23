@@ -104,6 +104,7 @@ test('abre conteúdo importado no Studio e preenche o frame em segundo plano', a
     ? route.fulfill({ status: 503 }) : route.fallback())
   await page.goto('/#/radar')
   await button(page, 'Criar post').first().click()
+  await button(page, 'Editar briefing').click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
   await button(page, 'Gerar prompt para IA').click()
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
@@ -112,6 +113,7 @@ test('abre conteúdo importado no Studio e preenche o frame em segundo plano', a
   }))
   await button(page, 'Importar conteúdo').click()
   await button(page, 'Salvar e abrir no Studio').click()
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Ponte estaiada')
   await expect(button(page, 'Tentar novamente · 1')).toBeVisible()
   interrupted = false
   await button(page, 'Tentar novamente · 1').press('Enter')
@@ -129,7 +131,9 @@ test('abre conteúdo importado no Studio e preenche o frame em segundo plano', a
 test('aplica uma foto de arquivo como apoio quando o assunto exato não tem imagens', async ({ page }) => {
   await mockImages(page)
   const searches: string[] = []
+  let imported = false
   await page.route('https://api.openverse.org/v1/images/?*', route => {
+    if (!imported) return route.fulfill({ json: { page_count: 0, results: [] } })
     const url = new URL(route.request().url())
     const query = url.searchParams.get('q')!
     searches.push(query)
@@ -139,6 +143,7 @@ test('aplica uma foto de arquivo como apoio quando o assunto exato não tem imag
   })
   await page.goto('/#/radar')
   await button(page, 'Criar post').first().click()
+  await button(page, 'Editar briefing').click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
   await button(page, 'Gerar prompt para IA').click()
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
@@ -147,6 +152,7 @@ test('aplica uma foto de arquivo como apoio quando o assunto exato não tem imag
       body: 'A produção será exibida durante o desfile da Macy’s.', imageBrief: '', layoutType: 'editorial' }],
   }))
   await button(page, 'Importar conteúdo').click()
+  imported = true
   await button(page, 'Salvar e abrir no Studio').click()
   await expect(button(page, 'Slide 1')).toHaveAttribute('aria-description', /Foto editorial/)
   expect(searches).toHaveLength(3)

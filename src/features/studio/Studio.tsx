@@ -11,11 +11,11 @@ import { measureTitle } from './headlineFit'
 import { type CampaignStartMode } from '../campaigns/CampaignStart'
 import { loadFonts } from './fonts'
 import { useDocument } from './useDocument'
-import { listProjects, loadProject, loadRecovery, readBrand, backupProject, saveProject, BackupLimitError } from './storage'
+import { listProjects, loadProject, loadRecovery, readBrand, backupProject, saveProject, openOrCreateStudioProject, BackupLimitError } from './storage'
 import { ProjectLibrary } from './ProjectLibrary'
 import { download } from './export'
 import { ExportPanel } from './ExportPanel'
-import type { Draft } from '../campaigns/contract'
+import { defaultPreferences, newDraft, type DesignMode, type Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
 import { Slides, type SlideReview } from './Slides'
@@ -43,6 +43,7 @@ import { AdaptLayoutDialog } from './AdaptLayoutDialog'
 import { frameImage, frameRequest, imageWasEdited, rewriteVisualFrame } from './visualFrames'
 import { useAutomaticImages } from '../images/useAutomaticImages'
 import { VisualSearchStatus } from '../images/VisualSearchStatus'
+import { prepareArticleContent, preparePastedContent } from './editorialContent'
 import './collections.css'
 
 const Express = lazy(() => import('./Express').then(module => ({ default: module.Express })))
@@ -64,7 +65,7 @@ function readBackupDate(id: string) {
   } catch { return undefined }
 }
 
-export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'express' }; onStartCampaign: (mode: CampaignStartMode) => void }) {
+export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: DesignMode } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'express' }; onStartCampaign: (mode: CampaignStartMode, campaignId?: string) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
   const [slideFeedback, setSlideFeedback] = useState<{ text: string; id: string }>()
@@ -94,6 +95,12 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [entry, setEntry] = useState<'express' | 'collections'>()
   const [starting, setStarting] = useState(false)
   const startingRef = useRef(false)
+  const [openingArticle, setOpeningArticle] = useState(false)
+  const [retryArticle, setRetryArticle] = useState(0)
+  const [articleOpenFailed, setArticleOpenFailed] = useState(false)
+  const [pasteProject, setPasteProject] = useState<string>()
+  const [pastedText, setPastedText] = useState('')
+  const [pastedTemplate, setPastedTemplate] = useState<Template>()
   const [exportProjectId, setExportProjectId] = useState<string>()
   const exportToggle = useRef<HTMLButtonElement>(null)
   const exportOpen = !!project && project.id === exportProjectId
@@ -304,22 +311,47 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     finally { setBackupPending(false) }
   }
   const handleRequest = useEffectEvent(async ({draft,mode}: NonNullable<typeof request>) => {
+    setError('')
+    setArticleOpenFailed(false)
+    if (mode === 'radar') { setOpeningArticle(true); setEntry(undefined) }
     try {
       await flush()
       if (mode === 'express' && draft.content) {
         setExpressDraft(draft)
         setProject(undefined)
         setEntry('express')
+      } else if (mode === 'radar') {
+        const value = await openOrCreateStudioProject(draft.id, async () => {
+          const savedBrand = newProjectBrand(await readBrand() ?? brand)
+          await loadFonts(savedBrand)
+          return fromCampaign({ ...draft, content: prepareArticleContent(draft) }, savedBrand)
+        })
+        await flush()
+        if (getCurrent()?.id !== value.id) {
+          chooseSlide(0)
+          setAuditOpen(false)
+          setExportProjectId(undefined)
+          setEntry(undefined)
+          replace(value, true)
+        }
       } else {
         const savedBrand = newProjectBrand(await readBrand() ?? brand)
         await loadFonts(savedBrand)
         chooseSlide(0)
         replace(fromCampaign(draft,savedBrand))
       }
-    } catch (e) { setError(String(e)) }
+    } catch (e) {
+      setArticleOpenFailed(mode === 'radar')
+      setError(mode === 'radar' ? 'Não foi possível abrir a notícia no Studio. Tente novamente.' : String(e))
+    } finally { if (mode === 'radar') setOpeningArticle(false) }
   })
-  const handled = useRef<typeof request>(null)
-  useEffect(() => { if (request && handled.current !== request) { handled.current = request; void handleRequest(request) } }, [request])
+  const handled = useRef<{ request: typeof request; retry: number }>(undefined)
+  useEffect(() => {
+    if (active && request && (handled.current?.request !== request || handled.current.retry !== retryArticle)) {
+      handled.current = { request, retry: retryArticle }
+      void handleRequest(request)
+    }
+  }, [active, request, retryArticle])
   function template(layout: Template) {
     if (!project) return
     if (project.slides[current].scene.objects.length && !window.confirm('Trocar template preserva textos e imagem, mas recompõe os ajustes gráficos. Continuar?')) return
@@ -415,6 +447,26 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setEntry(undefined)
     setError('')
   }
+  async function importPasted() {
+    const original = getCurrent()
+    if (!original || startingRef.current || !pastedText.trim()) return
+    startingRef.current = true
+    setStarting(true)
+    setError('')
+    try {
+      const draft = campaign ?? { ...newDraft(original.editorialSource ?? null, defaultPreferences), title: original.name }
+      const content = preparePastedContent(pastedText, draft)
+      await loadFonts(original.brand)
+      if (getCurrent()?.id !== original.id || resolvePage(window.location.hash) !== 'studio') return
+      const copy = fromCampaign({ ...draft, content }, original.brand, pastedTemplate, original.format)
+      await openCreated({ ...copy, campaignId: original.campaignId, campaignUpdatedAt: original.campaignUpdatedAt })
+      setPasteProject(undefined)
+      setPastedText('')
+      setPastedTemplate(undefined)
+      setSlideFeedback({ text: 'Conteúdo organizado em uma nova versão.', id: crypto.randomUUID() })
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível organizar o conteúdo.') }
+    finally { startingRef.current = false; setStarting(false) }
+  }
   async function editTemplate(template: AuthorTemplate) {
     const copy = copyTemplateDesign(template)
     await openCreated(copy)
@@ -459,6 +511,9 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setHeadlineTarget(title)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio-headlines .headline-diagnosis')?.focus())
   })
+  const articleFeedback = openingArticle ? <p role="status">Organizando frames da notícia…</p> :
+    articleOpenFailed ? <button className="button button-outline" onClick={() => setRetryArticle(value => value + 1)}>Tentar abrir notícia novamente</button> : null
+  if (!project && openingArticle) return <section className="studio-welcome">{articleFeedback}</section>
   if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
     <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format}
       cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} editTemplate={editTemplate} />
@@ -472,13 +527,20 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       <CollectionGallery format={format} setFormat={setFormat} use={style => void createFromCollection(style)} />
     </Suspense>
   </section>
-  if (!project) return <ProjectLibrary result={libraryResult} refresh={async () => setLibrary(await listProjects())}
+  if (!project) return <>{articleFeedback}<ProjectLibrary result={libraryResult} refresh={async () => setLibrary(await listProjects())}
     error={error} flush={flush} open={openProject} create={() => createEmptyProject()}
     express={() => { setExpressDraft(undefined); setEntry('express') }} templates={() => setEntry('collections')}
     format={format} setFormat={setFormat} campaign={onStartCampaign} imported={value => {
       chooseSlide(0); replace(value, true); setError('')
       setSlideFeedback({ text: 'Projeto importado.', id: crypto.randomUUID() })
-    }} />
+    }} /></>
+  const source = project.editorialSource ?? campaign?.article
+  const overflow = project.slides[current].scene.objects.some(item => typeof item.text === 'string' && item.text.trim() &&
+    typeof item.maxHeight === 'number' && Number(item.height) * Math.abs(Number(item.scaleY ?? 1)) > item.maxHeight + 2)
+  const searchesPending = frameTargets.some(item => {
+    const value = autoSearch.status(item)
+    return value === 'documental' || value === 'editorial' || value === 'illustration'
+  })
   return <section className="studio" aria-label="Editor Studio">
     {adaptSource && <AdaptLayoutDialog source={adaptSource} firstSlide={current} close={() => setAdaptSource(undefined)}
       confirm={async copy => { await openCreated(copy); setAdaptSource(undefined) }} />}
@@ -494,6 +556,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <button onClick={() => void back()}>Projetos</button>
         <label className="studio-project-name">Projeto<input value={project.name} maxLength={100} onChange={event => setProject({ ...project, name: event.target.value, updatedAt: new Date().toISOString() })} /></label>
         <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
+        {campaign && <button onClick={() => void flush().then(() => onStartCampaign('blank', campaign.id),
+          () => setError('Salve o projeto antes de voltar ao briefing.'))}>Editar briefing</button>}
+        {source && <button aria-expanded={pasteProject === project.id}
+          onClick={() => { setPasteProject(pasteProject === project.id ? undefined : project.id); setPastedText(''); setPastedTemplate(undefined) }}>Colar conteúdo</button>}
         <span key={status} className={status === 'Salvo' ? 'studio-save-status studio-feedback' : 'studio-save-status'} data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
         <div className="studio-backup">
           {(backupDue || saveFailed) && <button title={lastBackup === undefined ? 'Nenhum backup ZIP registrado para este projeto.' : 'Atualize sua cópia de segurança'} disabled={backupPending} onClick={() => void downloadBackup()}>{backupPending ? 'Gerando backup…' : 'Baixar backup ZIP'}</button>}
@@ -572,6 +638,29 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         </div>
       </div>
     </header>
+    {articleFeedback}
+    {source && <details className="studio-origin">
+      <summary>Notícia de origem</summary>
+      <p><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a> · {source.source} · {source.category}
+        {source.publishedAt && <> · <time dateTime={source.publishedAt}>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(source.publishedAt))}</time></>}</p>
+      {source.summary && <p>{source.summary}</p>}
+      {project.editorialReferences?.filter(reference => reference.url !== source.url).map((reference, index) =>
+        <p key={reference.url + index}><a href={reference.url} target="_blank" rel="noreferrer">{reference.title}</a></p>)}
+    </details>}
+    {pasteProject === project.id && <section className="studio-paste context-panel" aria-label="Importar conteúdo editorial">
+      <label>Texto, JSON ou Markdown<textarea rows={5} value={pastedText} onChange={event => setPastedText(event.target.value)} /></label>
+      <label>Template da nova versão<select value={pastedTemplate ?? ''} onChange={event => setPastedTemplate((event.target.value || undefined) as Template | undefined)}>
+        <option value="">Escolher pelo conteúdo</option>
+        {Object.entries(templates).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+      </select></label>
+      <div className="studio-actions">
+        <button disabled={!pastedText.trim() || starting} onClick={() => void importPasted()}>{starting ? 'Organizando frames…' : 'Criar nova versão'}</button>
+        <button onClick={() => setPasteProject(undefined)} disabled={starting}>Fechar importação</button>
+      </div>
+      <p className="muted">A nova versão fica na biblioteca junto com este projeto.</p>
+    </section>}
+    {source && <p className="studio-editorial-status" role="status">{searchesPending ? 'Frames editáveis · Buscando imagens…' : 'Frames prontos para revisão.'}</p>}
+    {overflow && <p className="studio-guidance" role="status">Há texto além da área neste frame. Edite a caixa ou confira em Revisar → Problemas técnicos.</p>}
     {exportOpen && <ExportPanel key={project.id} project={project} current={current} active={active} getCurrent={getCurrent} flush={flush} review={fullReview} onReport={receiveReview}
       caption={project.caption ?? campaign?.content?.campaign.caption ?? ''}
       changeCaption={caption => setProject(value => value && { ...value, caption, updatedAt: new Date().toISOString() })}

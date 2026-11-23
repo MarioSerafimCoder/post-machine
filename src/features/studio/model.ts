@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import type { AuditSettings } from '../audit/contract'
 import type { VisualChoice } from '../images/automaticSearch'
+import type { Article } from '../radar/contract'
+import type { Content } from '../campaigns/contract'
 
 export const dimensions = { portrait: [1080, 1350], square: [1080, 1080], story: [1080, 1920] } as const
 export const formatNames = { portrait: 'Retrato', square: 'Quadrado', story: 'Story' }
@@ -17,7 +19,7 @@ export function newProjectBrand(saved?: Brand): Brand {
     saved.primary === '#163f35' && saved.secondary === '#d8ed91' && saved.background === '#f7f5ec'
   return legacyDefault ? defaultBrand : saved
 }
-export type Project = { schemaVersion: 1; id: string; name: string; format: Format; slides: VisualSlide[]; brand: Brand; auditSettings?: AuditSettings; caption?: string; campaignId: string | null; campaignUpdatedAt: string | null; createdAt?: string; updatedAt: string }
+export type Project = { schemaVersion: 1; id: string; name: string; format: Format; slides: VisualSlide[]; brand: Brand; auditSettings?: AuditSettings; caption?: string; editorialSource?: Article; editorialReferences?: Content['sources']; campaignId: string | null; campaignUpdatedAt: string | null; createdAt?: string; updatedAt: string }
 export function emptySlide(background = defaultBrand.background): VisualSlide { return { id: crypto.randomUUID(), scene: { objects: [], background }, layout: 'blank', role: 'content', imageBrief: '' } }
 export function newProjectIdentity() {
   const now = new Date().toISOString()

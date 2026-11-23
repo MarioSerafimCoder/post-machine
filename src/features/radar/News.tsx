@@ -11,6 +11,15 @@ import './news.css'
 const dateFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 const format = (date: string) => dateFormat.format(new Date(date))
 const pageSize = 24
+const newsFiltersKey = 'post-machine:radar-origin-filters'
+type NewsFilters = { query: string; category: string; source: string; language: string; period: string; kind: string; scope: string; onlyFavorites: boolean }
+
+function previousFilters(): Partial<NewsFilters> {
+  const state = window.history.state?.newsFilters
+  if (state) return state
+  try { return JSON.parse(sessionStorage.getItem(newsFiltersKey) ?? '{}') ?? {} }
+  catch { return {} }
+}
 
 function favoritesDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -56,14 +65,15 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
   const [storageError, setStorageError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [favoriteStatus, setFavoriteStatus] = useState('')
-  const [query, setQuery] = useState<string>(() => window.history.state?.newsFilters?.query ?? '')
-  const [category, setCategory] = useState<string>(() => window.history.state?.newsFilters?.category ?? '')
-  const [source, setSource] = useState<string>(() => window.history.state?.newsFilters?.source ?? '')
-  const [language, setLanguage] = useState<string>(() => window.history.state?.newsFilters?.language ?? '')
-  const [period, setPeriod] = useState<string>(() => window.history.state?.newsFilters?.period ?? '')
-  const [kind, setKind] = useState<string>(() => window.history.state?.newsFilters?.kind ?? '')
-  const [scope, setScope] = useState<string>(() => window.history.state?.newsFilters?.scope ?? '')
-  const [onlyFavorites, setOnlyFavorites] = useState<boolean>(() => window.history.state?.newsFilters?.onlyFavorites ?? false)
+  const [origin] = useState(previousFilters)
+  const [query, setQuery] = useState(origin.query ?? '')
+  const [category, setCategory] = useState(origin.category ?? '')
+  const [source, setSource] = useState(origin.source ?? '')
+  const [language, setLanguage] = useState(origin.language ?? '')
+  const [period, setPeriod] = useState(origin.period ?? '')
+  const [kind, setKind] = useState(origin.kind ?? '')
+  const [scope, setScope] = useState(origin.scope ?? '')
+  const [onlyFavorites, setOnlyFavorites] = useState(origin.onlyFavorites ?? false)
   const [limit, setLimit] = useState(pageSize)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
@@ -102,6 +112,7 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
   function startBriefing(item: Article) {
     const newsFilters = { query, category, source, language, period, kind, scope, onlyFavorites }
     window.history.replaceState({ ...window.history.state, newsFilters }, '')
+    try { sessionStorage.setItem(newsFiltersKey, JSON.stringify(newsFilters)) } catch { /* O histórico permanece disponível. */ }
     onCreatePost(item)
   }
   function refresh() { setState('loading'); setReload(value => value + 1) }

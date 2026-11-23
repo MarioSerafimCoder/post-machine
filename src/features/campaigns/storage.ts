@@ -1,4 +1,5 @@
-import { backupSchema, draftSchema, type Backup, type Draft, type Preferences } from './contract'
+import { backupSchema, defaultPreferences, draftSchema, newDraft, preferencesSchema, type Backup, type Draft, type Preferences } from './contract'
+import type { Article } from '../radar/contract'
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -81,6 +82,40 @@ export function readCampaign(id: string) {
 
 export function deleteCampaign(draft: Draft) {
   return changeCampaign(draft.id, draft, store => store.delete(draft.id))
+}
+
+export function openArticleCampaign(article: Article) {
+  return transact('readwrite', transaction => {
+    const campaigns = transaction.objectStore('campaigns')
+    const settings = transaction.objectStore('settings')
+    const key = 'radar:campaign:' + article.id
+    const preferences = settings.get('preferences')
+    const lookup = settings.get(key)
+    let campaign: Draft
+    function discover() {
+      const all = campaigns.getAll()
+      all.onsuccess = () => {
+        const existing = all.result.flatMap(value => {
+          const parsed = draftSchema.safeParse(value)
+          return parsed.success && !parsed.data.opportunity && parsed.data.article?.canonicalUrl === article.canonicalUrl
+            ? [parsed.data] : []
+        }).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+        campaign = existing ?? newDraft(article, preferencesSchema.safeParse(preferences.result).data ?? defaultPreferences)
+        if (!existing) campaigns.add(campaign)
+        settings.put(campaign.id, key)
+      }
+    }
+    lookup.onsuccess = () => {
+      if (typeof lookup.result !== 'string') { discover(); return }
+      const saved = campaigns.get(lookup.result)
+      saved.onsuccess = () => {
+        const parsed = draftSchema.safeParse(saved.result)
+        if (parsed.success && parsed.data.article?.canonicalUrl === article.canonicalUrl) campaign = parsed.data
+        else discover()
+      }
+    }
+    return () => campaign
+  })
 }
 
 export function putPreferences(preferences: Preferences) {

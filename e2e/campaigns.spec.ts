@@ -8,12 +8,14 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
   if (testInfo.project.name === 'laptop') await page.setViewportSize({ width: 1024, height: 800 })
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.route('https://api.openverse.org/v1/images/?*', route => route.fulfill({ json: { page_count: 0, results: [] } }))
   await page.goto('/#/radar')
   const first = page.getByRole('article').first()
   const title = await first.getByRole('heading').innerText()
   const url = await first.getByRole('link', { name: title, exact: true }).getAttribute('href')
   await page.getByRole('searchbox', { name: 'Buscar notícias' }).fill(title)
   await first.getByRole('button', { name: 'Criar post' }).click()
+  await page.getByRole('button', { name: 'Editar briefing', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Notícia de origem' }).getByRole('link')).toHaveAttribute('href', url!)
   await page.getByLabel('Público-alvo').fill('Diretores de arte')
   await page.getByRole('combobox', { name: 'Objetivo', exact: true }).selectOption('Educar')
@@ -89,6 +91,7 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
 test('importa Markdown de arquivo para post único', async ({ page }) => {
   await page.goto('/#/radar')
   await page.getByRole('button', { name: 'Criar post', exact: true }).first().click()
+  await page.getByRole('button', { name: 'Editar briefing', exact: true }).click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
   await page.getByLabel('Carregar arquivo').setInputFiles({
     name: 'post.md', mimeType: 'text/markdown', buffer: Buffer.from(markdownExample),

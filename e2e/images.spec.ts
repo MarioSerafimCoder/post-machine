@@ -14,6 +14,7 @@ const fixture = (index: number) => ({
 test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup', async ({ page }) => {
   await page.goto('/#/radar')
   await page.getByRole('button', { name: 'Criar post', exact: true }).first().click()
+  await page.getByRole('button', { name: 'Editar briefing', exact: true }).click()
   await page.getByLabel('Quantidade de slides').selectOption('2')
   await page.getByRole('button', { name: 'Gerar prompt para IA', exact: true }).click()
   await expect(page.getByLabel('Prompt editorial')).toHaveValue(/Separe fatos verificáveis/)

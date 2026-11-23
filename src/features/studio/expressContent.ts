@@ -38,10 +38,11 @@ export function parseExpress(input: string): { slides: CollectionSlide[]; struct
     return { heading:match[1], text:[preamble,body].filter(Boolean).join('\n\n') }
   }) : [{ heading: undefined, text }]
   return { slides: blocks.map(block => {
-    const explicit = !block.heading && /^Título:[ \t]*(.*)(?:\n|$)/i.exec(block.text)
+    const explicit = block.heading ? null : /^Título:[ \t]*(.*)(?:\n|$)/i.exec(block.text)
+      ?? /^#{1,6}[ \t]+([^\n]+)(?:\n|$)/.exec(block.text)
     const separator = /\n{2,}/.exec(block.text)
     const first = separator ? block.text.slice(0,separator.index) : ''
-    const heading = block.heading || (explicit || undefined)?.[1] || (first && !first.includes('\n') && first.length < 120 ? first : '')
+    const heading = block.heading || explicit?.[1] || (first && !first.includes('\n') && first.length < 120 ? first : '')
     const body = explicit ? block.text.slice(explicit[0].length) :
       !block.heading && heading && separator ? block.text.slice(separator.index+separator[0].length) : block.text
     return { title: heading, body: body.trim().replace(/^(?:Corpo|Texto):[ \t]*/i,'') }

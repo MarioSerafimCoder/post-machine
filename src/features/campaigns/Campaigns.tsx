@@ -11,9 +11,9 @@ import { normalize, type Article } from '../radar/contract'
 import {
   applyBriefingFormat, approaches, backupSchema, createPrompt, defaultPreferences, draftFromReference, formats, importContent,
   markdownExample, maxBackup, maxImport, maxSlides, newDraft, objectives, roles, tones,
-  type Backup, type Briefing, type Content, type Draft, type Slide,
+  type Backup, type Briefing, type Content, type DesignMode, type Draft, type Slide,
 } from './contract'
-import { CampaignConflict, deleteCampaign, putCampaign, putPreferences, readCampaigns, restoreCampaigns } from './storage'
+import { CampaignConflict, deleteCampaign, putCampaign, putPreferences, readCampaign, readCampaigns, restoreCampaigns } from './storage'
 import './campaigns.css'
 import type { Reference } from '../virals/contract'
 import { identifyUrl, platforms as referencePlatforms } from '../virals/urls'
@@ -34,11 +34,12 @@ function finishReply(id: string) {
 }
 const blankSlide: Slide = { order: 1, role: 'content', title: '', body: '', imageBrief: '', layoutType: 'editorial' }
 
+export type CampaignRequest = { article: Article | null; reference?: Reference; opportunity?: Opportunity } | { campaignId: string }
 export function Campaigns({ request, active, onBack, onDesign }: {
-  request: { article: Article | null; reference?: Reference; opportunity?: Opportunity } | null
+  request: CampaignRequest | null
   active: boolean
   onBack: (references: boolean) => void
-  onDesign: (draft: Draft, mode?: 'express') => void
+  onDesign: (draft: Draft, mode?: DesignMode) => void
 }) {
   const [backup, setBackup] = useState<Backup>()
   const [selected, setSelected] = useState<string | undefined>(() => window.history.state?.campaignId)
@@ -166,6 +167,21 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     if (!request || handledRequest.current === request || (!backup && !loadError)) return
     const timer = window.setTimeout(() => {
       handledRequest.current = request
+      if ('campaignId' in request) {
+        void queue.flushAll().then(() => readCampaign(request.campaignId)).then(item => {
+          if (handledRequest.current !== request) return
+          if (!item) { setError('O briefing vinculado não está neste navegador.'); return }
+          persisted.set(item.id, item)
+          setBackup(current => ({
+            schemaVersion: 2, preferences: current?.preferences ?? defaultPreferences,
+            campaigns: [item, ...(current?.campaigns ?? []).filter(entry => entry.id !== item.id)],
+          }))
+          clearPendingResponse()
+          setSelected(item.id)
+          setError('')
+        }, () => setError('Não foi possível abrir o briefing.'))
+        return
+      }
       const preferences = backup?.preferences ?? defaultPreferences
       const item = request.reference ? draftFromReference(request.reference, preferences) : newDraft(request.article, preferences, request.opportunity)
       if (!backup) setBackup({ schemaVersion: 2, campaigns: [], preferences })
@@ -174,7 +190,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
       persist(item)
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [request, backup, loadError, persist, clearPendingResponse])
+  }, [request, backup, loadError, persist, clearPendingResponse, persisted, queue])
 
 
   async function remove(item: Draft) {

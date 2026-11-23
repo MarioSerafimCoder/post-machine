@@ -1,5 +1,12 @@
 # Estado real — 23/11/2026
 
+## Automação do fluxo editorial
+
+- **Criar post** abre um projeto editável no Studio e reaproveita o briefing vinculado. Duas abas podem solicitar a mesma notícia sem duplicar o projeto inicial. A fonte, o resumo, a data e a categoria ficam no projeto e no backup. **Editar briefing** abre a campanha existente, com retorno aos filtros do Radar.
+- **Colar conteúdo** aceita texto, JSON v1 e Markdown. As versões geradas organizam títulos, subtítulos e corpo, acomodam o texto nas caixas do template e sinalizam excesso. A colagem cria uma versão independente para preservar a edição anterior.
+- Os frames ficam editáveis enquanto a fila existente busca imagens. Correspondências com a publicação original têm preferência entre resultados elegíveis do Openverse. Uma miniatura sem licença identificada serve apenas como referência do Radar. A ilustração específica é avaliada depois das fotografias quando o briefing visual a menciona. Na falta de um resultado apropriado, o frame fica pendente e permite escolha manual.
+- Lint, 132 testes unitários, build e dry-run passaram localmente. Quatro testes dirigidos passaram no build servido pelo Wrangler em 1280 e 1440 px, incluindo abertura concorrente, aplicação em segundo plano e preservação do texto excedente no backup.
+
 ## Radar Criativo e Assistente Editorial
 
 - O mascote voltou a usar o GIF original com fundo transparente e acesso pelo canto inferior direito. No Radar, o botão flutuante fica na margem da página e abre o painel editorial. A opção de movimento reduzido e o modo silenciado usam a imagem estática. Chromium em 1280 e 1440 px confirmou a posição, a transparência sob o cursor, a abertura e o retorno do foco por teclado, e a troca para o PNG com movimento reduzido.
