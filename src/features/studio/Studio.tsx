@@ -59,7 +59,7 @@ function readBackupDate(id: string) {
   } catch { return undefined }
 }
 
-export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; homeEntry?: { projectId?: string }; onStartCampaign: (mode: CampaignStartMode) => void }) {
+export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'express' }; onStartCampaign: (mode: CampaignStartMode) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
   const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent, endTextSession } = useDocument()
@@ -203,13 +203,19 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setEntry(undefined)
     setProject({ ...newProject(format), brand: projectBrand, slides: [emptySlide(projectBrand.background)] })
   }
-  const openFromHome = useEffectEvent(async (id?: string) => {
+  const openFromHome = useEffectEvent(async ({ projectId: id, mode }: NonNullable<typeof homeEntry>) => {
     if (id) {
       if (getCurrent()?.id !== id) await openProject(id)
       return
     }
     try {
       await flush()
+      if (mode === 'express') {
+        if (getCurrent()) setProject(undefined)
+        setExpressDraft(undefined)
+        setEntry('express')
+        return
+      }
       createEmptyProject(newProjectBrand(await readBrand()))
     } catch { setError('Não foi possível criar o projeto. Confira o salvamento e tente novamente.') }
   })
@@ -217,7 +223,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   useEffect(() => {
     if (active && homeEntry && handledHomeEntry.current !== homeEntry) {
       handledHomeEntry.current = homeEntry
-      void openFromHome(homeEntry.projectId)
+      void openFromHome(homeEntry)
     }
   }, [active, homeEntry])
   async function downloadBackup() {

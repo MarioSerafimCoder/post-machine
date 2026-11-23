@@ -68,6 +68,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const dragged = useRef<string | undefined>(undefined)
   const live = useRef(true)
   const externalRequest = useRef<AbortController | null>(null)
+  const [lastOrganized, setLastOrganized] = useState<string>()
   const [slot] = useState(() => campaign?.id ?? 'independent')
   const [draftGate, setDraftGate] = useState<'loading' | 'ready' | 'recover' | 'error'>('loading')
   const [candidate, setCandidate] = useState<ExpressDraft>()
@@ -136,18 +137,35 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   function organize(values: CollectionSlide[]) {
     setSlides(previous => reconcileExpressSlides(values, previous, key))
   }
-  function applyText() {
+  function applyText(raw = text, onlyStructured = false) {
+    if (raw === lastOrganized) return
     try {
-      const result = parseExpress(text)
+      const result = parseExpress(raw)
+      if (onlyStructured && !result.structured) return
+      if (slides.some(slide => slide.title.trim() || slide.body.trim()) &&
+          !window.confirm('Substituir o conteúdo dos slides desta preparação? As imagens continuam disponíveis para vinculação.')) return
       organize(result.slides)
+      setLastOrganized(raw)
       setLinked(undefined)
       setCaption(result.structured?.campaign.caption)
       if (result.structured) {
         setName(result.structured.campaign.title.slice(0,100))
-        if (result.structured.campaign.format === 'story') setFormat('story')
+        setFormat(result.structured.campaign.format === 'story' ? 'story' : initialFormat === 'story' ? 'portrait' : initialFormat)
       }
       setError('')
+      setStatus(`${result.slides.length} slide(s) organizados. Confira o conteúdo e avance para Imagens ou Templates.`)
     } catch (cause) { setError(errorText(cause)) }
+  }
+
+  function updateRaw(raw: string) {
+    setText(raw)
+    setError('')
+    if (!lastOrganized && slides.length === 1 && !slides[0].title.trim() && !slides[0].body.trim() &&
+        /^(?:```(?:json|md|markdown)?\s*)?(?:[[{]|# Campanha\b)/i.test(raw.trim())) {
+      try {
+        if (parseExpress(raw).structured) applyText(raw, true)
+      } catch { /* A prévia informa ajustes da resposta em edição. */ }
+    }
   }
   function loadCampaign(id: string) {
     const item = campaigns?.find(draft => draft.id === id)
@@ -344,11 +362,22 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     <div className="express-paste">
       <label>Cole aqui o conteúdo do seu post ou carrossel<textarea rows={7} value={text} maxLength={maxImport}
         placeholder={'Slide 1 — Seu título\nTexto do primeiro slide\n\nSlide 2\nTexto do segundo slide'}
-        onChange={event => setText(event.target.value)} /></label>
+        onChange={event => updateRaw(event.target.value)} /></label>
       <p className="muted">Cole a resposta do GPT em JSON ou Markdown de campanha, ou use texto com marcações “Slide 1”, “Slide 2” etc.</p>
       <ResponsePreview raw={text} express />
       <div className="collection-actions">
-        <button className="button button-dark" onClick={applyText}>Organizar slides</button>
+        <button className={`button ${lastOrganized === text ? 'button-outline' : 'button-dark'}`} onClick={() => applyText()}>Organizar slides</button>
+        <label>Importar arquivo JSON ou Markdown<input type="file" accept=".json,.md,application/json,text/markdown" onChange={async event => {
+          const file = event.currentTarget.files?.[0]
+          event.currentTarget.value = ''
+          if (!file) return
+          try {
+            if (file.size > maxImport * 4) throw Error('O arquivo excede o limite de importação.')
+            const raw = await file.text()
+            if (raw.length > maxImport) throw Error('O conteúdo excede o limite de importação.')
+            if (live.current) updateRaw(raw)
+          } catch (cause) { if (live.current) setError(errorText(cause)) }
+        }} /></label>
         {!!campaigns?.length && <label>Carregar campanha do Radar<select value={linked?.id ?? ''} onChange={event => loadCampaign(event.target.value)}>
           <option value="">Selecione uma campanha</option>
           {campaigns.map(draft => <option key={draft.id} value={draft.id}>{draft.content?.campaign.title}</option>)}

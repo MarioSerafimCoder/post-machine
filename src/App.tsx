@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { Roadmap } from './components/Roadmap'
 import { ResumeProject } from './components/ResumeProject'
+import { CreateContent, type ContentOrigin } from './components/CreateContent'
 import { usePage, type Page } from './lib/navigation'
 
 const nav: { id: Page; label: string; icon: IconName }[] = [
@@ -27,7 +28,18 @@ export function App() {
   const [assistantSignals] = useState(createAssistantSignals)
   const [visited, setVisited] = useState({ studio: false, radar: false })
   const [radarStart, setRadarStart] = useState<{ mode: CampaignStartMode }>()
-  const [studioEntry, setStudioEntry] = useState<{ projectId?: string }>()
+  const [studioEntry, setStudioEntry] = useState<{ projectId?: string; mode?: 'express' }>()
+  const [creating, setCreating] = useState(false)
+  function startContent(origin: ContentOrigin) {
+    setCreating(false)
+    if (origin === 'radar') {
+      setRadarStart({ mode: 'radar' })
+      window.location.hash = '/radar'
+    } else {
+      setStudioEntry(origin === 'import' ? { mode: 'express' } : {})
+      window.location.hash = '/studio'
+    }
+  }
   useEffect(() => {
     if (page !== 'studio' && page !== 'radar') return
     const timer = setTimeout(() => setVisited(current => current[page] ? current : { ...current, [page]: true }), 0)
@@ -53,7 +65,10 @@ export function App() {
             <Icon name={item.icon} /><span>{item.id === 'inicio' ? 'Início' : item.label}</span>
           </a>
         )}</nav>
-        <button className="text-button" onClick={() => setRoadmap(true)}><Icon name="book" /><span>Como funciona</span></button>
+        <div className="topbar-actions">
+          <button className="button button-dark" onClick={() => setCreating(true)}>Criar conteúdo</button>
+          <button className="text-button" onClick={() => setRoadmap(true)}><Icon name="book" /><span>Como funciona</span></button>
+        </div>
       </header>
       <main id="main-content" className={page === 'inicio' ? 'home-workspace' : 'active-workspace'} tabIndex={-1}>
         <h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'Ideias boas merecem espaço.' : label}</h1>
@@ -67,6 +82,7 @@ export function App() {
       </main>
     </div>
     {roadmap && <Roadmap onClose={() => setRoadmap(false)} />}
+    {creating && <CreateContent close={() => setCreating(false)} choose={startContent} />}
     <Suspense fallback={null}><Assistant page={page} /></Suspense>
   </div></AssistantSignals.Provider>
 }

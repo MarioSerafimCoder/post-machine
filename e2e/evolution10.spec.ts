@@ -1,5 +1,20 @@
 import { expect, test } from '@playwright/test'
 
+test('cria conteúdo pela entrada unificada e organiza o JSON na colagem', async ({ page }) => {
+  await page.goto('/#/inicio')
+  await page.getByRole('button', { name: 'Criar conteúdo', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Colar ou importar conteúdo pronto' }).click()
+  await page.getByRole('textbox', { name: /Cole aqui/ }).fill(JSON.stringify({
+    schemaVersion: 1,
+    campaign: { title: 'Um novo recorte', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'post', caption: '', cta: '' },
+    sources: [],
+    slides: [{ order: 1, role: 'content', title: 'A luz organiza a leitura', body: 'Uma pauta sobre arquitetura.', imageBrief: '', layoutType: 'editorial' }],
+  }))
+  await expect(page.getByLabel('Nome do projeto')).toHaveValue('Um novo recorte')
+  await expect(page.getByLabel('Título', { exact: true })).toHaveValue('A luz organiza a leitura')
+  await expect(page.getByRole('status').filter({ hasText: '1 slide(s) organizados' })).toBeVisible()
+})
+
 test('desfaz uma sequência de digitação e alinha pela margem da marca', async ({ page }) => {
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
