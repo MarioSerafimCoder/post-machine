@@ -116,6 +116,35 @@ test('abre conteúdo importado no Studio e preenche o frame em segundo plano', a
   await expect(exactStatus(page, 'Imagem documental encontrada')).toBeVisible()
 })
 
+test('aplica uma foto de arquivo como apoio quando o assunto exato não tem imagens', async ({ page }) => {
+  await mockImages(page)
+  const searches: string[] = []
+  await page.route('https://api.openverse.org/v1/images/?*', route => {
+    const url = new URL(route.request().url())
+    const query = url.searchParams.get('q')!
+    searches.push(query)
+    if (searches.length === 1) return route.fulfill({ status: 504 })
+    return route.fulfill({ json: { page_count: 1, results: query === 'macys thanksgiving day parade'
+      ? [photo('Macy’s Thanksgiving Day Parade 2022', 1, true)] : [] } })
+  })
+  await page.goto('/#/radar')
+  await button(page, 'Criar post').first().click()
+  await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
+  await button(page, 'Gerar prompt para IA').click()
+  await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
+    schemaVersion: 1, campaign: { title: 'Um filme de Natal', objective: 'Informar', audience: 'Leitores', tone: 'Profissional', format: 'post', caption: '', cta: '' },
+    sources: [], slides: [{ order: 1, role: 'cover', title: 'A marca fez um filme de Natal',
+      body: 'A produção será exibida durante o desfile da Macy’s.', imageBrief: '', layoutType: 'editorial' }],
+  }))
+  await button(page, 'Importar conteúdo').click()
+  await button(page, 'Salvar e abrir no Studio').click()
+  await expect(button(page, 'Slide 1')).toHaveAttribute('aria-description', /Foto editorial/)
+  expect(searches).toHaveLength(3)
+  expect(searches.at(-1)).toBe('macys thanksgiving day parade')
+  await button(page, 'Imagens').click()
+  await expect(page.getByRole('status').filter({ hasText: 'Imagem editorial aplicada' })).toContainText('Confira na fonte a cena e a data')
+})
+
 test('descarta resposta antiga após editar um card com busca em andamento', async ({ page }) => {
   let release!: () => void
   const delayed = new Promise<void>(resolve => { release = resolve })

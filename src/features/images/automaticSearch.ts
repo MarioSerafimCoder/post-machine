@@ -49,7 +49,7 @@ function similarImage(fingerprint: string, used: ReadonlySet<string>) {
   return false
 }
 
-const generic = new Set('a as o os ao aos um uma umas uns de da das do dos no na nas nos em por para com sem que como mais sua seu suas seus sobre tema imagem imagens foto fotografia mostrar ilustrar slide cena exemplo exemplos conceito ideias ideia design editorial conteudo trabalho formato chamada acao usar veja saiba salve veja the and for from with image photo show this that using'.split(' '))
+const generic = new Set('a as o os ao aos um uma umas uns de da das do dos no na nas nos em por para com sem que como mais sua seu suas seus sobre tema imagem imagens foto fotografia mostrar ilustrar slide cena exemplo exemplos conceito ideias ideia design editorial conteudo trabalho formato chamada acao usar veja saiba salve fez fazer parte proposta acontece ganharam reune the and for from with image photo show this that using'.split(' '))
 const conceptual = /\b(conceitual|conceptual|metafora|metaphor|abstrat\w*|abstract|ilustrac\w*|illustration|render(?:ing)?|mockup|collage|montagem|ai generated|gerad[ao] por ia|generative ai|3d|vector|vetor|icon|icone)\b/
 const noImage = /\b(sem (?:imagem|foto|fotografia)|apenas texto|somente texto|no (?:image|photo)|text only)\b/
 const translations: Record<string, string> = {
@@ -59,8 +59,23 @@ const translations: Record<string, string> = {
   biblioteca: 'library', livros: 'books', museu: 'museum', pessoas: 'people', jardim: 'garden',
   fotografia: 'photography', escritorio: 'office', madeira: 'wood', edificios: 'buildings', edificio: 'building',
   estacao: 'station', trem: 'train', ponte: 'bridge', feira: 'market', manifestacao: 'protest',
+  natal: 'christmas', filme: 'film', filmes: 'films', animacao: 'animation', desfile: 'parade', bonecos: 'puppets',
 }
 const tokens = (value = '') => [...new Set((normalize(value.slice(0, 3000)).match(/[\p{L}\p{N}]{2,}/gu) ?? []).filter(word => word.length <= 28 && !generic.has(word)))]
+
+// Keep editorial associations explicit so a recognizable setting or technique can support an abstract headline.
+const editorialContexts = [
+  { cue: /\b(?:macy'?s?\b.{0,55}\b(?:desfile|parade)|(?:desfile|parade)\b.{0,55}\bmacy'?s?\b)/,
+    query: 'macys thanksgiving day parade', evidence: [/\bmacy'?s\b/, /\bthanksgiving\b/, /\bparade\b/] },
+  { cue: /\b(?:stop[ -]motion|animacao (?:artesanal|quadro a quadro)|animacao (?:com |de )?(?:bonecos|marionetes))\b/,
+    query: 'stop motion', evidence: [/\bstop[ -]motion\b/, /\b(?:animat\w*|puppet\w*|bonecos|trickfilm)\b/] },
+  { cue: /\b(?:(?:fabricacao|construcao|feitura|oficina) (?:de |dos )?(?:bonecos|marionetes)|puppet making)\b/,
+    query: 'puppet making', evidence: [/\bpuppet\w*\b/, /\b(?:making|workshop|craft\w*|building)\b/] },
+  { cue: /\b(?:mascotes? publicitari\w*|mascotes? de (?:marcas?|campanhas?)|(?:personagens|rostos) dos comerciais|advertising mascots?)\b/,
+    query: 'advertising mascot', evidence: [/\bmascot\w*\b/, /\b(?:advertis\w*|brand\w*|commercial\w*)\b/] },
+]
+
+type SearchStage = { strategy: VisualMatch['strategy']; query: string; evidence?: readonly RegExp[] }
 
 export function visualQueries(intent: VisualIntent) {
   const brief = normalize(intent.imageBrief ?? '')
@@ -76,22 +91,27 @@ export function visualQueries(intent: VisualIntent) {
   const translated = main.map(word => translations[word] ?? word)
   const expanded = translated.join(' ') !== main.join(' ') ? translated : [...new Set([...main.slice(0, 3), ...context])].slice(0, 5)
   const editorial = [...new Set([...main, ...subject, ...context.filter(word => translations[word])])].slice(0, 4)
+  const slideContext = normalize([intent.imageBrief, intent.title, intent.subtitle, intent.body].filter(Boolean).join(' ').slice(0, 6000)).replace(/’/g, "'")
+  const contextual = editorialContexts.filter(item => item.cue.test(slideContext)).slice(0, 2)
+  const stages: SearchStage[] = [
+    { strategy: 'documental', query: main.join(' ') },
+    { strategy: 'documental-expandida', query: expanded.join(' ') },
+    ...(contextual.length ? contextual.map(({ query, evidence }): SearchStage => ({ strategy: 'editorial', query, evidence })) :
+      [{ strategy: 'editorial' as const, query: [...editorial, 'photograph'].join(' ') }]),
+  ]
   return {
     terms, primary: main, ratio: intent.ratio ?? 1,
-    stages: [
-      { strategy: 'documental', query: main.join(' ') },
-      { strategy: 'documental-expandida', query: expanded.join(' ') },
-      { strategy: 'editorial', query: [...editorial, 'photograph'].join(' ') },
-    ] as const,
+    stages,
   }
 }
 export type VisualQuery = NonNullable<ReturnType<typeof visualQueries>>
 const stock = /\b(stock photo|stock photography|posed|staged|studio portrait|studio shot|isolated|white background|foto de banco|fundo branco)\b/
 const documentary = /\b(documentary|documental|photojournal\w*|reportagem|arquivo|archive|historical|historico|historic|press photo|fotografia de imprensa|on location)\b/
 
-export function rankPhotographs(results: ImageResult[], query: VisualQuery, strategy: VisualMatch['strategy'], used: ReadonlySet<string>) {
+export function rankPhotographs(results: ImageResult[], query: VisualQuery, strategy: VisualMatch['strategy'], used: ReadonlySet<string>,
+  context?: SearchStage) {
   return results.flatMap(result => {
-    const metadata = normalize([result.title, result.description, ...result.tags?.map(tag => tag.name) ?? []].filter(Boolean).join(' ')).replace(/[_-]/g, ' ')
+    const metadata = normalize([result.title, result.description, ...result.tags?.map(tag => tag.name) ?? []].filter(Boolean).join(' ')).replace(/[_-]/g, ' ').replace(/’/g, "'")
     const credit = toCredit(result)
     const license = licenseTerms(credit)
     const url = automaticOriginal(result)
@@ -102,7 +122,8 @@ export function rankPhotographs(results: ImageResult[], query: VisualQuery, stra
     const overlaps = (terms: string[]) => terms.filter(word => words.has(word) || words.has(translations[word]))
     const anchor = overlaps(query.primary)
     const matches = overlaps(query.terms)
-    if (!anchor.length || (query.primary.length > 2 && matches.length < 2) ||
+    if (context?.evidence ? !context.evidence.every(pattern => pattern.test(metadata)) :
+      !anchor.length || (query.primary.length > 2 && matches.length < 2) ||
         (strategy !== 'editorial' && query.primary.length > 2 && anchor.length < 2)) return []
     const fromCommons = url.hostname === 'upload.wikimedia.org'
     const evidence = documentary.test(metadata) || anchor.length >= 2 && /\b(?:18|19|20)\d{2}\b/.test(normalize(result.title ?? ''))
@@ -122,12 +143,22 @@ export async function findAutomaticImage(query: VisualQuery, signal: AbortSignal
   stage: (status: VisualStatus) => void) {
   const searched = new Set<string>()
   const tried = new Set<string>()
-  for (const { strategy, query: term } of query.stages) {
+  let searchError: unknown
+  for (const step of query.stages) {
+    const { strategy, query: term, evidence } = step
     if (searched.has(term)) continue
     searched.add(term)
     if (strategy === 'editorial') stage('editorial')
-    const { results } = await searchImages({ query: term, photographs: true, page: 1, license: '', commercial: true, ratio: '', source: '' }, signal)
-    for (const candidate of rankPhotographs(results, query, strategy, used).slice(0, 4)) {
+    let results: ImageResult[]
+    try {
+      ({ results } = await searchImages({ query: term, photographs: true, page: 1, license: '', commercial: true, ratio: '', source: '' }, signal))
+    } catch (error) {
+      signal.throwIfAborted()
+      if (!query.stages.some(item => item.evidence)) throw error
+      searchError = error
+      continue
+    }
+    for (const candidate of rankPhotographs(results, query, strategy, used, evidence ? step : undefined).slice(0, 4)) {
       if (tried.has(candidate.result.id)) continue
       tried.add(candidate.result.id)
       try {
@@ -146,7 +177,8 @@ export async function findAutomaticImage(query: VisualQuery, signal: AbortSignal
           const fingerprint = data && visualFingerprint(data)
           if (fingerprint && similarImage(fingerprint, used)) continue
           image.set({ imageCredit: toCredit(candidate.result), semantic: 'image', originX: 'left', originY: 'top' })
-          const match: VisualMatch = { strategy, fingerprint, reason: strategy === 'editorial'
+          const match: VisualMatch = { strategy, fingerprint, reason: evidence
+            ? `Fotografia de apoio para o contexto pesquisado (${term}). Confira na fonte a cena e a data do registro.` : strategy === 'editorial'
             ? `Apoio fotográfico após baixa aderência documental. Termos em comum: ${candidate.matches.join(', ')}.`
             : `Indícios documentais no acervo ou nos metadados. Termos em comum: ${candidate.matches.join(', ')}.` }
           return { file, id: candidate.result.id, name: candidate.result.title || 'Fotografia',
@@ -157,5 +189,6 @@ export async function findAutomaticImage(query: VisualQuery, signal: AbortSignal
       } catch { signal.throwIfAborted() }
     }
   }
+  if (searchError) throw searchError
 }
 export type AutomaticImage = NonNullable<Awaited<ReturnType<typeof findAutomaticImage>>>

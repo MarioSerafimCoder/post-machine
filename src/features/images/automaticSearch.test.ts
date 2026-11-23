@@ -29,4 +29,22 @@ describe('política visual automática', () => {
     ], query, 'editorial', new Set())).toHaveLength(0)
     expect(rankPhotographs([photo()], query, 'documental', new Set([photo().url!]))).toHaveLength(0)
   })
+  it('usa um evento mencionado no corpo apenas como apoio editorial', () => {
+    const visual = visualQueries({ title: 'A seguradora fez um filme de Natal. Por quê?',
+      body: 'A estreia acontece no desfile da Macy’s.' })!
+    const context = visual.stages.at(-1)!
+    expect(context).toMatchObject({ strategy: 'editorial', query: 'macys thanksgiving day parade' })
+    const archive = photo({ title: 'Macy’s Thanksgiving Day Parade 2022' })
+    const unrelated = photo({ title: 'Thanksgiving parade in Plymouth' })
+    const wrongLicense = photo({ title: archive.title, license: 'by-nd', license_url: 'https://creativecommons.org/licenses/by-nd/4.0/' })
+    expect(rankPhotographs([archive], visual, 'documental', new Set())).toHaveLength(0)
+    expect(rankPhotographs([archive, unrelated, wrongLicense], visual, 'editorial', new Set(), context)).toHaveLength(1)
+  })
+  it('separa a técnica de animação de usos fotográficos de stop motion', () => {
+    const visual = visualQueries({ title: 'A animação artesanal faz parte da proposta' })!
+    const context = visual.stages.at(-1)!
+    const movie = photo({ title: 'Stop-motion animation behind the scenes' })
+    const waterfall = photo({ title: 'Waterfall captured with stop motion' })
+    expect(rankPhotographs([movie, waterfall], visual, 'editorial', new Set(), context).map(item => item.result.title)).toEqual([movie.title])
+  })
 })
