@@ -7,6 +7,8 @@
 - Os frames ficam editáveis enquanto a fila existente busca imagens. Correspondências com a publicação original têm preferência entre resultados elegíveis do Openverse. Uma miniatura sem licença identificada serve apenas como referência do Radar. A ilustração específica é avaliada depois das fotografias quando o briefing visual a menciona. Na falta de um resultado apropriado, o frame fica pendente e permite escolha manual.
 - Lint, 132 testes unitários, build e dry-run passaram localmente. Quatro testes dirigidos passaram no build servido pelo Wrangler em 1280 e 1440 px, incluindo abertura concorrente, aplicação em segundo plano e preservação do texto excedente no backup.
 - A inspeção em 1280 e 1440 px confirmou a troca automática da capa da primeira notícia da edição local para **Imagem + conteúdo**, com resumo completo e sem rolagem horizontal.
+- A validação final de `5971949` passou em lint, 132 testes unitários, build e 150 cenários Playwright, com 10 repetições omitidas no perfil laptop. O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45255656775) aprovou o mesmo commit.
+- O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45255662302) promoveu a versão `57d86dec-8cb3-4e31-b798-4b0b7ee1ba0d` a 100% do tráfego. O domínio, os dois feeds e o favicon redirecionaram para o Cloudflare Access após a publicação. A conferência em sessão autenticada fica pendente.
 
 ## Radar Criativo e Assistente Editorial
 
