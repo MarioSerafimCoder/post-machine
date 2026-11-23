@@ -3,6 +3,7 @@
 ## Aviso de leitura da matéria no Radar
 
 - Criar uma pauta a partir de uma notícia do Radar não gera mais o aviso de íntegra pendente. A recomendação de acesso à fonte aparece quando o editor a marca como inacessível. O prompt continua indicando que o Radar forneceu título ou resumo, conforme os dados disponíveis.
+- Lint, build, 116 testes Vitest e 100 cenários Playwright aprovados, com seis repetições omitidas no perfil laptop. O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45163204874) aprovou `bb0f75a`. O [deploy](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45163233678) publicou `101a15f7-c36b-418a-98c5-3f4408d8ad33` a 100% e o Cloudflare Access foi verificado após a publicação.
 
 ## Revisão editorial durante a produção
 
