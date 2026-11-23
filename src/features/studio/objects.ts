@@ -36,13 +36,25 @@ export function groupSelection(canvas: Canvas) {
   else if (selected[0] instanceof Group && !(selected[0] instanceof ActiveSelection)) { const group = selected[0]; const index = stack.indexOf(group); const children = group.removeAll(); canvas.remove(group); canvas.insertAt(index,...children); canvas.setActiveObject(new ActiveSelection(children, { canvas })) }
   canvas.requestRenderAll()
 }
-export function align(canvas: Canvas, direction: 'left' | 'center' | 'top' | 'distribute') {
+export function align(canvas: Canvas, direction: 'left' | 'center' | 'top' | 'distribute', width: number, margin: number) {
   const selected = canvas.getActiveObjects(); canvas.discardActiveObject()
+  const boxes = selected.map(object => ({ object, box: object.getBoundingRect() }))
   if (direction === 'distribute' && selected.length >= 3) {
-    const sorted = selected.sort((a, b) => a.left - b.left)
-    const first = sorted[0].left; const step = (sorted.at(-1)!.left - first) / (sorted.length - 1)
-    sorted.forEach((o, i) => o.set({ left: first + i * step }))
-  } else selected.forEach(o => { if (direction === 'left') o.set({ left: 80 }); if (direction === 'top') o.set({ top: 80 }); if (direction === 'center') o.set({ left: (1080 - o.getScaledWidth()) / 2 }) })
+    boxes.sort((a, b) => a.box.left - b.box.left)
+    const occupied = boxes.reduce((total, item) => total + item.box.width, 0)
+    const gap = (width - 2 * margin - occupied) / (boxes.length - 1)
+    if (gap >= 0) {
+      let position = margin
+      for (const { object, box } of boxes) {
+        object.set({ left: object.left + position - box.left })
+        position += box.width + gap
+      }
+    }
+  } else for (const { object, box } of boxes) {
+    if (direction === 'left') object.set({ left: object.left + margin - box.left })
+    if (direction === 'top') object.set({ top: object.top + margin - box.top })
+    if (direction === 'center') object.set({ left: object.left + (width - box.width) / 2 - box.left })
+  }
   selected.forEach(o => o.setCoords())
   if (selected.length > 1) canvas.setActiveObject(new ActiveSelection(selected,{ canvas }))
   else if (selected[0]) canvas.setActiveObject(selected[0])

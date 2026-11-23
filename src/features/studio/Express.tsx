@@ -18,6 +18,8 @@ import { formatNames, type Brand, type Format, type Project } from './model'
 import { ProposalReview } from './factory/ProposalReview'
 import { useAssistantSignal } from '../intelligence/signals'
 import { requiresReview, type Issue } from './factory/evaluate'
+import { SaveQueue } from '../../lib/saveQueue'
+import { openExpressDraft, reconcileExpressSlides, type ExpressDraft, type ExpressPhoto, type ExpressSlide } from './expressDraft'
 import './collections.css'
 
 const tools: ContextTool[] = [
@@ -25,8 +27,8 @@ const tools: ContextTool[] = [
   { label: 'Templates', icon: 'studio' }, { label: 'Prévia', icon: 'audit' },
 ]
 type Step = typeof tools[number]['label']
-type Entry = CollectionSlide & { key: string; imageId?: string | null }
-type Photo = { id: string; name: string; bytes: number; object: Record<string, unknown> }
+type Entry = ExpressSlide
+type Photo = ExpressPhoto
 const noFlush = async () => {}
 const maxImages = 30
 const maxImageBytes = 80_000_000
@@ -66,6 +68,50 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const dragged = useRef<string | undefined>(undefined)
   const live = useRef(true)
   const externalRequest = useRef<AbortController | null>(null)
+  const [slot] = useState(() => campaign?.id ?? 'independent')
+  const [draftGate, setDraftGate] = useState<'loading' | 'ready' | 'recover' | 'error'>('loading')
+  const [candidate, setCandidate] = useState<ExpressDraft>()
+  const [draftError, setDraftError] = useState('')
+  const [storedDraft] = useState(() => openExpressDraft(slot))
+  const completed = useRef(false)
+  const [draftQueue] = useState(() => new SaveQueue<ExpressDraft>(storedDraft.save, (_id, state, failure) => {
+    if (state === 'error') setDraftError(`Falha ao salvar a preparação. ${errorText(failure)}`)
+    else if (state === 'saved') setDraftError('')
+  }, 250))
+  const snapshot = useMemo<ExpressDraft>(() => ({ text, slides, linked, name, caption, styleId: style.id, format, step, origin, photos }),
+    [text, slides, linked, name, caption, style, format, step, origin, photos])
+  useEffect(() => {
+    let alive = true
+    void storedDraft.load().then(result => {
+      if (!alive) return
+      setCandidate(result)
+      setDraftGate(result ? 'recover' : 'ready')
+    }, cause => {
+      if (!alive) return
+      setDraftError(errorText(cause))
+      setDraftGate('error')
+    })
+    return () => { alive = false }
+  }, [storedDraft])
+  useEffect(() => {
+    if (draftGate !== 'ready' || completed.current) return
+    if (!(text.trim() || name.trim() || caption?.trim() || photos.length || slides.some(slide => slide.title.trim() || slide.body.trim()) ||
+      style !== collections[0] || format !== initialFormat || slides.length > 1 || storedDraft.hasSaved())) return
+    draftQueue.schedule(slot, snapshot)
+  }, [draftGate, draftQueue, slot, snapshot, text, name, caption, photos, slides, style, format, initialFormat, storedDraft])
+  useEffect(() => {
+    const flush = () => { if (!completed.current) void draftQueue.flush(slot).catch(() => undefined) }
+    const unload = (event: BeforeUnloadEvent) => { if (draftQueue.hasPending && !completed.current) { flush(); event.preventDefault() } }
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('beforeunload', unload)
+    document.addEventListener('visibilitychange', flush)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('beforeunload', unload)
+      document.removeEventListener('visibilitychange', flush)
+      flush()
+    }
+  }, [draftQueue, slot])
   useEffect(() => {
     live.current = true
     void readCampaigns().then(data => { if (live.current) setCampaigns(data.campaigns.filter(draft => draft.content)) },
@@ -88,7 +134,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     setSlides(value => value.map(item => item.key === slide ? { ...item, ...patch } : item))
   }
   function organize(values: CollectionSlide[]) {
-    setSlides(previous => values.map((item,index) => ({ ...entry(item), imageId:previous[index]?.imageId })))
+    setSlides(previous => reconcileExpressSlides(values, previous, key))
   }
   function applyText() {
     try {
@@ -120,7 +166,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     try {
       signal?.throwIfAborted()
       if (credit) image.set({ imageCredit: credit })
-      return { id, name:file.name, bytes:file.size, object:prepareCollectionImage(image) }
+      return { id, name:file.name, bytes:file.size, object:prepareCollectionImage(image), file }
     } finally { image.dispose() }
   }
   async function addPhotos(files: File[], credit?: ImageCredit, signal?: AbortSignal, slideKey?: string) {
@@ -224,10 +270,13 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     if (operation.current || invalid.length || !result) return
     setBusy(true); setError(''); operation.current = true
     try {
+      if (draftGate === 'ready') await draftQueue.flush(slot)
       await open({
         ...proposal.project, name:(name.trim() || slides[0]?.title.trim() || 'Produção Expressa').slice(0,100),
         caption, campaignId:linked?.id ?? null, campaignUpdatedAt:linked?.updatedAt ?? null,
       })
+      completed.current = true
+      if (storedDraft.hasSaved()) await storedDraft.clear()
     } catch (cause) { setError(errorText(cause)) }
     finally { operation.current = false; if (live.current) setBusy(false) }
   }
@@ -412,8 +461,45 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       replace={replaceComposition} />}
   </>
 
+  async function leave() {
+    try { await draftQueue.flush(slot); cancel() }
+    catch { /* A tentativa fica disponível na preparação. */ }
+  }
+
+  function recover(data: ExpressDraft) {
+    setText(data.text); setSlides(data.slides); setLinked(data.linked); setName(data.name)
+    setCaption(data.caption); setPhotos(data.photos); setPhotoId(data.photos[0]?.id ?? '')
+    setFormat(data.format); setStyle(collections.find(item => item.id === data.styleId) ?? collections[0])
+    setStep(tools.some(tool => tool.label === data.step) ? data.step : 'Conteúdo')
+    setOrigin(data.origin)
+    setCandidate(undefined); setDraftGate('ready')
+  }
+
+  async function discard() {
+    if (operation.current || !window.confirm('Descartar esta preparação e suas imagens locais?')) return
+    operation.current = true
+    setBusy(true)
+    try {
+      await storedDraft.clear()
+      setCandidate(undefined); setDraftError(''); setDraftGate('ready')
+    } catch (cause) { setDraftError(errorText(cause)) }
+    finally { operation.current = false; setBusy(false) }
+  }
+
   return <section className="express" aria-label="Produção Expressa">
-    <header><h2>Produção Expressa</h2><button className="button button-outline" disabled={busy || downloading} onClick={cancel}>Voltar aos projetos</button></header>
+    <header><h2>Produção Expressa</h2><button className="button button-outline" disabled={busy || downloading} onClick={() => void leave()}>Voltar aos projetos</button></header>
+    {draftError && <p className="express-warning" role="alert">{draftError}</p>}
+    {draftGate === 'loading' && <p role="status">Verificando preparação local…</p>}
+    {draftGate === 'error' && <button className="button button-outline" onClick={() => setDraftGate('ready')}>Continuar com a preparação atual</button>}
+    {draftGate === 'recover' && candidate && <div className="express-panel">
+      <h3>Preparação anterior disponível</h3>
+      <p>{candidate.name || 'Produção Expressa'} · {candidate.slides.length} slide(s) · {candidate.photos.length} imagem(ns)</p>
+      <div className="collection-actions">
+        <button className="button button-dark" disabled={busy} onClick={() => recover(candidate)}>Retomar preparação</button>
+        <button className="button button-outline" disabled={busy} onClick={() => void discard()}>Descartar rascunho</button>
+      </div>
+    </div>}
+    {draftGate === 'ready' && <>
     <ContextWorkspace rail={<ContextRail label="Etapas da Produção Expressa" tools={tools} selected={step} choose={selectStep} />}>
       <div className="express-panel">
         {(busy || downloading) && <p role="status">{downloading ? 'Baixando imagem…' : 'Preparando…'}</p>}
@@ -421,6 +507,6 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         {status && <p role="status">{status}</p>}
         {panel}
       </div>
-    </ContextWorkspace>
+    </ContextWorkspace></>}
   </section>
 }

@@ -6,6 +6,7 @@ export function useDocument(initial?: Project) {
   const [project, display] = useState<Project | undefined>(initial)
   const current = useRef(initial)
   const past = useRef<Project[]>([]), future = useRef<Project[]>([])
+  const textSession = useRef<{ target: object; slide: number; at: number }>(undefined)
   const [statuses, setStatuses] = useState<Record<string, string>>({})
   const [history, setHistory] = useState({ undo: false, redo: false })
   const [persisted] = useState(() => new Map<string, Project>())
@@ -28,11 +29,18 @@ export function useDocument(initial?: Project) {
     }, 500)
     return saves
   })
-  const apply = useCallback((action: SetStateAction<Project | undefined>, record = true, fromStorage = false) => {
+  const apply = useCallback((action: SetStateAction<Project | undefined>, record = true, fromStorage = false, text?: { target: object; slide: number }) => {
     const value = typeof action === 'function' ? action(current.current) : action
     if (value === current.current) return
     const next = value && !fromStorage ? { ...value, updatedAt: new Date().toISOString() } : value
-    if (record && current.current && next?.id === current.current.id) { past.current = [...past.current.slice(-29), current.current]; future.current = [] }
+    const now = performance.now()
+    const previous = textSession.current
+    const sameSession = text && previous && previous.target === text.target && previous.slide === text.slide && now - previous.at < 950
+    textSession.current = text && { ...text, at: now }
+    if (record && current.current && next?.id === current.current.id) {
+      if (!sameSession) past.current = [...past.current.slice(-29), current.current]
+      future.current = []
+    }
     if (next?.id !== current.current?.id) { past.current = []; future.current = [] }
     current.current = next; display(next)
     setHistory({ undo: past.current.length > 0, redo: future.current.length > 0 })
@@ -51,6 +59,6 @@ export function useDocument(initial?: Project) {
   }, [initial, queue])
   const flush = useCallback(() => queue.flushAll(), [queue])
   const status = (project && statuses[project.id]) || 'Salvo'
-  return { project, setProject: apply, getCurrent: () => current.current, undo, redo, history, status, flush,
+  return { project, setProject: apply, getCurrent: () => current.current, undo, redo, history, status, flush, endTextSession: () => { textSession.current = undefined },
     saveFailed: status !== 'Salvo' && status !== 'Salvando…' }
 }

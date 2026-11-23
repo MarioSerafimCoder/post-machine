@@ -2,8 +2,8 @@
 .studio-welcome h2 { font-size: 36px; letter-spacing: -1.3px; }
 .studio { margin-top: 18px; font-size: var(--ui-label); }
 .studio button, .studio select, .studio input, .studio textarea { font: inherit; }
-.studio button { cursor: pointer; padding: 8px 10px; border: 1px solid #d7d7d7; border-radius: 6px; background: white; text-align: left; }
-.studio button:hover, .studio button[aria-pressed=true] { background: #e6e6e6; border-color: #818181; }
+.studio button:where(:not(.button)) { cursor: pointer; padding: 8px 10px; border: 1px solid #d7d7d7; border-radius: 6px; background: white; text-align: left; }
+.studio button:where(:not(.button)):is(:hover, [aria-pressed=true]) { background: #e6e6e6; border-color: #818181; }
 .studio button:disabled { opacity: .45; cursor: default; }
 .studio input, .studio select, .studio textarea, .studio-welcome select { width: 100%; padding: 7px; background: white; border: 1px solid #cdcdcd; border-radius: 5px; min-width: 0; }
 .studio input[type=checkbox] { width: auto; }

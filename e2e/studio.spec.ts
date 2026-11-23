@@ -95,6 +95,7 @@ test('recupera imagens e histórico, restaura backup e exporta PNG e ZIP nas dim
   await page.getByLabel('Projeto', { exact: true }).fill('Projeto persistente')
   await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
   await page.getByLabel('Texto do elemento').fill('Antes')
+  await page.getByLabel('Texto do elemento').blur()
   await page.getByLabel('Texto do elemento').fill('Depois')
   await page.getByRole('button', { name: 'Desfazer', exact: true }).click()
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()

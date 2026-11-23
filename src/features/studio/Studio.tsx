@@ -62,7 +62,7 @@ function readBackupDate(id: string) {
 export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; homeEntry?: { projectId?: string }; onStartCampaign: (mode: CampaignStartMode) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
-  const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent } = useDocument()
+  const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent, endTextSession } = useDocument()
   const [backupTimes, setBackupTimes] = useState<Record<string, number>>({})
   const [backupPending, setBackupPending] = useState(false)
   const [backupClock, setBackupClock] = useState(Date.now)
@@ -115,10 +115,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [, refresh] = useState(0)
   const canvas = useRef<Canvas | null>(null)
   const [readyCanvas, setReadyCanvas] = useState<Canvas | null>(null)
-  const snapshotCanvas = useCallback((record: boolean) => {
+  const snapshotCanvas = useCallback((record: boolean, textTarget?: Textbox) => {
     if (!canvas.current) return
     const scene = sceneOf(canvas.current)
-    setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => i === currentRef.current ? { ...s, scene: { ...scene, ...(s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } } : s) }), record)
+    setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => i === currentRef.current ? { ...s, scene: { ...scene, ...(s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } } : s) }), record, false, textTarget && { target: textTarget, slide: currentRef.current })
     refresh(n => n + 1)
   }, [setProject, refresh])
   const changed = useCallback(() => snapshotCanvas(true), [snapshotCanvas])
@@ -518,11 +518,11 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
           readyCanvas.requestRenderAll(); refresh(n => n + 1)
         }}>{i + 1} · {label}{!o.visible && ' (oculta)'}</button>
       }).reverse()}
-    </aside><Properties brand={project.brand} canvas={readyCanvas} changed={changed} replaceImage={() => { setPanel('Imagens'); requestAnimationFrame(() => document.getElementById('studio-image-upload')?.focus()) }}>
+    </aside><Properties brand={project.brand} format={project.format} canvas={readyCanvas} changed={changed} endTextSession={endTextSession} textChanged={target => snapshotCanvas(true, target)} replaceImage={() => { setPanel('Imagens'); requestAnimationFrame(() => document.getElementById('studio-image-upload')?.focus()) }}>
     {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
     </Properties></div>
       <div className="studio-canvas-workspace" ref={assistantAnchor}>
-        <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={changed} onSelection={() => refresh(n => n + 1)} onError={setError} />
+        <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={(_, target) => snapshotCanvas(true, target)} onTextEnd={endTextSession} onSelection={() => refresh(n => n + 1)} onError={setError} />
       </div>
       <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame} open={framesOpen} toggle={() => setFramesOpen(value => !value)} />
     </div>

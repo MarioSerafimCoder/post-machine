@@ -1,14 +1,14 @@
 import { useRef, type ReactNode } from 'react'
 import { ActiveSelection, Canvas, Color, FabricImage, Gradient, Group, Textbox } from 'fabric'
 import { fontChoices } from './fonts'
-import type { Brand } from './model'
+import { dimensions, type Brand, type Format } from './model'
 import { cropImage, restoreFraming } from './images'
 import { editorialGradient } from './premium'
 import { replaceTextboxText } from './editText'
 import { align, duplicate, groupSelection } from './objects'
 
-export function Properties({ canvas, changed, brand, replaceImage, children }: {
-  brand: Brand; canvas: Canvas | null; changed: () => void; replaceImage: () => void; children?: ReactNode
+export function Properties({ canvas, changed, textChanged, endTextSession, brand, format, replaceImage, children }: {
+  brand: Brand; format: Format; canvas: Canvas | null; changed: () => void; textChanged: (target: Textbox) => void; endTextSession: () => void; replaceImage: () => void; children?: ReactNode
 }) {
   const textSelection = useRef<{ object: Textbox; value: string; start: number; end: number }>(null)
   const textField = useRef<HTMLTextAreaElement>(null)
@@ -39,6 +39,8 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
       onChange={event => set({ [key]: event.target.value })} /></label>
   const border = <>{color('Cor da borda','stroke')}{number('Espessura da borda','strokeWidth',object.strokeWidth,0,100)}</>
   const act = (fn: () => void) => { fn(); canvas.requestRenderAll(); changed() }
+  const alignSelection = (direction: Parameters<typeof align>[1]) =>
+    act(() => align(canvas, direction, dimensions[format][0], brand.margin))
   const scaleImage = (scale: number) => set({ scaleX: clamp(scale,.02,10), scaleY: clamp(scale,.02,10) })
   const locked = object.lockMovementX
   const gradient = object.fill instanceof Gradient && object.semantic === 'editorialGradient' ? object.fill : undefined
@@ -64,7 +66,7 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
   return <aside className="studio-properties" aria-label="Propriedades do elemento">
     <h3>{multi ? canvas.getActiveObjects().length + ' elementos selecionados' : text ? 'Editar texto' : image ? 'Editar imagem' : 'Editar elemento'}</h3>
     {text && <>
-      <label>Texto do elemento<textarea ref={textField} value={text.text} maxLength={8000} onSelect={event => {
+      <label>Texto do elemento<textarea ref={textField} value={text.text} maxLength={8000} onBlur={endTextSession} onSelect={event => {
         textSelection.current = { object:text,value:text.text,start:event.currentTarget.selectionStart,end:event.currentTarget.selectionEnd }
       }} onChange={event => {
         const current = textSelection.current
@@ -76,7 +78,9 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
           : selected && selected.start === selected.end && input.inputType === 'deleteContentForward'
             ? {start:caret,end:caret+Math.max(0,text.text.length-event.target.value.length)}
             : selected
-        act(() => replaceTextboxText(text,event.target.value,range))
+        replaceTextboxText(text,event.target.value,range)
+        canvas.requestRenderAll()
+        textChanged(text)
         textSelection.current = null
       }} /></label>
       {text.maxHeight !== undefined && text.height * text.scaleY > text.maxHeight && <p className="context-warning">O texto excede o espaço previsto.</p>}
@@ -155,17 +159,17 @@ export function Properties({ canvas, changed, brand, replaceImage, children }: {
       <button onClick={() => set({ lockMovementX: !locked, lockMovementY: !locked, lockScalingX: !locked, lockScalingY: !locked, lockRotation: !locked })}>{locked ? 'Desbloquear' : 'Bloquear'}</button>
       <button onClick={() => act(() => canvas.bringObjectForward(object))}>Para frente</button>
       <button onClick={() => act(() => canvas.sendObjectBackwards(object))}>Para trás</button>
-      <button onClick={() => act(() => align(canvas,'left'))}>Alinhar à esquerda</button>
-      <button onClick={() => act(() => align(canvas,'center'))}>Centralizar</button>
-      <button onClick={() => act(() => align(canvas,'top'))}>Alinhar ao topo</button>
+      <button onClick={() => alignSelection('left')}>Alinhar à esquerda</button>
+      <button onClick={() => alignSelection('center')}>Centralizar</button>
+      <button onClick={() => alignSelection('top')}>Alinhar ao topo</button>
       <button onClick={() => act(() => { object.set({ visible: !object.visible }); canvas.discardActiveObject() })}>{object.visible ? 'Ocultar' : 'Mostrar'}</button>
     </div></details>}
     {(multi || object instanceof Group) && <button onClick={() => act(() => groupSelection(canvas))}>{multi ? 'Agrupar' : 'Desagrupar'}</button>}
     {multi && <div className="studio-actions">
-      <button onClick={() => act(() => align(canvas,'left'))}>Alinhar à esquerda</button>
-      <button onClick={() => act(() => align(canvas,'center'))}>Centralizar</button>
-      <button onClick={() => act(() => align(canvas,'top'))}>Alinhar ao topo</button>
-      <button disabled={canvas.getActiveObjects().length < 3} onClick={() => act(() => align(canvas,'distribute'))}>Distribuir horizontalmente</button>
+      <button onClick={() => alignSelection('left')}>Alinhar à esquerda</button>
+      <button onClick={() => alignSelection('center')}>Centralizar</button>
+      <button onClick={() => alignSelection('top')}>Alinhar ao topo</button>
+      <button disabled={canvas.getActiveObjects().length < 3} onClick={() => alignSelection('distribute')}>Distribuir horizontalmente</button>
     </div>}
     <div className="studio-actions">
       {!multi && <button onClick={() => void duplicate(canvas).then(changed)}>Duplicar elemento</button>}
