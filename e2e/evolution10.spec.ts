@@ -1,5 +1,30 @@
 import { expect, test } from '@playwright/test'
 
+test('confirma e desfaz em uma ação dois ajustes de margem verificados', async ({ page }) => {
+  await page.goto('/#/studio')
+  const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await button('Criar projeto vazio').click()
+  for (let index = 0; index < 2; index++) {
+    if (index) await button('Adicionar slide').click()
+    await button('Adicionar título').click()
+    await page.getByText('Propriedades avançadas', { exact: true }).click()
+    await page.getByLabel('X', { exact: true }).fill('20')
+  }
+  await button('Auditar design').click()
+  await button('Auditar todos os slides').click()
+  const heading = page.getByRole('heading', { name: 'Texto fora da margem segura' })
+  await expect(heading).toHaveCount(2)
+  page.once('dialog', dialog => {
+    expect(dialog.message()).toContain('Aplicar 2 ajuste(s)')
+    void dialog.accept()
+  })
+  await button('Prévia de correções de posição em lote').click()
+  await expect(heading).toHaveCount(0)
+  await button('Desfazer última alteração').click()
+  await button('Reanalisar').click()
+  await expect(heading).toHaveCount(2)
+})
+
 test('cria conteúdo pela entrada unificada e organiza o JSON na colagem', async ({ page }) => {
   await page.goto('/#/inicio')
   await page.getByRole('button', { name: 'Criar conteúdo', exact: true }).click()

@@ -1,6 +1,6 @@
 import { collectionBrand, composeCollection, type Collection } from '../collections'
 import { loadFonts } from '../fonts'
-import { newProject, type Brand, type Format, type Project } from '../model'
+import { dimensions, newProject, type Brand, type Format, type Project } from '../model'
 import { planSlides, compositionPreference, type Asset, type Input, type PlannedSlide, type Treatment } from './planning'
 import { evaluateScene, type Issue } from './evaluate'
 
@@ -10,6 +10,13 @@ export type FactoryInput = { style: Collection; format: Format; brand: Brand; sl
 export type VersionSlide = { composition: number; issues: Issue[] }
 export type Proposal = { treatment: Treatment; project: Project; details: VersionSlide[] }
 export type Fabrication = { proposals: Proposal[]; slides: PlannedSlide[]; collection: string; elapsed: number; candidates: number }
+
+export function planFactoryImages(input: FactoryInput) {
+  const [width, height] = dimensions[input.format]
+  const frame = input.style.layouts[3]?.image
+  const imageRatio = frame?.[3] ? frame[2] * width / (frame[3] * height) : undefined
+  return planSlides(input.slides, input.assets, { width, height, imageRatio })
+}
 
 function unavailableFonts(brand: Brand): Set<string> {
   const canvas = document.createElement('canvas')
@@ -31,6 +38,12 @@ function makeCandidate(input: FactoryInput, brand: Brand, slide: PlannedSlide, i
   const assessment = evaluateScene(scene,measurements,slide,input.format,brand,missing)
   const preference = compositionPreference(slide,index,composition)
   let score = preference - assessment.penalty
+  const title = measurements.find(metric => metric.field === 'title')
+  const body = measurements.find(metric => metric.field === 'body')
+  const cta = measurements.find(metric => metric.field === 'cta')
+  if (slide.role === 'cover' && title?.fits) score += Math.min(9, title.size / Math.max(1, body?.size ?? 30) * 3)
+  if (slide.role === 'content' && body?.fits) score += Math.min(8, body.size / body.preferred * 7)
+  if (slide.role === 'cta' && cta?.fits) score += Math.min(8, cta.size / cta.preferred * 8)
   if (treatment === 'photo') score += slide.picture ? assessment.imageArea*78 + assessment.retained*12 : assessment.textArea*28
   if (treatment === 'expressive') score += assessment.titleSize*.23 + (composition === 4 ? 4 : 0)
   if (treatment === 'balanced') score += Math.min(.26,assessment.textArea)*18 + assessment.retained*5
@@ -46,7 +59,7 @@ export async function fabricate(input: FactoryInput, signal: AbortSignal, progre
   await loadFonts(brand)
   signal.throwIfAborted()
   const missing = unavailableFonts(brand)
-  const slides = planSlides(input.slides,input.assets)
+  const slides = planFactoryImages(input)
   const proposals: Proposal[] = treatments.map(treatment => ({
     treatment, project:{ ...newProject(input.format),brand:input.style.premium ? brand : input.brand,slides:[] }, details:[],
   }))

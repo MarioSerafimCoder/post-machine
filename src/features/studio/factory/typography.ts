@@ -12,6 +12,7 @@ export function fitText(item: Textbox, width: number, height: number, preferred:
     item.set({ lineHeight:1.04, charSpacing:-8, width })
     if (!fits()) {
       reset(minimum)
+      if (item.width > width + 1) item.set({ splitByGrapheme: true, width })
       if (fits()) {
         let low = minimum
         let high = preferred

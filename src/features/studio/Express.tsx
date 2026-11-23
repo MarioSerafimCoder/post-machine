@@ -11,7 +11,7 @@ import { fetchExternalImage } from '../images/openverse'
 import { collections, type CollectionSlide, collectionBrand, prepareCollectionImage } from './collections'
 import { CollectionGallery } from './CollectionGallery'
 import { bodyLimit, fromStructured, parseExpress, titleLimit } from './expressContent'
-import { fabricate, recompose, type Fabrication, type FactoryInput, type Proposal } from './factory/fabricate'
+import { fabricate, planFactoryImages, recompose, type Fabrication, type FactoryInput, type Proposal } from './factory/fabricate'
 import { divideBody } from './factory/planning'
 import { readImage } from './images'
 import { formatNames, type Brand, type Format, type Project } from './model'
@@ -62,6 +62,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [editTarget, setEditTarget] = useState<{ index: number; field: 'text' | 'image' }>()
   const generation = useRef<AbortController | null>(null)
   const factoryInput = useMemo(() => ({ style, format, brand, slides, assets:photos }),[style,format,brand,slides,photos])
+  const imagePlan = useMemo(() => step === 'Imagens' ? planFactoryImages(factoryInput) : [], [step, factoryInput])
+  const plannedPhotos = new Set(imagePlan.map(item => item.picture?.id))
   const result = prepared?.input === factoryInput ? prepared.result : undefined
   const [previewIndex, setPreviewIndex] = useState(0)
   const operation = useRef(false)
@@ -447,7 +449,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         <button className="express-photo" aria-pressed={photoId === photo.id} onClick={() => setPhotoId(photo.id)}>
           <img src={String(photo.object.src)} alt="" /><span>{photo.name}</span>
         </button>
-        <small>{slides.some(item => item.imageId === photo.id) ? 'Vinculada' : 'Não utilizada'}</small>
+        <small>{slides.some(item => item.imageId === photo.id) ? 'Vinculada' : plannedPhotos.has(photo.id) ? 'Na distribuição prevista' : 'Não utilizada'}</small>
         <div className="collection-actions">
           <button className="button button-outline" aria-label={`Antecipar imagem ${index+1}`} disabled={busy || index === 0} onClick={() => movePhoto(photo.id,photos[index-1].id)}>←</button>
           <button className="button button-outline" aria-label={`Adiar imagem ${index+1}`} disabled={busy || index === photos.length-1} onClick={() => movePhoto(photo.id,photos[index+1].id)}>→</button>
@@ -456,7 +458,19 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       </article>)}</div>
       <div className="express-assignment">{photos.find(photo => photo.id === photoId) && <img
         src={String(photos.find(photo => photo.id === photoId)!.object.src)} alt="Imagem selecionada" />}
-        <div>{slides.map((slide,index) => <div className="express-image-row" key={slide.key}><label>Imagem do slide {index+1}<select id={'express-edit-image-' + index} value={slide.imageId === null ? 'none' : slide.imageId ?? ''}
+        <div>{slides.map((slide,index) => <div className="express-image-row" key={slide.key} onDragOver={event => {
+          if (dragged.current && !busy) event.preventDefault()
+        }} onDrop={event => {
+          event.preventDefault()
+          if (!busy && photos.some(photo => photo.id === dragged.current)) change(slide.key, { imageId: dragged.current })
+          dragged.current = undefined
+        }}><div className="express-image-match">
+          {typeof imagePlan[index]?.content.image?.src === 'string' && <img src={imagePlan[index].content.image!.src as string} alt="" />}
+          <div><strong>{imagePlan[index]?.picture?.name ?? 'Sem imagem prevista'}</strong>
+            {imagePlan[index]?.picture?.reason && <p>{imagePlan[index].picture!.reason}</p>}
+            {imagePlan[index]?.picture?.origin === 'automatic' && <p>Distribuição pela ordem dos arquivos.</p>}
+          </div>
+        </div><label>Imagem do slide {index+1}<select id={'express-edit-image-' + index} value={slide.imageId === null ? 'none' : slide.imageId ?? ''}
           onChange={event => change(slide.key,{imageId:event.target.value === 'none' ? null : event.target.value || undefined})}>
           <option value="">Automática, pela ordem</option><option value="none">Sem imagem</option>{photos.map((photo,i) => <option value={photo.id} key={photo.id}>{i+1} · {photo.name}</option>)}
         </select></label><label>Enquadramento do slide {index+1}<select value={slide.framing ?? 'cover'}

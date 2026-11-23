@@ -94,6 +94,7 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
           <p className="factory-copy">{slide.content.body || 'Sem corpo de texto'}</p>
           {slide.content.cta && <p>Chamada: {slide.content.cta}</p>}
           <small>{slide.picture ? `${slide.picture.name}${slide.picture.origin === 'automatic' ? ' · pela ordem dos arquivos' : ''}` : 'Área de imagem editável'}</small>
+          {slide.picture?.reason && <p className="muted">{slide.picture.reason}</p>}
           {!!details.issues.length && <ul className="express-warnings">{details.issues.map((issue,index) =>
             <li key={index}>{issue.field && `${fields[issue.field] ?? issue.field}: `}{issue.message}</li>)}</ul>}
           <div className="collection-actions">

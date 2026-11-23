@@ -28,6 +28,15 @@ afterEach(() => {
 })
 
 describe('planejamento de conteúdo e imagens', () => {
+  it('reserva vínculos manuais e sugere por termos verificáveis antes da distribuição', () => {
+    const [fallback, suggested, manual, empty] = planSlides([
+      copy, { ...copy, imageBrief: 'Pátio interno com sombra' }, { ...copy, imageId: 'c' }, { ...copy, imageId: null },
+    ], [assets[0], { ...assets[1], name: 'patio-interno.png' }, assets[2]])
+    expect(fallback.picture).toMatchObject({ origin: 'automatic', id: 'a' })
+    expect(suggested.picture).toMatchObject({ origin: 'suggested', id: 'b', reason: expect.stringContaining('patio') })
+    expect(manual.picture).toMatchObject({ origin: 'manual', id: 'c' })
+    expect(empty.picture).toBeUndefined()
+  })
   it('reserva associações explícitas e arquivos vinculados antes de distribuir sem repetição', () => {
     const inputs = [copy,{...copy,imageId:'a'},{ ...copy,imageId:null },{ ...copy,image:assets[2].object }]
     const plan = planSlides(inputs,assets)
