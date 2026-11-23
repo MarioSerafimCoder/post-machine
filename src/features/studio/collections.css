@@ -86,3 +86,15 @@
 .template-form :is(input, textarea, select) { font-weight: 400; }
 .template-form textarea { min-height: 60px; resize: vertical; }
 .template-form > button { justify-self: start; }
+.studio-dialog:has(.adaptation-comparison) { width: min(890px, calc(100% - 48px)); }
+.adaptation-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.adaptation-controls label { display: grid; gap: 4px; }
+.adaptation-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.adaptation-comparison figure {
+  margin: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); justify-items: center; gap: 8px; min-height: 238px;
+  padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-muted);
+}
+.adaptation-comparison figcaption, .adaptation-findings h3 { font-weight: 700; }
+.adaptation-comparison img { display: block; max-height: min(42vh, 335px); max-width: 100%; object-fit: contain; align-self: center; }
+.adaptation-findings { display: grid; gap: 6px; }
+.adaptation-findings ul { max-height: 125px; overflow: auto; }

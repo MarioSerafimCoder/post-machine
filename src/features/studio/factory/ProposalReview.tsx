@@ -16,7 +16,7 @@ const fields: Record<string,string> = { title:'Título', body:'Texto', subtitle:
 const blobCache = new WeakMap<Scene,Map<number,Blob>>()
 let previewQueue: Promise<unknown> = Promise.resolve()
 
-function Preview({ project, index, scale, label }: { project: Project; index: number; scale: number; label: string }) {
+export function ScenePreview({ project, index, scale, label }: { project: Project; index: number; scale: number; label: string }) {
   const [src,setSrc] = useState('')
   const [error,setError] = useState('')
   const scene = project.slides[index].scene
@@ -66,7 +66,7 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
       const isTypographic = version.treatment === 'photo' && !result.slides.some(item => item.picture)
       const affected = version.details.filter(detail => detail.issues.some(requiresReview)).length
       return <article key={version.treatment} data-active={index === selected}>
-        <div className="factory-thumb"><Preview key={version.details[0].composition}
+        <div className="factory-thumb"><ScenePreview key={version.details[0].composition}
           project={version.project} index={0} scale={.18} label={`Capa ${name}`} /></div>
         <div className="factory-card-copy"><h3>{name}</h3><p>{isTypographic ? 'Alternativa tipográfica sem imagens.' : description}</p>
           <small>{version.project.slides.length} {version.project.slides.length === 1 ? 'slide' : 'slides'} · {affected ? `${affected} para revisar` : 'Sem avisos de encaixe ou recorte'}</small>
@@ -80,7 +80,7 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
         <p className="muted">Slide {slideIndex+1} de {result.slides.length}</p></div>
         <button className="button button-dark" disabled={busy} onClick={() => open(proposal)}>Usar esta versão</button></header>
       <div className="factory-body">
-        <div className="express-preview"><Preview key={`${selected}:${slideIndex}:${details.composition}`} project={proposal.project}
+        <div className="express-preview"><ScenePreview key={`${selected}:${slideIndex}:${details.composition}`} project={proposal.project}
           index={slideIndex} scale={.40} label={`Prévia do slide ${slideIndex+1}`} /></div>
         <div className="factory-notes">
           <nav className="collection-actions" aria-label="Slides da proposta">{result.slides.map((item,index) =>

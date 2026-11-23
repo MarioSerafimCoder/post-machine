@@ -40,6 +40,7 @@ import { resolvePage } from '../../lib/navigation'
 import { applyCollectionBrand, buildCollectionProject, demoSlides, type Collection } from './collections'
 import { AuthorTemplates, SaveTemplate } from './AuthorTemplates'
 import { copyTemplateDesign, type AuthorTemplate, type TemplateSummary } from './authorTemplate'
+import { AdaptLayoutDialog } from './AdaptLayoutDialog'
 import './collections.css'
 
 const Express = lazy(() => import('./Express').then(module => ({ default: module.Express })))
@@ -67,6 +68,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [slideFeedback, setSlideFeedback] = useState<{ text: string; id: string }>()
   const [templateDraft, setTemplateDraft] = useState<{ design: Project; previous?: TemplateSummary }>()
   const [templateEdit, setTemplateEdit] = useState<{ projectId: string; template: TemplateSummary }>()
+  const [adaptSource, setAdaptSource] = useState<Project>()
   const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent, endTextSession } = useDocument()
   const [backupTimes, setBackupTimes] = useState<Record<string, number>>({})
   const [backupPending, setBackupPending] = useState(false)
@@ -428,6 +430,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><DamagedProjects items={libraryResult.damaged} /><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slideCount} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
+    {adaptSource && <AdaptLayoutDialog source={adaptSource} firstSlide={current} close={() => setAdaptSource(undefined)}
+      confirm={async copy => { await openCreated(copy); setAdaptSource(undefined) }} />}
     {templateDraft && <SaveTemplate project={templateDraft.design} previous={templateDraft.previous}
       close={() => setTemplateDraft(undefined)} saved={item => {
         if (templateDraft.previous && templateEdit) setTemplateEdit({ ...templateEdit, template: item })
@@ -460,6 +464,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
           }}>
             <button disabled={backupPending} onClick={() => void downloadBackup()}>Backup completo</button>
             <button onClick={() => prepareTemplate()}>Salvar como template</button>
+            <button onClick={() => setAdaptSource(getCurrent())}>Adaptar formato</button>
             {project.id === templateEdit?.projectId && <button onClick={() => prepareTemplate(templateEdit.template)}>Atualizar template</button>}
             <button onClick={() => {
               if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) {

@@ -1,29 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { templateRole, templateRoles, type AuthorTemplate, type TemplateMetadata, type TemplateSummary } from './authorTemplate'
 import { download, renderScene } from './export'
 import { loadFonts } from './fonts'
 import { dimensions, formatNames, type Format, type Project } from './model'
 import { backupAuthorTemplate, listAuthorTemplates, loadAuthorTemplate, readAuthorTemplateBackup, saveAuthorTemplate, updateAuthorTemplate } from './storage'
+import { StudioDialog } from './StudioDialog'
+import { AdaptLayoutDialog } from './AdaptLayoutDialog'
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause)
-
-export function StudioDialog({ title, close, children }: { title: string; close: () => void; children: ReactNode }) {
-  const ref = useRef<HTMLDialogElement>(null)
-  const heading = useRef<HTMLHeadingElement>(null)
-  useLayoutEffect(() => {
-    const dialog = ref.current!
-    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : undefined
-    dialog.showModal()
-    heading.current?.focus()
-    return () => { if (dialog.open) dialog.close(); trigger?.focus() }
-  }, [])
-  return <dialog ref={ref} className="studio-dialog" aria-label={title} onCancel={event => { event.preventDefault(); close() }}>
-    <header><h2 tabIndex={-1} ref={heading}>{title}</h2>
-      <button type="button" className="button button-outline" onClick={close}>Fechar</button>
-    </header>
-    {children}
-  </dialog>
-}
 
 async function templateThumbnail(design: Project) {
   await loadFonts(design.brand)
@@ -96,6 +80,7 @@ export function AuthorTemplates({ format, selected, use, edit }: {
   const [formatFilter, setFormatFilter] = useState<string>('')
   const [category, setCategory] = useState('')
   const [preview, setPreview] = useState<TemplateSummary>()
+  const [adapt, setAdapt] = useState<AuthorTemplate>()
   const [rename, setRename] = useState<TemplateSummary>()
   const [newName, setNewName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -164,6 +149,9 @@ export function AuthorTemplates({ format, selected, use, edit }: {
         <details className="author-template-actions"><summary>Gerenciar template</summary>
           <div className="collection-actions">
             <button className="button button-outline" disabled={busy} onClick={() => void run(async () => edit(await loadAuthorTemplate(item.id)))}>Editar no Studio</button>
+            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
+              setAdapt(await loadAuthorTemplate(item.id))
+            })}>Adaptar formato</button>
             <button className="button button-outline" onClick={() => { setNewName(item.name); setRename(item) }} disabled={busy}>Renomear</button>
             <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
               const original = await loadAuthorTemplate(item.id)
@@ -197,5 +185,15 @@ export function AuthorTemplates({ format, selected, use, edit }: {
         <button className="button button-dark" disabled={busy || !newName.trim()}>Salvar nome</button>
       </form>
     </StudioDialog>}
+    {adapt && <AdaptLayoutDialog source={adapt.design} variants={items?.filter(item => item.familyId === adapt.familyId && item.id !== adapt.id)}
+      close={() => setAdapt(undefined)} confirmLabel="Salvar como variante" confirm={async (design, variant) => {
+        if (variant) await use(variant)
+        else {
+          await saveAuthorTemplate({ ...adapt, name: design.name }, design, await templateThumbnail(design))
+          setItems(await listAuthorTemplates())
+          setStatus('Variante salva em Meus templates.')
+        }
+        setAdapt(undefined)
+      }} />}
   </section>
 }
