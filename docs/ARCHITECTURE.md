@@ -1,5 +1,12 @@
 # Arquitetura e decisões
 
+## Evolução 12
+
+- A Produção Expressa inicia a busca após organizar o conteúdo. O Studio direto inicia a busca quando a peça pede imagem e tem um frame compatível. No catálogo, os dois caminhos pedem apenas a categoria `photograph`. A consulta usa termos selecionados localmente do título, subtítulo, corpo, CTA, briefing e campanha.
+- A classificação documental usa correspondência de assunto e indícios de acervo ou descrição. A expansão traduz termos concretos conhecidos. O apoio editorial exige fotografia pertinente e só é consultado após as tentativas documentais. A pontuação considera resolução, proporção e diversidade. Metadados conceituais, imagens sensíveis e licenças incompatíveis com o recorte são excluídos. A categoria do catálogo e os metadados indicam a natureza documental, com verificação editorial na fonte.
+- O Openverse continua anônimo. O original vem de Wikimedia Commons ou Flickr por uma conexão CORS sem credenciais, passa por decodificação local e mantém os créditos no documento e no ZIP. O enquadramento automático estima concentração de contraste. O sistema compara origem, título e uma impressão visual aproximada para reduzir repetição.
+- Duas buscas podem progredir em paralelo. As consultas idênticas compartilham a requisição em andamento e o cache de cinco minutos. A chave do slide deriva da intenção, do formato do frame e da revisão de busca. Alterar a chave cancela apenas a busca afetada. O IndexedDB guarda as fotos aprovadas pela política, a estratégia, o motivo e as escolhas manuais. As miniaturas usam a mídia local depois da importação.
+
 ## Evolução 11
 
 - O IndexedDB do Studio v6 adiciona a store `authorTemplates`. O contrato v1 guarda uma composição, formato, identidade, finalidade, miniatura PNG e revisão. A transação de gravação compara a revisão esperada. Templates, projetos e recuperação referenciam o mesmo acervo de blobs por SHA-256. A limpeza inclui esses três conjuntos de referências.

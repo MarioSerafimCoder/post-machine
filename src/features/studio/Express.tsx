@@ -14,17 +14,21 @@ import { bodyLimit, fromStructured, parseExpress, titleLimit } from './expressCo
 import { fabricate, planFactoryImages, recompose, type Fabrication, type FactoryInput, type Proposal } from './factory/fabricate'
 import { divideBody } from './factory/planning'
 import { readImage } from './images'
-import { formatNames, type Brand, type Format, type Project } from './model'
+import { dimensions, formatNames, type Brand, type Format, type Project } from './model'
 import { ProposalReview } from './factory/ProposalReview'
 import { useAssistantSignal } from '../intelligence/signals'
 import { requiresReview, type Issue } from './factory/evaluate'
 import { SaveQueue } from '../../lib/saveQueue'
 import { openExpressDraft, reconcileExpressSlides, type ExpressDraft, type ExpressPhoto, type ExpressSlide } from './expressDraft'
 import { AuthorTemplates } from './AuthorTemplates'
-import type { AuthorTemplate } from './authorTemplate'
+import { templateRole, type AuthorTemplate } from './authorTemplate'
 import { fabricateAuthorTemplate, planAuthorImages } from './factory/authorFabrication'
 import { loadAuthorTemplate } from './storage'
 import { useLocalVision } from './vision/useLocalVision'
+import { visualQueries } from '../images/automaticSearch'
+import { requestFor, useAutomaticImages } from '../images/useAutomaticImages'
+import { VisualSearchStatus } from '../images/VisualSearchStatus'
+import { frameImage, frameRequest } from './visualFrames'
 import './collections.css'
 
 const tools: ContextTool[] = [
@@ -70,10 +74,6 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [progress, setProgress] = useState<number>()
   const [editTarget, setEditTarget] = useState<{ index: number; field: 'text' | 'image' }>()
   const generation = useRef<AbortController | null>(null)
-  const factoryInput = useMemo(() => ({ style, format, brand, slides, assets:photos, author, visual }),[style,format,brand,slides,photos,author,visual])
-  const imagePlan = useMemo(() => step === 'Imagens' ? author ? planAuthorImages(author, factoryInput) : planFactoryImages(factoryInput) : [], [step, factoryInput, author])
-  const plannedPhotos = new Set(imagePlan.map(item => item.picture?.id))
-  const result = prepared?.input === factoryInput ? prepared.result : undefined
   const [previewIndex, setPreviewIndex] = useState(0)
   const operation = useRef(false)
   const dragged = useRef<string | undefined>(undefined)
@@ -86,6 +86,59 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [draftError, setDraftError] = useState('')
   const [storedDraft] = useState(() => openExpressDraft(slot))
   const completed = useRef(false)
+  const targets = useMemo(() => {
+    const frame = author?.design.slides[0].scene.objects.find(object => templateRole(object) === 'image' && object.visible !== false)
+    if (author && !frame) return []
+    const [width, height] = dimensions[format]
+    const slot = style.layouts[3]?.image
+    const ratio = frame ? (Number(frame.width) * Number(frame.scaleX ?? 1)) / (Number(frame.height) * Number(frame.scaleY ?? 1))
+      : slot ? slot[2] * width / (slot[3] * height) : width / height
+    return slides.flatMap(slide => {
+      if (slide.imageId !== undefined || slide.image || slide.imageLocked || slide.focalPoint || (!slide.title.trim() && !slide.body.trim())) return []
+      const query = visualQueries({ ...slide, role: slide.intent ?? slide.role, ratio, campaign: linked?.content?.campaign.title })
+      return query ? [requestFor(slide.key, query, slide.searchRevision)] : []
+    })
+  }, [slides, author, format, style, linked])
+  const localInput = useMemo(() => ({ style, format, brand, slides, author, visual,
+    assets: photos.filter(photo => !photo.automatic || slides.some(slide => slide.imageId === photo.id)),
+  }), [style, format, brand, slides, author, visual, photos])
+  const localPlan = useMemo(() => author ? planAuthorImages(author, localInput) : planFactoryImages(localInput), [author, localInput])
+  const automaticBySlide = useMemo(() => new Map(targets.flatMap(target => {
+    const photo = photos.find(item => item.automatic?.slideKey === target.key && item.automatic.signature === target.signature)
+    return photo ? [[target.key, photo] as const] : []
+  })), [targets, photos])
+  const requests = useMemo(() => targets.filter(target => !automaticBySlide.has(target.key) &&
+    !localPlan[slides.findIndex(slide => slide.key === target.key)]?.picture), [targets, automaticBySlide, localPlan, slides])
+  const occupied = useMemo(() => new Set(photos.filter(photo => !photo.automatic ||
+    automaticBySlide.get(photo.automatic.slideKey) === photo || slides.some(slide => slide.imageId === photo.id)).flatMap(photo => {
+    const credit = photo.object.imageCredit as ImageCredit | undefined
+    return [credit?.sourceId, credit?.originalUrl, credit?.title && 'titulo:' + credit.title.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[_-]/g, ' '),
+      photo.automatic?.match.fingerprint && 'foto:' + photo.automatic.match.fingerprint,
+      credit?.creator && 'autor:' + credit.creator.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()].filter((item): item is string => !!item)
+  })), [photos, automaticBySlide, slides])
+  const search = useAutomaticImages(active && draftGate === 'ready' && (step !== 'Prévia' || !prepared) && progress === undefined && !busy, requests, occupied, (request, image) => {
+    const retained = photos.filter(photo => photo.automatic?.slideKey !== request.key || slides.some(slide => slide.imageId === photo.id))
+    if (retained.length >= maxImages || retained.reduce((total, photo) => total + photo.bytes, image.file.size) > maxImageBytes) return false
+    if (retained.some(photo => (photo.object.imageCredit as ImageCredit | undefined)?.sourceId === image.id)) return false
+    setPhotos(items => [...items.filter(photo => photo.automatic?.slideKey !== request.key || slides.some(slide => slide.imageId === photo.id)),
+      { id: 'auto-' + image.id, name: image.name, bytes: image.file.size, file: image.file, object: image.object,
+        automatic: { slideKey: request.key, signature: request.signature, match: image.match, focalPoint: image.focalPoint } }])
+    return true
+  })
+  const factoryInput = useMemo(() => ({
+    ...localInput,
+    slides: slides.map((slide, index) => {
+      const auto = automaticBySlide.get(slide.key)
+      return auto && !localPlan[index].picture ? { ...slide, image: auto.object, focalPoint: auto.automatic?.focalPoint } : slide
+    }),
+  }), [localInput, slides, automaticBySlide, localPlan])
+  const imagePlan = useMemo(() => author ? planAuthorImages(author, factoryInput) : planFactoryImages(factoryInput), [author, factoryInput])
+  const plannedPhotos = new Set([...imagePlan.map(item => item.picture?.id), ...[...automaticBySlide.values()].map(photo => photo.id)])
+  const matchedPhotos = slides.flatMap(slide => {
+    const photo = slide.imageId === undefined ? automaticBySlide.get(slide.key) : photos.find(item => item.id === slide.imageId)
+    return photo?.automatic ? [photo.automatic.match] : []
+  })
+  const result = prepared?.input === factoryInput ? prepared.result : undefined
   const [draftQueue] = useState(() => new SaveQueue<ExpressDraft>(storedDraft.save, (_id, state, failure) => {
     if (state === 'error') setDraftError(`Falha ao salvar a preparação. ${errorText(failure)}`)
     else if (state === 'saved') setDraftError('')
@@ -146,8 +199,11 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     setSlides(value => value.map(item => item.key === slide ? { ...item, ...patch } : item))
   }
   function assignPhoto(slide: Entry, index: number, id: string | null | undefined) {
-    change(slide.key, { imageId: id })
     const photo = photos.find(item => item.id === id)
+    change(slide.key, { imageId: id, imageLocked: false,
+      ...(id === undefined ? { focalPoint: undefined, searchRevision: (slide.searchRevision ?? 0) + 1 } :
+        { focalPoint: photo?.automatic?.focalPoint }),
+    })
     setStatus(photo ? `${photo.name} vinculada ao slide ${index + 1}.` :
       id === null ? `Slide ${index + 1} definido sem imagem.` : `Slide ${index + 1} voltou à distribuição automática.`)
   }
@@ -268,8 +324,11 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     })
   }
   function removePhoto(id: string) {
+    if (slides.some(item => item.imageId === id && item.imageLocked)) return
     setPhotos(items => items.filter(item => item.id !== id))
-    setSlides(items => items.map(item => item.imageId === id ? { ...item, imageId:undefined } : item))
+    const auto = photos.find(item => item.id === id)?.automatic
+    setSlides(items => items.map(item => item.imageId === id || item.key === auto?.slideKey && item.imageId === undefined
+      ? { ...item, imageId: auto ? null : undefined, focalPoint: undefined } : item))
     if (photoId === id) setPhotoId('')
     setStatus('Imagem e seus vínculos removidos da preparação.')
   }
@@ -311,10 +370,23 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     setBusy(true); setError(''); operation.current = true
     try {
       if (draftGate === 'ready') await draftQueue.flush(slot)
-      await open({
+      const project = {
         ...proposal.project, name:(name.trim() || slides[0]?.title.trim() || 'Produção Expressa').slice(0,100),
         caption, campaignId:linked?.id ?? null, campaignUpdatedAt:linked?.updatedAt ?? null,
+      }
+      project.slides = project.slides.map((slide, index) => {
+        const entry = slides[index]
+        const image = frameImage(slide.scene)
+        const request = frameRequest(project, slide)
+        if (!request) return slide
+        const auto = automaticBySlide.get(entry.key)?.automatic
+        if (entry.imageId === null) return { ...slide, visualChoice: { mode: 'none' } }
+        if (image && (entry.imageId || localPlan[index]?.picture)) {
+          return { ...slide, visualChoice: { mode: entry.imageLocked ? 'locked' : 'manual' } }
+        }
+        return { ...slide, visualChoice: { mode: 'automatic', ...(image && auto ? { signature: request.signature, match: auto.match } : {}) } }
       })
+      await open(project)
       completed.current = true
       if (storedDraft.hasSaved()) await storedDraft.clear()
     } catch (cause) { setError(errorText(cause)) }
@@ -384,6 +456,12 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     <div className="express-paste">
       <label>Cole aqui o conteúdo do seu post ou carrossel<textarea rows={7} value={text} maxLength={maxImport}
         placeholder={'Slide 1 — Seu título\nTexto do primeiro slide\n\nSlide 2\nTexto do segundo slide'}
+        onPaste={event => {
+          if (text.trim() || slides.some(slide => slide.title.trim() || slide.body.trim())) return
+          const raw = event.clipboardData.getData('text/plain')
+          if (!raw.trim() || raw.length > maxImport) return
+          event.preventDefault(); setText(raw); applyText(raw)
+        }}
         onChange={event => updateRaw(event.target.value)} /></label>
       <p className="muted">Cole a resposta do GPT em JSON ou Markdown de campanha, ou use texto com marcações “Slide 1”, “Slide 2” etc.</p>
       <ResponsePreview raw={text} express />
@@ -424,7 +502,14 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         {slide.emphasis?.trim() && !slide.title.includes(slide.emphasis.trim()) && <small>Use um trecho que apareça exatamente no título.</small>}</label>}
       <label>Subtítulo<input value={slide.subtitle ?? ''} onChange={event => change(slide.key,{subtitle:event.target.value})} /></label>
       <label>Texto<textarea id={'express-edit-text-' + index} rows={3} value={slide.body} onChange={event => change(slide.key,{body:event.target.value})} /></label>
-      <label>Chamada para ação<input value={slide.cta ?? ''} onChange={event => change(slide.key,{cta:event.target.value})} /></label>
+        <label>Chamada para ação<input value={slide.cta ?? ''} onChange={event => change(slide.key,{cta:event.target.value})} /></label>
+        <label>Briefing de imagem<input value={slide.imageBrief ?? ''} onChange={event => change(slide.key,{imageBrief:event.target.value})} /></label>
+        {(automaticBySlide.has(slide.key) || requests.some(item => item.key === slide.key)) && <div className="express-image-match">
+          {automaticBySlide.has(slide.key) ? <img src={String(automaticBySlide.get(slide.key)?.object.src)} alt="" /> :
+            <span className="visual-search-placeholder" aria-hidden="true" />}
+          <VisualSearchStatus status={search.status(requests.find(item => item.key === slide.key))}
+            match={automaticBySlide.get(slide.key)?.automatic?.match} />
+        </div>}
     </article>)}</div>
     <button className="button button-outline" disabled={slides.length >= maxSlides} onClick={() => setSlides(items => [...items,entry()])}>Adicionar slide</button>
   </div>
@@ -475,7 +560,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           const reserved = new Set(items.map(item => item.imageId))
           const available = photos.filter(item => !reserved.has(item.id))
           let index = 0
-          return items.map(item => item.imageId === undefined ? { ...item,imageId:available[index++]?.id } : item)
+          return items.map(item => item.imageId === undefined && !item.imageLocked ? { ...item,imageId:available[index++]?.id } : item)
         })}>Distribuir na ordem</button></div>
       <div className="express-photos">{photos.map((photo,index) => <article key={photo.id} draggable={!busy}
         onDragStart={() => { dragged.current=photo.id }} onDragOver={event => event.preventDefault()} onDrop={event => {
@@ -488,53 +573,75 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         <div className="collection-actions">
           <button className="button button-outline" aria-label={`Antecipar imagem ${index+1}`} disabled={busy || index === 0} onClick={() => movePhoto(photo.id,photos[index-1].id)}>←</button>
           <button className="button button-outline" aria-label={`Adiar imagem ${index+1}`} disabled={busy || index === photos.length-1} onClick={() => movePhoto(photo.id,photos[index+1].id)}>→</button>
-          <button className="button button-outline" aria-label={`Remover imagem ${index+1}`} disabled={busy} onClick={() => removePhoto(photo.id)}>×</button>
+          <button className="button button-outline" aria-label={`Remover imagem ${index+1}`} disabled={busy || slides.some(slide => slide.imageLocked && slide.imageId === photo.id)} onClick={() => removePhoto(photo.id)}>×</button>
         </div>
       </article>)}</div>
-      <div className="express-assignment">{photos.find(photo => photo.id === photoId) && <img
+    </>}
+    <div className="express-assignment">{photos.find(photo => photo.id === photoId) && <img
         src={String(photos.find(photo => photo.id === photoId)!.object.src)} alt="Imagem selecionada" />}
         <div>{slides.map((slide,index) => {
           const planned = imagePlan[index]
+          const auto = automaticBySlide.get(slide.key)
+          const match = !localPlan[index]?.picture ? auto?.automatic?.match : photos.find(photo => photo.id === slide.imageId)?.automatic?.match
+          const request = requests.find(item => item.key === slide.key)
           const focal = planned?.content.focalPoint ?? { x: .5, y: .5 }
           return <div className="express-image-row" key={slide.key} onDragOver={event => {
           if (dragged.current && !busy) event.preventDefault()
         }} onDrop={event => {
           event.preventDefault()
-          if (!busy && photos.some(photo => photo.id === dragged.current)) assignPhoto(slide, index, dragged.current)
+          if (!busy && !slide.imageLocked && photos.some(photo => photo.id === dragged.current)) assignPhoto(slide, index, dragged.current)
           dragged.current = undefined
         }}><div className="express-image-match">
-          {typeof imagePlan[index]?.content.image?.src === 'string' && <img src={imagePlan[index].content.image!.src as string} alt="" />}
-          <div><strong>{imagePlan[index]?.picture?.name ?? 'Sem imagem prevista'}</strong>
+          {typeof planned?.content.image?.src === 'string' ? <img src={planned.content.image.src} alt="" /> :
+            <span className="visual-search-placeholder" aria-hidden="true" />}
+          <div><strong>{auto?.name ?? planned?.picture?.name ?? 'Sem imagem prevista'}</strong>
             {imagePlan[index]?.picture?.reason && <p>{imagePlan[index].picture!.reason}</p>}
             {imagePlan[index]?.picture?.origin === 'automatic' && <p>Distribuição pela ordem dos arquivos.</p>}
             {planned?.content.focalPoint && !slide.focalPoint && <p>Ponto focal sugerido pela concentração de contraste.</p>}
           </div>
+        </div>
+        <VisualSearchStatus status={search.status(request)} match={match} />
+        <p className="muted">{slide.imageLocked ? 'Travado' : slide.imageId === null ? 'Sem imagem' : slide.imageId ? 'Confirmado manualmente' : 'Automático'}</p>
+        <div className="collection-actions">
+          {match && auto && <button className="button button-outline" onClick={() => assignPhoto(slide, index, auto.id)}>Manter esta</button>}
+          {planned?.content.image && !slide.imageLocked && <button className="button button-outline" onClick={() =>
+            change(slide.key, { imageId: slide.imageId ?? auto?.id ?? planned.picture?.id, imageLocked: true,
+              focalPoint: slide.focalPoint ?? planned.content.focalPoint })}>Travar imagem</button>}
+          {slide.imageLocked && <button className="button button-outline" onClick={() => change(slide.key, { imageLocked: false })}>Destravar imagem</button>}
+          {!slide.imageLocked && <button className="button button-outline" onClick={() => { setOrigin('openverse'); setImageBriefSlide(slide.key) }}>Trocar imagem</button>}
+          {!slide.imageLocked && (slide.imageId !== undefined || match || request) && <button className="button button-outline" onClick={() => {
+            setPrepared(undefined); assignPhoto(slide, index, undefined)
+          }}>{slide.imageId !== undefined ? 'Voltar ao automático' : 'Buscar novamente'}</button>}
+          {!slide.imageLocked && planned?.content.image && <button className="button button-outline" onClick={() => assignPhoto(slide, index, null)}>
+            {match ? 'Desfazer escolha automática' : 'Remover imagem'}
+          </button>}
         </div>
         {planned?.picture?.origin === 'suggested' && planned.picture.id && <div className="collection-actions">
           <button className="button button-outline" onClick={() => assignPhoto(slide, index, planned.picture!.id)}>Aceitar sugestão</button>
           {!!visual.size && !slide.ignoreVisual && <button className="button button-outline" onClick={() => change(slide.key, { ignoreVisual: true })}>Ignorar análise visual neste slide</button>}
         </div>}
         {slide.ignoreVisual && !!visual.size && <button className="button button-outline" onClick={() => change(slide.key, { ignoreVisual: false })}>Reativar análise visual neste slide</button>}
-        <label>Imagem do slide {index+1}<select id={'express-edit-image-' + index} value={slide.imageId === null ? 'none' : slide.imageId ?? ''}
+        <label>Imagem do slide {index+1}<select id={'express-edit-image-' + index} disabled={slide.imageLocked} value={slide.imageId === null ? 'none' : slide.imageId ?? ''}
           onChange={event => assignPhoto(slide, index, event.target.value === 'none' ? null : event.target.value || undefined)}>
-          <option value="">Automática, pela ordem</option><option value="none">Sem imagem</option>{photos.map((photo,i) => <option value={photo.id} key={photo.id}>{i+1} · {photo.name}</option>)}
+          <option value="">Automática</option><option value="none">Sem imagem</option>{photos.map((photo,i) => <option value={photo.id} key={photo.id}>{i+1} · {photo.name}</option>)}
         </select></label><label>Enquadramento do slide {index+1}<select value={slide.framing ?? 'cover'}
-          onChange={event => change(slide.key,{framing:event.target.value === 'contain' ? 'contain' : 'cover'})}>
+          onChange={event => change(slide.key, { framing: event.target.value === 'contain' ? 'contain' : 'cover',
+            ...(auto && match ? { imageId: auto.id, focalPoint: focal } : {}) })}>
           <option value="cover">Preencher a área</option><option value="contain">Mostrar imagem inteira</option>
         </select></label>
         {planned?.content.image && slide.framing !== 'contain' && <details className="express-focal">
           <summary>Ajustar ponto focal do slide {index + 1}</summary>
           {(['x', 'y'] as const).map(axis => <label key={axis}>Ponto focal {axis === 'x' ? 'horizontal' : 'vertical'}
             <input type="range" min={0} max={100} step={1} value={Math.round(focal[axis] * 100)}
-              onChange={event => change(slide.key, { focalPoint: { ...focal, [axis]: event.currentTarget.valueAsNumber / 100 } })} />
+              onChange={event => change(slide.key, { imageId: slide.imageId ?? (match ? auto?.id : undefined),
+                focalPoint: { ...focal, [axis]: event.currentTarget.valueAsNumber / 100 } })} />
           </label>)}
           <div className="collection-actions">
-            <button className="button button-outline" onClick={() => change(slide.key, { focalPoint: { x: .5, y: .5 } })}>Centralizar enquadramento</button>
+            <button className="button button-outline" onClick={() => change(slide.key, { imageId: slide.imageId ?? (match ? auto?.id : undefined), focalPoint: { x: .5, y: .5 } })}>Centralizar enquadramento</button>
             <button className="button button-outline" disabled={!slide.focalPoint} onClick={() => change(slide.key, { focalPoint: undefined })}>Restaurar enquadramento automático</button>
           </div>
         </details>}
         </div>})}</div></div>
-    </>}
   </>
   else if (step === 'Templates') panel = <>
     <AuthorTemplates format={format} selected={author?.id} use={value => {
@@ -635,6 +742,11 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         {(busy || downloading) && <p role="status">{downloading ? 'Baixando imagem…' : 'Preparando…'}</p>}
         {error && <p className="express-warning" role="alert">{error}</p>}
         {status && <p className="express-feedback" key={status} role="status">{status}</p>}
+        {(targets.length > 0 || matchedPhotos.length > 0) && <p className="muted">
+          Modo visual Documental · Openverse · {matchedPhotos.length} de {slides.length} slides com sugestão do acervo
+          {' · '}{matchedPhotos.filter(match => match.strategy === 'editorial').length} em apoio editorial
+          {' · '}{requests.filter(item => search.status(item) === 'empty').length} sem resultado confiável
+        </p>}
         <div className="express-stage" key={step}>{panel}</div>
         {step !== 'Prévia' && <div className="collection-actions express-next">
           <button className="button button-dark" disabled={busy || downloading || (step === 'Conteúdo' && !!invalid.length)}

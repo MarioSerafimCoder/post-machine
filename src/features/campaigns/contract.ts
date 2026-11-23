@@ -35,7 +35,7 @@ const publishedAtSchema = z.preprocess(value =>
 const sourceSchema = z.object({ title: short.trim().min(1), url: webUrl, publishedAt: publishedAtSchema })
 const slideSchema = z.object({
   order: z.number().int().min(1).max(maxSlides), role: z.enum(['cover', 'content', 'cta']),
-  title: short, body: prose, imageBrief: prose, layoutType: short, headlines: headlineSessionSchema.optional(),
+  title: short, subtitle: short.optional(), body: prose, imageBrief: prose, layoutType: short, headlines: headlineSessionSchema.optional(),
 })
 export const contentSchema = z.object({
   schemaVersion: z.literal(1),
@@ -167,13 +167,13 @@ Layout: editorial`
 function parseMarkdown(text: string) {
   const sections = text.split(/^#{1,2} /m)
   if (sections.shift()?.trim() || !sections.length) throw Error('O Markdown deve começar com # Campanha.')
-  const readSection = (section: string, labels: string[]) => {
+  const readSection = (section: string, labels: string[], optional: string[] = []) => {
     const [heading, ...lines] = section.split('\n')
     const fields = new Map<string, string>()
     let active: string | undefined
     for (const line of lines) {
       const field = /^([^:]+):[ \t]*(.*)$/.exec(line)
-      if (field && labels.includes(field[1])) {
+      if (field && (labels.includes(field[1]) || optional.includes(field[1]))) {
         if (fields.has(field[1])) throw Error(`Campo duplicado: ${field[1]}.`)
         active = field[1]
         fields.set(active, field[2])
@@ -195,11 +195,11 @@ function parseMarkdown(text: string) {
       const source = readSection(section, ['Título', 'URL', 'Publicado'])
       sources.push({ title: source.get('Título'), url: source.get('URL'), publishedAt: source.get('Publicado') === 'null' ? null : source.get('Publicado') })
     } else {
-      const slide = readSection(section, ['Função', 'Título', 'Corpo', 'Imagem', 'Layout'])
+      const slide = readSection(section, ['Função', 'Título', 'Corpo', 'Imagem', 'Layout'], ['Subtítulo'])
       const match = /^Slide (\d+)$/.exec(slide.heading)
       if (!match) throw Error(`Seção desconhecida: ${slide.heading}.`)
       slides.push({ order: Number(match[1]), role: slide.get('Função'), title: slide.get('Título'),
-        body: slide.get('Corpo'), imageBrief: slide.get('Imagem'), layoutType: slide.get('Layout') })
+        subtitle: slide.get('Subtítulo'), body: slide.get('Corpo'), imageBrief: slide.get('Imagem'), layoutType: slide.get('Layout') })
     }
   }
   return {

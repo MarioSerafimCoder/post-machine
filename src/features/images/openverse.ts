@@ -1,8 +1,10 @@
 import { originalHosts, openverseOrigin, responseSchema, safeWebUrl, type ImageResult } from './contract'
 
-export type Search = { query: string; page: number; license: string; commercial: boolean; ratio: string; source: string }
+export type Search = { query: string; page: number; license: string; commercial: boolean; ratio: string; source: string; photographs?: boolean }
 type SearchResult = ReturnType<typeof responseSchema.parse>
 const cache = new Map<string, { expires: number; data: SearchResult }>()
+type PendingPhotographs = { controller: AbortController; users: number; result: Promise<SearchResult> }
+const pendingPhotographs = new Map<string, PendingPhotographs>()
 let blockedUntil = 0
 const maxBytes = 20_000_000
 const types = ['image/png', 'image/jpeg', 'image/webp']
@@ -18,6 +20,36 @@ export class SearchLimit extends Error {
   constructor(readonly until: number) { super('Limite de buscas do Openverse atingido. Tente novamente depois.'); this.name = 'SearchLimit' }
 }
 export async function searchImages(search: Search, signal: AbortSignal) {
+  if (!search.photographs) return fetchResults(search, signal)
+  signal.throwIfAborted()
+  const key = JSON.stringify(search)
+  let pending = pendingPhotographs.get(key)
+  if (!pending) {
+    const controller = new AbortController()
+    const result = fetchResults(search, controller.signal).finally(() => {
+      if (pendingPhotographs.get(key)?.controller === controller) pendingPhotographs.delete(key)
+    })
+    pending = { controller, users: 0, result }
+    pendingPhotographs.set(key, pending)
+  }
+  const request = pending
+  request.users++
+  let onAbort: (() => void) | undefined
+  return new Promise<SearchResult>((resolve, reject) => {
+    onAbort = () => reject(signal.reason)
+    signal.addEventListener('abort', onAbort, { once: true })
+    void request.result.then(resolve, reject)
+  }).finally(() => {
+    if (onAbort) signal.removeEventListener('abort', onAbort)
+    request.users--
+    if (!request.users && pendingPhotographs.get(key) === request) {
+      pendingPhotographs.delete(key)
+      request.controller.abort()
+    }
+  })
+}
+
+async function fetchResults(search: Search, signal: AbortSignal) {
   signal.throwIfAborted()
   const query = search.query.trim()
   if (!query || query.length > 160) throw Error('Digite um termo de pesquisa de até 160 caracteres.')
@@ -27,6 +59,7 @@ export async function searchImages(search: Search, signal: AbortSignal) {
   if (search.commercial) url.searchParams.set('license_type', 'commercial')
   if (['wide', 'tall', 'square'].includes(search.ratio)) url.searchParams.set('aspect_ratio', search.ratio)
   if (search.source) url.searchParams.set('source', search.source)
+  if (search.photographs) url.searchParams.set('category', 'photograph')
   const key = String(url)
   const now = Date.now()
   const cached = cache.get(key)

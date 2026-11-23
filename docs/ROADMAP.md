@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Evolução 12 — Busca fotográfica automática
+
+- Preparações organizadas pesquisam fotografias documentais em segundo plano. A busca expandida precede o apoio editorial e o slide fica vazio quando a evidência é insuficiente.
+- A Produção Expressa exibe resultados por peça. O Studio aplica sugestões em frames compatíveis. Vínculos manuais, travas, recortes, backups e créditos permanecem sob controle do editor.
+
 ## Evolução 11 — Templates autorais e automação visual
 
 - 11.1 e 11.2 consolidam estados de interação, controles e movimento reduzido, com feedback das ações do Studio, Produção Expressa e Auditoria.

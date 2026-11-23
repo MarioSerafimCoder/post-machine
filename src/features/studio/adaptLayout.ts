@@ -97,7 +97,10 @@ export async function adaptLayout(source: Project, format: Format, signal?: Abor
       }
       const scene = canvas.toObject() as Scene
       if (slide.scene.contentImage) scene.contentImage = structuredClone(slide.scene.contentImage)
-      project.slides.push({ ...slide, id: crypto.randomUUID(), scene })
+      const visualChoice = slide.visualChoice?.mode === 'automatic'
+        ? { ...slide.visualChoice, mode: slide.visualChoice.match ? 'manual' as const : 'none' as const }
+        : slide.visualChoice
+      project.slides.push({ ...slide, id: crypto.randomUUID(), scene, visualChoice })
       progress?.(index + 1)
     } finally { await canvas.dispose() }
     await new Promise<void>(resolve => setTimeout(resolve, 0))

@@ -31,6 +31,9 @@ const resultSchema = z.object({
   id: z.uuid(), title: field(1000), creator: field(500), creator_url: urlField, url: urlField, foreign_landing_url: urlField,
   thumbnail: urlField, license: field(80), license_version: field(50), license_url: urlField, attribution: field(4000),
   width: dimension, height: dimension, source: field(100), provider: field(100), filetype: field(30),
+  category: field(40), mature: z.boolean().optional().catch(undefined),
+  tags: z.array(z.object({ name: z.string().max(160) })).max(200).optional().catch(undefined),
+  description: field(1000),
 })
 export type ImageResult = z.infer<typeof resultSchema>
 export const responseSchema = z.object({

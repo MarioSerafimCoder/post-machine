@@ -106,3 +106,8 @@
 .express-focal { padding-block: 6px; }
 .express-focal summary { cursor: pointer; font-weight: 600; }
 .express-focal input[type=range] { padding-inline: 0; accent-color: var(--accent); }
+.visual-search-placeholder { display: block; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 5px; background: var(--ui-hover); }
+.visual-search-status { min-width: 0; padding: 6px 8px; border-inline-start: 2px solid var(--line); font-size: var(--ui-meta); }
+.visual-search-status p { margin-top: 4px; color: var(--muted); overflow-wrap: anywhere; }
+.studio-visual-choice { display: grid; gap: 6px; padding-block: 5px 10px; border-bottom: 1px solid var(--line); }
+.express-assignment:not(:has(> img)) { grid-template-columns: minmax(0, 1fr); }

@@ -5,12 +5,14 @@ import type { Project } from './model'
 import { compositionNames } from './collections'
 import { templates } from './templates'
 import { sameReviewSettings } from '../audit/review'
+import type { VisualStatus } from '../images/automaticSearch'
 
 export type SlideReview = { project: Project; scene: Scene; errors: number; warnings: number }
-export function Slides({ project, current, select, action, issues, reorder, open, toggle }: {
+export function Slides({ project, current, select, action, issues, reorder, open, toggle, imageStatus }: {
   project: Project; issues: ReadonlyMap<string,SlideReview>; current: number; select: (index: number) => void
   reorder: (from: number, to: number) => void; open: boolean; toggle: () => void
   action: (action: 'add' | 'duplicate' | 'remove' | 'up' | 'down') => void
+  imageStatus?: (id: string) => VisualStatus | undefined
 }) {
   const list = useRef<HTMLDivElement>(null)
   const drag = useRef<number | null>(null)
@@ -27,6 +29,11 @@ export function Slides({ project, current, select, action, issues, reorder, open
     <header><strong>Frames</strong><button aria-expanded={open} onClick={toggle}>{open ? 'Recolher frames' : 'Mostrar frames'}</button></header>
     {open && <><div className="slide-list" ref={list} role="group" aria-label="Setas navegam. Alt e setas movem o frame ativo.">{project.slides.map((slide, index) => {
       const review = issues.get(slide.id)
+      const status = imageStatus?.(slide.id)
+      const match = slide.visualChoice?.match
+      const photoStatus = status === 'documental' ? 'Busca documental' : status === 'editorial' ? 'Busca editorial' :
+        status === 'empty' ? 'Sem sugestão' : status === 'error' ? 'Busca indisponível' :
+          match ? match.strategy === 'editorial' ? 'Foto editorial' : 'Foto documental' : ''
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]
       const label = composition === undefined ? templates[slide.layout as keyof typeof templates] ?? 'Livre' : compositionNames[Number(composition)] ?? 'Livre'
       const stale = review && (review.scene !== slide.scene || !sameReviewSettings(review.project,project))
@@ -43,7 +50,7 @@ export function Slides({ project, current, select, action, issues, reorder, open
         indicator = review.errors || review.warnings ? review.errors + 'E · ' + review.warnings + 'A' : '✓'
         level = review.errors ? 'error' : review.warnings ? 'warning' : 'clear'
       }
-      return <button key={slide.id} aria-label={'Slide ' + (index+1)} aria-description={description}
+      return <button key={slide.id} aria-label={'Slide ' + (index+1)} aria-description={[description, photoStatus].filter(Boolean).join('. ')}
         aria-pressed={current === index} draggable onDragStart={event => {
           drag.current = index
           event.dataTransfer.effectAllowed = 'move'
@@ -73,8 +80,9 @@ export function Slides({ project, current, select, action, issues, reorder, open
             list.current?.querySelectorAll('button')[destination]?.focus()
           }
         }}>
-        <Thumbnail scene={slide.scene} format={project.format} />
+        <Thumbnail scene={slide.scene} format={project.format} visualRevision={slide.visualChoice?.signature} />
         <span className="slide-caption"><b>{String(index+1).padStart(2,'0')}</b> {label}</span>
+        {photoStatus && <span className="slide-caption muted">{photoStatus}</span>}
         <span className="slide-issue" data-level={level} title={description} aria-hidden="true">{indicator}</span>
       </button>
     })}</div>
@@ -90,11 +98,12 @@ export function Slides({ project, current, select, action, issues, reorder, open
 
 const thumbnails = new WeakMap<Scene, Map<Format,Blob>>()
 
-const Thumbnail = memo(function Thumbnail({ scene, format }: { scene: Scene; format: Format }) {
+const Thumbnail = memo(function Thumbnail({ scene, format, visualRevision }: { scene: Scene; format: Format; visualRevision?: string }) {
   const [url, setUrl] = useState('')
   const [seen, setSeen] = useState(false)
   const element = useRef<HTMLSpanElement>(null)
   const rendered = useRef(false)
+  const lastVisualRevision = useRef(visualRevision)
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) { setSeen(true); observer.disconnect() }
@@ -105,7 +114,8 @@ const Thumbnail = memo(function Thumbnail({ scene, format }: { scene: Scene; for
   useEffect(() => {
     if (!seen) return
     const controller = new AbortController()
-    const delay = thumbnails.get(scene)?.has(format) || !rendered.current ? 0 : 650
+    const changedVisualImage = lastVisualRevision.current !== visualRevision
+    const delay = thumbnails.get(scene)?.has(format) || !rendered.current || changedVisualImage ? 0 : 650
     const timer = window.setTimeout(() => {
       const cache = thumbnails.get(scene) ?? new Map<Format,Blob>()
       const existing = cache.get(format)
@@ -114,6 +124,7 @@ const Thumbnail = memo(function Thumbnail({ scene, format }: { scene: Scene; for
       void renderScene(scene, width, height, { scale: .1, signal: controller.signal }).then(({ blob }) => {
         if (!controller.signal.aborted) {
           rendered.current = true
+          lastVisualRevision.current = visualRevision
           cache.set(format,blob)
           thumbnails.set(scene,cache)
           setUrl(URL.createObjectURL(blob))
@@ -121,7 +132,7 @@ const Thumbnail = memo(function Thumbnail({ scene, format }: { scene: Scene; for
       }, () => undefined)
     }, delay)
     return () => { controller.abort(); window.clearTimeout(timer) }
-  }, [scene, format, seen])
+  }, [scene, format, seen, visualRevision])
   useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
   return <span ref={element} className="slide-mini" aria-hidden="true">{url ? <img className="slide-thumbnail" src={url} alt="" /> : 'Prévia'}</span>
 })

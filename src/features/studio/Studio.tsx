@@ -19,7 +19,7 @@ import type { Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
 import { Slides, type SlideReview } from './Slides'
-import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { useEditingReview } from './useEditingReview'
 import { EditorialReview } from './EditorialReview'
 import { ActiveSelection, Canvas, FabricImage, Textbox } from 'fabric'
@@ -41,6 +41,9 @@ import { applyCollectionBrand, buildCollectionProject, demoSlides, type Collecti
 import { AuthorTemplates, SaveTemplate } from './AuthorTemplates'
 import { copyTemplateDesign, templateRole, type AuthorTemplate, type TemplateSummary } from './authorTemplate'
 import { AdaptLayoutDialog } from './AdaptLayoutDialog'
+import { frameImage, frameRequest, imageWasEdited, rewriteVisualFrame } from './visualFrames'
+import { useAutomaticImages } from '../images/useAutomaticImages'
+import { VisualSearchStatus } from '../images/VisualSearchStatus'
 import './collections.css'
 
 const Express = lazy(() => import('./Express').then(module => ({ default: module.Express })))
@@ -131,10 +134,53 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const snapshotCanvas = useCallback((record: boolean, textTarget?: Textbox) => {
     if (!canvas.current) return
     const scene = sceneOf(canvas.current)
-    setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => i === currentRef.current ? { ...s, scene: { ...scene, ...(s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } } : s) }), record, false, textTarget && { target: textTarget, slide: currentRef.current })
+    setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => {
+      if (i !== currentRef.current) return s
+      const edited = imageWasEdited(s.scene, scene)
+      const visualChoice = s.visualChoice && edited
+        ? { mode: frameImage(scene) ? s.visualChoice.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const }
+        : s.visualChoice
+      return { ...s, visualChoice, scene: { ...scene, ...(!edited && s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } }
+    }) }), record, false, textTarget && { target: textTarget, slide: currentRef.current })
     refresh(n => n + 1)
   }, [setProject, refresh])
   const changed = useCallback(() => snapshotCanvas(true), [snapshotCanvas])
+  const frameTargets = useMemo(() => project?.slides.flatMap(slide => {
+    if (slide.visualChoice?.mode !== 'automatic') return []
+    const request = frameRequest(project, slide)
+    return request && request.signature !== slide.visualChoice.signature ? [request] : []
+  }) ?? [], [project])
+  const projectImageSources = useMemo(() => new Set(project?.slides.flatMap(slide => {
+    const credit = frameImage(slide.scene)?.imageCredit as ImageCredit | undefined
+    return [credit?.sourceId, credit?.originalUrl, slide.visualChoice?.match?.fingerprint && 'foto:' + slide.visualChoice.match.fingerprint,
+      credit?.creator && 'autor:' + credit.creator.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()]
+      .filter((value): value is string => !!value)
+  })), [project])
+  const hasSelection = !!readyCanvas?.getActiveObject()
+  const currentFrameKey = project && project.id + '/' + project.slides[current]?.id
+  const availableFrameTargets = useMemo(() => hasSelection ? frameTargets.filter(item => item.key !== currentFrameKey) : frameTargets,
+    [hasSelection, frameTargets, currentFrameKey])
+  const autoSearch = useAutomaticImages(active && !!project && !exportOpen, availableFrameTargets, projectImageSources, (request, image) => {
+    const latest = getCurrent()
+    if (!latest) return false
+    const index = latest.slides.findIndex(slide => latest.id + '/' + slide.id === request.key)
+    const slide = latest.slides[index]
+    if (slide?.visualChoice?.mode !== 'automatic' || frameRequest(latest, slide)?.signature !== request.signature) return false
+    if (index === currentRef.current && canvas.current?.getActiveObjects().length) return false
+    const next = rewriteVisualFrame(slide, { ...slide.visualChoice, signature: request.signature, match: image.match }, image)
+    setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
+    if (index === currentRef.current) setRevision(value => value + 1)
+    return true
+  })
+  function changeVisualFrame(mode: 'automatic' | 'manual' | 'locked' | 'none') {
+    const latest = getCurrent()
+    const slide = latest?.slides[currentRef.current]
+    if (!latest || !slide) return
+    const next = mode === 'none' || mode === 'automatic' ? rewriteVisualFrame(slide, { mode, revision: (slide.visualChoice?.revision ?? 0) + 1 })
+      : { ...slide, visualChoice: { ...slide.visualChoice, mode } }
+    setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
+    if (next.scene !== slide.scene) setRevision(value => value + 1)
+  }
   const [headlineTarget, setHeadlineTarget] = useState<Textbox>()
   const [linkedCampaign, setLinkedCampaign] = useState<Draft>()
   const campaignId = project?.campaignId
@@ -323,8 +369,12 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   async function insertImage(file: File, credit?: ImageCredit, signal?: AbortSignal) {
     const target = readyCanvas
     const slideId = project?.slides[current]?.id
-    const selected = selectedObject
-    const stillOnSlide = () => target && canvas.current === target && getCurrent()?.slides[currentRef.current]?.id === slideId && target.getActiveObject() === selected
+    const activeObject = selectedObject
+    const visualChoice = project?.slides[current]?.visualChoice
+    if (visualChoice?.mode === 'locked') throw Error('Destrave a imagem do slide antes de substituí-la.')
+    const selected = activeObject ?? (visualChoice && target?.getObjects().find(object => object instanceof FabricImage && object.semantic === 'image'))
+    const stillOnSlide = () => target && canvas.current === target && getCurrent()?.slides[currentRef.current]?.id === slideId &&
+      target.getActiveObject() === activeObject && getCurrent()?.slides[currentRef.current]?.visualChoice?.mode !== 'locked'
     if (!stillOnSlide() || !target) throw Error('Aguarde o canvas até carregar.')
     const image = await readImage(file)
     if (signal?.aborted || !stillOnSlide()) {
@@ -563,7 +613,22 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       {panel === 'Minha marca' && <BrandPanel brand={project.brand} update={brand => setProject({ ...project, brand })} error={setError} apply={() => { if (window.confirm('Aplicar a marca em todos os slides? Os layouts legados serão recompostos.')) replace({ ...project, slides: project.slides.map(s => ({ ...s, scene: s.layout.startsWith('collection-v1:') ? applyCollectionBrand(s.scene, project.brand, project.format, /^(collection-v1:)(impacto|cartao|narrativa):/.test(s.layout)) : compose(s.layout in templates ? s.layout as Template : 'text', semantics(s.scene), project.brand, project.format, s.role) })) }) }} />}
       {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title', project.brand.primary); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text', project.brand.primary); changed() } }}>Adicionar texto</button></>}
       {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, type, project.brand.primary); changed() } }}>{name}</button>)}</>}
-      {panel === 'Imagens' && <><h3>Imagens</h3><div className="image-tabs" role="group" aria-label="Origem da imagem">
+      {panel === 'Imagens' && <><h3>Imagens</h3>
+      {project.slides[current].visualChoice && <div className="studio-visual-choice">
+        <p>Modo visual Documental</p>
+        <VisualSearchStatus status={autoSearch.status(frameTargets.find(item => item.key === project.id + '/' + project.slides[current].id))}
+          match={project.slides[current].visualChoice?.match} />
+        <p>{({ automatic: 'Automático', manual: 'Confirmado manualmente', locked: 'Travado', none: 'Sem imagem' } as const)[project.slides[current].visualChoice!.mode]}</p>
+        {project.slides[current].visualChoice?.mode === 'locked' ? <button onClick={() => changeVisualFrame('manual')}>Destravar imagem</button> : <>
+          {frameImage(project.slides[current].scene) && <>
+            {project.slides[current].visualChoice?.mode === 'automatic' && <button onClick={() => changeVisualFrame('manual')}>Manter esta</button>}
+            <button onClick={() => changeVisualFrame('locked')}>Travar imagem</button>
+            <button onClick={() => changeVisualFrame('none')}>{project.slides[current].visualChoice?.match ? 'Desfazer escolha automática' : 'Remover imagem'}</button>
+          </>}
+          <button onClick={() => changeVisualFrame('automatic')}>{project.slides[current].visualChoice?.mode === 'automatic' ? 'Buscar novamente' : 'Voltar ao automático'}</button>
+        </>}
+      </div>}
+      <div className="image-tabs" role="group" aria-label="Origem da imagem">
         <button aria-pressed={imagePanel?.tab === 'search' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('search')}>Pesquisar imagens</button>
         <button onClick={() => openImages('search', true)}>Buscar imagem para este slide</button>
         <button aria-pressed={imagePanel?.tab === 'library' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('library')}>Imagens utilizadas</button>
@@ -586,7 +651,9 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       <div className="studio-canvas-workspace" ref={assistantAnchor}>
         <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={(_, target) => snapshotCanvas(true, target)} onTextEnd={endTextSession} onSelection={() => refresh(n => n + 1)} onError={setError} />
       </div>
-      <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame} open={framesOpen} toggle={() => setFramesOpen(value => !value)} />
+      <Slides issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame}
+        imageStatus={id => autoSearch.status(frameTargets.find(item => item.key === project.id + '/' + id))}
+        open={framesOpen} toggle={() => setFramesOpen(value => !value)} />
     </div>
     {project.campaignId && <p>Design vinculado à campanha. Alterações editoriais posteriores não substituem este design: gere uma nova versão pela campanha.</p>}
     <p className="muted">Ctrl+Z desfaz · Ctrl+Shift+Z refaz · Ctrl+D duplica · Delete exclui · Salvamento local automático. Faça backups: limpar dados do navegador remove projetos.</p>

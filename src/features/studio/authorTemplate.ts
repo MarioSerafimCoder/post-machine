@@ -44,6 +44,6 @@ export function copyTemplateDesign(template: AuthorTemplate): Project {
   return {
     ...structuredClone(design),
     id: crypto.randomUUID(), name: `${name.slice(0, 85)} · ${formatNames[format]}`, updatedAt: new Date().toISOString(),
-    slides: design.slides.map(slide => ({ ...structuredClone(slide), id: crypto.randomUUID() })),
+    slides: design.slides.map(slide => ({ ...structuredClone(slide), id: crypto.randomUUID(), visualChoice: undefined })),
   }
 }

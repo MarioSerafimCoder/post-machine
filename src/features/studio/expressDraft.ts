@@ -2,9 +2,13 @@ import type { Draft } from '../campaigns/contract'
 import { abortTransaction, transaction } from './database'
 import type { CollectionSlide } from './collections'
 import type { Format } from './model'
+import type { VisualMatch } from '../images/automaticSearch'
+import type { FocalPoint } from './vision/signals'
 
-export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean }
-export type ExpressPhoto = { id: string; name: string; bytes: number; object: Record<string, unknown>; file: Blob }
+export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean; imageLocked?: boolean; searchRevision?: number }
+export type ExpressPhoto = { id: string; name: string; bytes: number; object: Record<string, unknown>; file: Blob
+  automatic?: { slideKey: string; signature: string; match: VisualMatch; focalPoint?: FocalPoint }
+}
 type DraftFields = {
   text: string; slides: ExpressSlide[]; linked?: Draft; name: string; caption?: string
   styleId: string; format: Format; step: string; origin: 'local' | 'openverse' | 'library' | 'url'
@@ -117,6 +121,7 @@ export function reconcileExpressSlides(values: CollectionSlide[], previous: Expr
     const match = candidates?.length === 1 && counts.get(id) === 1 ? candidates[0] : undefined
     return { ...slide, key: match?.key ?? newKey(), imageId: match?.imageId, framing: match?.framing ?? slide.framing,
       ...(match?.focalPoint ? { focalPoint: match.focalPoint } : {}), ...(match?.ignoreVisual ? { ignoreVisual: true } : {}),
+      imageLocked: match?.imageLocked, searchRevision: match?.searchRevision,
     }
   })
 }

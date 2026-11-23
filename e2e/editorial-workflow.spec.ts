@@ -63,6 +63,7 @@ test('prévia identifica campos extras e usa direção de imagem na Produção E
   }), 'base64')
   await page.route('https://api.openverse.org/v1/images/?*', route => {
     const params = new URL(route.request().url()).searchParams
+    if (params.get('category') === 'photograph') return route.fulfill({ json: { page_count: 0, results: [] } })
     expect(params.get('q')).toBe('pátio interno arquitetura')
     expect(params.get('license')).toBe('by')
     return route.fulfill({ json: { page_count: 1, results: [{

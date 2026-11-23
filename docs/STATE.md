@@ -1,5 +1,14 @@
 # Estado real — 23/11/2026
 
+## Evolução 12 — Busca fotográfica automática
+
+- Colar ou importar conteúdo e organizar as peças inicia a consulta em segundo plano na Produção Expressa. No Studio direto, campanhas com briefing visual ou layout fotográfico compatível abrem com os frames aptos a receber a mídia. Os resultados surgem por slide, com contadores, miniaturas e uma justificativa.
+- A política do Openverse tenta o modo Documental, reformula os termos e só então considera fotografia de apoio editorial. Metadados conceituais, ilustrações, correspondências frágeis e licenças incompatíveis são rejeitados. A procedência é inferida pelo catálogo e permanece sujeita à conferência na fonte.
+- A mídia decodificada é posicionada na área existente. O ponto focal estimado por contraste pode ser ajustado. Confirmações, travas, escolhas manuais e remoções têm precedência. Consultas obsoletas são canceladas por slide. As respostas em memória são reaproveitadas por cinco minutos e as decisões e imagens aplicadas são recuperadas do IndexedDB.
+- A consulta real sobre a Torre Eiffel recebeu HTTP 200 do Openverse e inseriu uma fotografia no Studio. Os testes controlados cobriram atraso de rede, resultado documental, apoio editorial, descarte de ilustrações, ausência de confiança, cancelamento por edição, trava, reabertura e créditos no ZIP. As capturas locais mostram os fluxos em 1280 e 1440 px. O Openverse anônimo, as fontes elegíveis e o CORS dos originais limitam a cobertura.
+- `npm ci`, lint, 124 testes unitários, build e dry-run passaram. A suíte completa do Wrangler passou 134 cenários, com 10 repetições omitidas no laptop. A execução completa no Vite passou 133 cenários e encontrou uma fixture de pesquisa manual que interceptava também a consulta automática. Após isolar as chamadas na fixture e validar os últimos ajustes, passaram 39 cenários dirigidos no Vite e 18 no Wrangler. A regressão de overflow também passou na reexecução.
+- O CI e o deploy remoto continuam associados à Evolução 11. A Evolução 12 foi validada localmente, inclusive com a configuração de produção do Wrangler.
+
 ## Evolução 11 — Templates autorais, formatos e análise visual local
 
 - **Interface e movimento.** A navegação usa hover cinza, indicador ativo vermelho e foco visível. Controles, superfícies e rótulos receberam tokens compartilhados. As transições respeitam movimento reduzido. Produção Expressa mostra etapas concluídas, vínculos e progresso. Studio sinaliza gravação e mudanças de slides. Auditoria exibe progresso, localização e confirmação de correções.
