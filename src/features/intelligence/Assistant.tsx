@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Page } from '../../lib/navigation'
 import { explainRule } from './knowledge'
-import { recordEditorialFeedback, resetEditorialMemory, setAssistantMode, useEditorialMemory } from './feedback'
+import { recordEditorialFeedback, useEditorialMemory } from './feedback'
+import { AssistantPreferences } from './AssistantPreferences'
 import { signalIdentity, signalVersion, useAssistantSignals, useStudioAnchor, visibleSignals, type Signal } from './signals'
 import { assessments, type Insight } from './types'
 import './assistant.css'
@@ -45,7 +46,7 @@ export function RuleDetails({ insight }: { insight: Insight }) {
   return <>
     <p>{insight.detail}</p>
     {insight.alternative && <p><strong>Alternativa.</strong> {insight.alternative}</p>}
-    {trace && <div className="editorial-trace">
+    {trace && <details className="editorial-trace"><summary>Referências da orientação</summary>
       <p><strong>{trace.rule.id} · {trace.rule.name}</strong> · Biblioteca {trace.version}</p>
       {trace.evidence.map(item => <p key={item.claim}>{item.claim} {evidenceScope[item.external_validity]}</p>)}
       {trace.sources.length > 0 && <ul>{trace.sources.map(source => <li key={source.id}>
@@ -53,7 +54,7 @@ export function RuleDetails({ insight }: { insight: Insight }) {
         <small>{source.id} · {verificationNames[source.verification]} · {source.verified_at}</small>
       </li>)}</ul>}
       {trace.rule.id === 'PLT-001' && <p>Confira os requisitos no canal antes de publicar. O catálogo informa a data de referência.</p>}
-    </div>}
+    </details>}
   </>
 }
 
@@ -63,7 +64,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
   const workspace = page === 'studio' ? anchor : null
   const memory = useEditorialMemory()
   const items = visibleSignals(signals, page, memory.history).slice(0, 4)
-  const candidate = items[0]
+  const candidate = items.find(item => item.insight.actions?.length)
   const [previousPage, setPreviousPage] = useState(page)
   const [open, setOpen] = useState(false)
   const [shown, setShown] = useState<string>()
@@ -116,30 +117,23 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
       {items.length === 0 && <p>Abra uma pauta, uma análise de título ou uma revisão para receber orientações.</p>}
       {items.slice(0, 1).map(item => <article key={signalIdentity(item)} className="editorial-insight">
         <h3>{item.insight.title}</h3>
-        <small>{assessments[item.insight.assessment]}</small>
+        {item.insight.assessment !== 'insufficient_data' && <small>{assessments[item.insight.assessment]}</small>}
+        <RuleDetails insight={item.insight} />
         <div className="editorial-buttons">
           {item.insight.actions?.map((action, index) => <button className={index === 0 ? 'editorial-main-action' : undefined} key={action.label} onClick={() => { setOpen(false); setShown(undefined); action.run() }}>{action.label}</button>)}
           <button onClick={() => dismiss(item)}>Dispensar insight</button>
         </div>
-        <details open><summary>Explicação e referências</summary><RuleDetails insight={item.insight} /></details>
       </article>)}
       {items.length > 1 && <details><summary>Outras recomendações</summary>
         {items.slice(1).map(item => <article key={signalIdentity(item)} className="editorial-insight">
-          <h3>{item.insight.title}</h3><small>{assessments[item.insight.assessment]}</small>
-          <details><summary>Explicação e referências</summary><RuleDetails insight={item.insight} /></details>
+          <h3>{item.insight.title}</h3>
+          {item.insight.assessment !== 'insufficient_data' && <small>{assessments[item.insight.assessment]}</small>}
+          <RuleDetails insight={item.insight} />
           <div className="editorial-buttons">{item.insight.actions?.map(action => <button key={action.label} onClick={() => { setOpen(false); setShown(undefined); action.run() }}>{action.label}</button>)}
             <button onClick={() => dismiss(item)}>Dispensar insight</button></div>
         </article>)}
       </details>}
-      <label>Notificações<select value={memory.mode} onChange={event => setAssistantMode(event.target.value as typeof memory.mode)}>
-        <option value="proactive">Proativas</option><option value="manual">Somente ao abrir</option><option value="muted">Silenciadas</option>
-      </select></label>
-      <details><summary>Histórico e preferências</summary>
-        {memory.history.length ? <ul>{memory.history.slice(-6).reverse().map(entry => <li key={JSON.stringify([entry.scope, entry.id])}>
-          {explainRule(entry.ruleId ?? '')?.rule.name ?? 'Insight contextual'} · {entry.outcome === 'accepted' ? 'Aceito' : 'Dispensado'} · {new Date(entry.at).toLocaleDateString('pt-BR')}
-        </li>)}</ul> : <p>Sem decisões registradas neste navegador.</p>}
-        <button disabled={!memory.history.length} onClick={() => { if (window.confirm('Limpar o histórico e as preferências editoriais deste navegador?')) resetEditorialMemory() }}>Redefinir memória editorial</button>
-      </details>
+      <AssistantPreferences />
     </section>}
     {showBalloon && candidate && <section className="editorial-balloon" aria-label="Insight editorial">
       <button aria-label={`Ocultar mensagem: ${candidate.insight.title}`} onClick={() => { hideBalloon(); launcher.current?.focus({ preventScroll: true }) }}>
@@ -151,11 +145,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
         if (open) close()
         else { hideBalloon(); setOpen(true) }
       }}>
-      <picture>
-        <source media="(prefers-reduced-motion: reduce)" srcSet="/assistant/avatar.png" />
-        <img src={memory.mode === 'muted' ? '/assistant/avatar.png' : '/assistant/avatar.gif'} alt="" width="420" height="415" decoding="async" />
-      </picture>
-      {memory.mode !== 'muted' && candidate && <span className="editorial-indicator" aria-hidden="true" />}
+      <img src="/assistant/avatar.png" alt="" width="420" height="415" decoding="async" />
     </button>
   </aside>
   return workspace ? createPortal(assistant, workspace) : assistant

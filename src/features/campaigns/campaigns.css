@@ -26,8 +26,7 @@
 .campaign-production { align-items: end; }
 .campaigns .button { min-height: 36px; padding: 7px 11px; font-size: .82rem; }
 .campaigns :disabled { opacity: .55; cursor: default; }
-.campaigns .button-outline, .news-create { background: white; border: 1px solid #aaa; color: #21211f; }
-.news-create { align-self: start; margin-top: auto; }
+.campaigns .button-outline { background: white; border: 1px solid #aaa; color: #21211f; }
 .campaigns input[type=file] { font-size: .75rem; }
 .campaign-example { margin: 10px 0; }
 .campaign-example pre { white-space: pre-wrap; font-size: .78rem; background: #f4f5f1; border-radius: 8px; padding: 12px; }

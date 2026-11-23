@@ -1,5 +1,11 @@
 # Arquitetura e decisões
 
+## Miniaturas do Radar
+
+- A edição v1 aceita uma URL opcional de miniatura. A coleta reutiliza imagens declaradas no item pelo veículo em [Media RSS](https://www.rssboard.org/media-rss) ou no anexo RSS. Cada feed elegível tem um host HTTPS aprovado. A coleta não abre páginas de artigos para buscar Open Graph.
+- Os cinco hosts também constam na política de imagens do build. O navegador carrega sob demanda, sem enviar o referenciador. Imagem ausente, inválida, pequena demais ou indisponível dá lugar à assinatura tipográfica da fonte. As miniaturas servem à leitura do Radar.
+- O assistente da lista abre em uma coluna em fluxo com a seleção explícita do cartão. Exibe até três frases do resumo publicado pela fonte. O recorte de pauta usa a oportunidade correspondente ou a categoria editorial da notícia. Histórico e preferências continuam no armazenamento editorial existente. Nenhuma nova dependência ou API foi adicionada.
+
 ## Retomada e interação no desktop
 
 - A página inicial e a biblioteca compartilham a renderização sob demanda da primeira página do projeto. O histórico da aba guarda a campanha aberta e os filtros de origem. Um marcador local por campanha permite retomar a importação após copiar o prompt. O conteúdo editorial continua no armazenamento existente.

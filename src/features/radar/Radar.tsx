@@ -5,6 +5,7 @@ import type { Draft } from '../campaigns/contract'
 import { Virals } from '../virals/Virals'
 import type { Reference } from '../virals/contract'
 import { ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
+import Assistant from '../intelligence/Assistant'
 import { News } from './News'
 import type { Article, Opportunity } from './contract'
 
@@ -55,5 +56,6 @@ export function Radar({ active, start, onDesign }: { active: boolean; start?: { 
       showSection(1)
       focusTool(1)
     }} /></div>}
+    {active && section >= 1 && section <= 3 && <Assistant page="radar" key={section} />}
   </ContextWorkspace></div>
 }

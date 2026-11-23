@@ -36,9 +36,9 @@
   color: var(--ink);
   cursor: pointer;
 }
-.editorial-dock button:hover { border-color: var(--accent); }
+.editorial-dock button:enabled:hover { background: var(--ui-hover); border-color: var(--ui-control-line); }
 .editorial-dock .editorial-main-action { background: var(--ink); color: var(--surface); border-color: var(--ink); }
-.editorial-dock .editorial-main-action:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.editorial-dock .editorial-main-action:enabled:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .editorial-dock button:disabled { opacity: .56; cursor: default; }
 .editorial-dock .editorial-launcher {
   position: relative;
@@ -51,17 +51,7 @@
   border: 0;
   box-shadow: none;
 }
-.editorial-launcher picture { position: absolute; inset: 0; pointer-events: none; }
-.editorial-launcher img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 101px; max-width: none; height: auto; }
-.editorial-indicator {
-  position: absolute;
-  inset: 4px 4px auto auto;
-  width: 8px;
-  height: 8px;
-  border: 1px solid var(--surface);
-  border-radius: 50%;
-  background: var(--accent);
-}
+.editorial-launcher img { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 101px; max-width: none; height: auto; pointer-events: none; }
 .editorial-popover {
   position: absolute;
   inset: auto 0 76px auto;
@@ -114,6 +104,10 @@
 .editorial-trace ul { margin: 6px 0; padding-inline-start: 17px; }
 .editorial-trace small { display: block; }
 .editorial-dock summary, .editorial-briefing summary { cursor: pointer; font-weight: 635; }
+.editorial-dock summary:hover { color: var(--accent-hover); }
+.editorial-preferences { border-top: 1px solid var(--line); padding-block-start: 10px; }
+.editorial-preferences > :not(summary) { margin-top: 10px; }
+.editorial-preferences ul { padding-inline-start: 16px; list-style: disc; }
 .editorial-insight details > p, .editorial-trace { margin-top: 6px; }
 .editorial-briefing > details { border-top: 1px solid var(--line); padding-top: 8px; }
 .editorial-briefing .campaign-fields { margin-top: 8px; }

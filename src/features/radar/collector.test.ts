@@ -48,6 +48,25 @@ describe('coletor com fixtures', () => {
     expect(item).toMatchObject({ feedTags: ['Criatividade'], publishedAt: '2026-11-14T16:14:58.000Z' })
   })
 
+  it('aceita a miniatura do item no host do veículo e mantém a notícia se a imagem for inválida', async () => {
+    const imageUrl = 'https://i.guim.co.uk/img/media/artigo.jpg?width=700'
+    const publisher = { ...source, id: 'guardian' }
+    const xml = rss('https://www.theguardian.com/story')
+      .replace('<rss>', '<rss xmlns:media="http://search.yahoo.com/mrss/">')
+      .replace('</item>', `<media:group>
+        <media:content width="140" url="https://i.guim.co.uk/img/media/artigo.jpg?width=140" />
+        <media:content width="600" url="https://storage.ghost.io/other-story.jpg" />
+        <media:content width="600" type="video/mp4" url="https://i.guim.co.uk/img/media/other.jpg" />
+        <media:content width="700" url="${imageUrl}" />
+      </media:group></item>`)
+    const previous = await collect([publisher], null, async () => rss('https://www.theguardian.com/story'), now)
+    const updated = await collect([publisher], previous, async () => xml, now)
+    expect(updated.items[0]).toMatchObject({ id: previous.items[0].id, imageUrl })
+    expect(parseFeed(xml.replace(/<media:content width="(?:140|700)"[^>]+\/>/g, ''), publisher, now.toISOString())[0].imageUrl)
+      .toBeUndefined()
+    expect(articleSchema.parse({ ...updated.items[0], imageUrl: 'http://i.guim.co.uk/artigo.jpg' }).imageUrl).toBeUndefined()
+  })
+
   it('reclassifica o cache legado, elimina fontes removidas e mantém o ID e a URL durante a falha total', async () => {
     const [kept] = parseFeed(rss('https://example.org/a?utm_source=original', 'A nova identidade visual do museu'), source, now.toISOString())
     const previous = snapshotSchema.parse({ version: 1, attemptedAt: now.toISOString(), collectedAt: now.toISOString(), sources: [],

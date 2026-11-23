@@ -3,7 +3,7 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob: https://api.openverse.org https://i.ytimg.com; font-src 'self'; connect-src 'self' https://api.openverse.org https://upload.wikimedia.org https://live.staticflickr.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob: https://api.openverse.org https://i.ytimg.com https://storage.ghost.io https://cdn.mos.cms.futurecdn.net https://i.guim.co.uk https://www.designboom.com https://images.adsttc.com; font-src 'self'; connect-src 'self' https://api.openverse.org https://upload.wikimedia.org https://live.staticflickr.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'
 /radar.json
   Cache-Control: private, no-cache
 /virals-youtube.json

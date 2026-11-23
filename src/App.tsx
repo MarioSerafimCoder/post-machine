@@ -87,7 +87,7 @@ export function App() {
     </div>
     {roadmap && <Roadmap onClose={() => setRoadmap(false)} />}
     {creating && <CreateContent close={() => setCreating(false)} choose={startContent} />}
-    <Suspense fallback={null}><Assistant page={page} /></Suspense>
+    {page !== 'radar' && <Suspense fallback={null}><Assistant page={page} /></Suspense>}
   </div></AssistantSignals.Provider>
 }
 

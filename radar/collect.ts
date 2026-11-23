@@ -7,7 +7,7 @@ import { readFile, writeFile, rename } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { SaxesParser } from 'saxes'
 import { z } from 'zod'
-import { articleSchema, normalize, snapshotSchema, sourceSchema, type Article, type Observation, type Snapshot } from '../src/features/radar/contract.ts'
+import { articleImageHosts, articleImageUrl, articleSchema, normalize, snapshotSchema, sourceSchema, type Article, type Observation, type Snapshot } from '../src/features/radar/contract.ts'
 import { classifyArticle, orderEdition } from './editorial.ts'
 
 type Source = z.infer<typeof sourceSchema>
@@ -63,6 +63,22 @@ const plain = (value = '') => value.replace(/&(?:amp|lt|gt|quot|apos|nbsp|#\d+|#
 }).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 const child = (node: Element, ...names: string[]) => node.children.find(item => names.includes(item.name))
 const value = (node: Element, ...names: string[]) => child(node, ...names)?.text.trim()
+function feedImage(entry: Element, source: Source) {
+  const host = articleImageHosts[source.id]
+  if (!host || source.kind !== 'rss') return
+  const candidates = entry.children.flatMap(node => node.name === 'group' ? node.children : [node])
+    .filter(node => ['content', 'thumbnail', 'enclosure'].includes(node.name) &&
+      (!node.attributes.type || node.attributes.type.startsWith('image/')) &&
+      (!node.attributes.medium || node.attributes.medium === 'image'))
+    .sort((a, b) => {
+      const distance = (node: Element) => Math.abs((Number(node.attributes.width) || 600) - 600)
+      return distance(a) - distance(b)
+    })
+  for (const { attributes } of candidates) {
+    const parsed = articleImageUrl.safeParse(attributes.url)
+    if (parsed.success && new URL(parsed.data).hostname === host) return parsed.data
+  }
+}
 export function canonical(link: string) {
   const url = new URL(link)
   url.hash = ''
@@ -129,7 +145,8 @@ export function parseFeed(xml: string, source: Source, collectedAt: string, obse
         .map(item => plain(item.attributes.label ?? item.attributes.term ?? item.text).slice(0, 100)).filter(Boolean).slice(0, 12)
       const parsed = articleSchema.safeParse({
         id: createHash('sha256').update(canonicalUrl).digest('hex').slice(0,32), canonicalUrl, url, title,
-        summary: summary || undefined, source: plain(value(node,'news_item_source')) || source.name,
+        summary: summary || undefined, imageUrl: feedImage(entry, source),
+        source: plain(value(node,'news_item_source')) || source.name,
         feedId: source.id, category: source.category, language: source.language, country: source.country, trend,
         feedTags: feedTags.length ? feedTags : undefined,
         publishedAt: trend ? null : publicationDate(value(entry,'pubdate','published','date') ?? ''), collectedAt,
@@ -167,7 +184,7 @@ export async function collect(sources: Source[], previous: Snapshot | null, fetc
     else if (items[index].canonicalUrl === fresh.canonicalUrl) {
       const old = items[index]
       items[index] = { ...(old.trend && !fresh.trend ? fresh : old), trend: fresh.trend ?? old.trend,
-        feedTags: fresh.feedTags ?? old.feedTags, collectedAt: old.collectedAt }
+        imageUrl: fresh.imageUrl ?? old.imageUrl, feedTags: fresh.feedTags ?? old.feedTags, collectedAt: old.collectedAt }
     }
   }
   const ranked = items.flatMap(item => {

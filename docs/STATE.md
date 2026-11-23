@@ -1,5 +1,13 @@
 # Estado real — 23/11/2026
 
+## Radar Criativo e Assistente Editorial
+
+- Cards editoriais com miniatura da fonte ou assinatura tipográfica, limite visual de três linhas no título e no resumo, favoritos locais e ações independentes de análise e criação. A barra permite remover filtros individualmente ou limpar todos. O carregamento inicial usa esqueletos estáticos e uma falha de recarga preserva a edição aberta.
+- O botão **Analisar notícia** abre uma coluna ao lado da lista com até três frases do resumo original, leitura editorial rotulada, sugestão de pauta quando há contexto e links para o briefing e para a fonte. O painel explica quando só há manchete. Histórico, preferências e referências ficam recolhidos. O mascote estático acompanha o assistente e os avisos em outros fluxos exigem uma ação disponível.
+- A edição local manteve as 80 notícias e 48 oportunidades e recebeu duas miniaturas do B9 por correspondência de URL canônica. O coletor aceita miniaturas explícitas de cinco feeds em hosts verificados, sem consultar as páginas de artigos. A cobertura depende dos metadados fornecidos pelos veículos.
+- Lint, 130 testes unitários, build e dry-run do Wrangler aprovados. A suíte completa do Playwright passou 146 cenários, com 10 repetições omitidas no perfil laptop. O Radar e as oportunidades também passaram 11 cenários pelo Wrangler local, com uma repetição omitida.
+- Inspeção no Chromium em 1024 × 768, 1280 × 800 e 1440 × 900 confirmou miniatura real, painel sem sobreposição e ausência de rolagem horizontal. O painel aberto deixa uma coluna de notícias em 1024 px e duas nas larguras maiores. Abaixo de 1024 px, apenas o aviso para usar desktop é exibido.
+
 ## Simplificação do fluxo de criação — validação local
 
 - Lint, 129 testes unitários, build, dry-run do Wrangler e 142 cenários Playwright passaram. Dez repetições são omitidas pela configuração dos testes de laptop. A suíte cobre retomada do prompt após recarga, filtros temporais, escrita e importação por teclado e repetição de busca fotográfica interrompida.

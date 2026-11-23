@@ -7,6 +7,18 @@ export const webUrl = z.url().refine(value => {
   const url = new URL(value)
   return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password
 })
+export const articleImageHosts: Readonly<Record<string, string>> = {
+  b9: 'storage.ghost.io',
+  'creative-bloq': 'cdn.mos.cms.futurecdn.net',
+  guardian: 'i.guim.co.uk',
+  designboom: 'www.designboom.com',
+  archdaily: 'images.adsttc.com',
+}
+export const articleImageUrl = webUrl.refine(value => {
+  const url = new URL(value)
+  return url.protocol === 'https:' && !url.port && Object.values(articleImageHosts).includes(url.hostname)
+    && /\.(?:jpe?g|png|webp|avif)$/i.test(url.pathname)
+})
 export const sourceSchema = z.object({
   id: z.string().min(1), name: z.string().min(1), url: webUrl,
   category: z.string().min(1), language: z.string().optional(), country: z.string().optional(),
@@ -17,6 +29,7 @@ export const sourceSchema = z.object({
 export const articleSchema = z.object({
   id: z.string().regex(/^[a-f0-9]{32}$/), title: z.string().min(1).max(500),
   summary: z.string().max(420).optional(), url: webUrl, canonicalUrl: webUrl,
+  imageUrl: articleImageUrl.optional().catch(undefined),
   source: z.string().min(1), feedId: z.string().min(1), category: z.string().min(1),
   language: z.string().optional(), country: z.string().optional(),
   publishedAt: date.nullable(), collectedAt: date, trend: z.string().optional(),

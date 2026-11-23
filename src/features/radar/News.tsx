@@ -1,9 +1,12 @@
 import { Opportunities } from './Opportunities'
 import type { Opportunity } from './contract'
-import { useEffect, useState } from 'react'
-import { useAssistantSignal } from '../intelligence/signals'
+import { useEffect, useRef, useState } from 'react'
+import { Icon } from '../../components/Icon'
 import { normalize, snapshotSchema, type Article, type Snapshot } from './contract'
 import { editorialCategories } from './categories'
+import { NewsAssistant } from './NewsAssistant'
+import { NewsCard } from './NewsCard'
+import './news.css'
 
 const dateFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
 const format = (date: string) => dateFormat.format(new Date(date))
@@ -42,13 +45,17 @@ async function writeFavorite(id: string, saved: boolean) {
 }
 
 export function News({ active, onCreatePost, favoritesView, opportunitiesView, onCreateOpportunity }: { active: boolean; favoritesView?: boolean; opportunitiesView: boolean; onCreateOpportunity: (value: Opportunity) => void; onCreatePost: (article: Article) => void }) {
-  const [reading, setReading] = useState<string>()
+  const [reading, setReading] = useState<string | null>()
+  const assistantLauncher = useRef<HTMLButtonElement>(null)
+  const reader = useRef<HTMLButtonElement>(null)
+  const search = useRef<HTMLInputElement>(null)
   const [data, setData] = useState<Snapshot>()
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [reload, setReload] = useState(0)
   const [favorites, setFavorites] = useState<string[]>()
   const [storageError, setStorageError] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [favoriteStatus, setFavoriteStatus] = useState('')
   const [query, setQuery] = useState<string>(() => window.history.state?.newsFilters?.query ?? '')
   const [category, setCategory] = useState<string>(() => window.history.state?.newsFilters?.category ?? '')
   const [source, setSource] = useState<string>(() => window.history.state?.newsFilters?.source ?? '')
@@ -83,10 +90,12 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
     if (!favorites || saving) return
     const save = !favorites.includes(id)
     setSaving(true)
+    setFavoriteStatus('')
     try {
       await writeFavorite(id,save)
       setFavorites(current => save ? [...current ?? [],id] : current?.filter(value => value !== id))
       setStorageError(false)
+      setFavoriteStatus(save ? 'Notícia adicionada aos favoritos.' : 'Notícia removida dos favoritos.')
     } catch { setStorageError(true) }
     finally { setSaving(false) }
   }
@@ -96,6 +105,14 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
     onCreatePost(item)
   }
   function refresh() { setState('loading'); setReload(value => value + 1) }
+  function closeAssistant() {
+    setReading(undefined)
+    requestAnimationFrame(() => {
+      const origin = reader.current
+      const target = origin?.isConnected && origin.getClientRects().length ? origin : assistantLauncher.current
+      target?.focus()
+    })
+  }
   const items = data?.items ?? []
   const options = (key: 'source' | 'language') => [...new Set(items.flatMap(item => item[key] ? [item[key]!] : []))].sort((a,b) => a.localeCompare(b,'pt-BR'))
   const categories = [...new Set<string>([...editorialCategories, ...items.map(item => item.category)])]
@@ -115,33 +132,54 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
     (!language || item.language === language) && (!period || (item.publishedAt && Date.parse(item.publishedAt) >= cutoff && Date.parse(item.publishedAt) <= now)) &&
     (!kind || item.trend) && (!scope || item.editorial?.scope === scope) && (!(onlyFavorites || favoritesView) || favorites?.includes(item.id)) &&
     terms.every(term => normalize([item.title,item.summary,item.category,item.source,item.trend,...(item.feedTags ?? [])].join(' ')).includes(term)))
-  const article = active && !opportunitiesView ? results.slice(0, limit).find(item => item.id === reading) : undefined
-  useAssistantSignal(article ? {
-    area: 'radar', priority: 16, scope: article.id, category: 'research', subject: article.id,
-    insight: {
-      id: 'radar:article', ruleId: 'SRC-002',
-      title: article.summary ? `Confira a íntegra em ${article.source}` : `${article.source} forneceu a manchete, sem resumo`,
-      detail: 'Consulte a fonte para distinguir o que ela documenta do recorte que entrará no briefing.',
-      assessment: 'insufficient_data',
-      actions: [{ label: 'Preparar briefing desta notícia', run: () => startBriefing(article) }],
-    },
-  } : undefined)
+  const visible = results.slice(0, limit)
+  const article = visible.find(item => item.id === reading)
+  const periods: [string, string][] = [['1', 'Últimas 24 horas'], ['7', 'Últimos 7 dias'], ['14', 'Últimos 14 dias']]
+  const chips = [
+    { key: 'search', label: query.trim() && `Busca “${query.trim()}”`, clear: () => setQuery('') },
+    { key: 'category', label: category, clear: () => setCategory('') },
+    { key: 'period', label: periods.find(([value]) => value === period)?.[1], clear: () => setPeriod('') },
+    { key: 'source', label: source, clear: () => setSource('') },
+    { key: 'language', label: language === 'pt' ? 'Português' : language === 'en' ? 'Inglês' : language, clear: () => setLanguage('') },
+    { key: 'kind', label: kind && 'Google Trends', clear: () => setKind('') },
+    { key: 'scope', label: scope && (scope === 'direct' ? 'Criação e mercado' : 'Contexto criativo'), clear: () => setScope('') },
+    { key: 'favorites', label: onlyFavorites && 'Só favoritos', clear: () => setOnlyFavorites(false) },
+  ].filter(item => item.label)
+  function clearFilters(clear: () => void) {
+    clear()
+    setLimit(pageSize)
+    search.current?.focus()
+  }
   const select = (label: string, value: string, update: (value: string) => void, choices: [string,string][]) =>
     <label>{label}<select value={value} onChange={event => { update(event.target.value); setLimit(pageSize) }}><option value="">Todos</option>{choices.map(([key,text]) => <option key={key} value={key}>{text}</option>)}</select></label>
 
-  return <section className="news" aria-label="Notícias do Radar">
-    <header className="news-header"><div>{!opportunitiesView && <><h2>{favoritesView ? 'Favoritos' : 'Radar Criativo'}</h2><p>Design, branding, direção de arte e mercado criativo.</p></>}<p className="muted">{data?.collectedAt ? <>Última coleta bem-sucedida: <time dateTime={data.collectedAt}>{format(data.collectedAt)}</time> (Brasília){daysOld > 0 && <strong className="edition-age">há {daysOld} {daysOld === 1 ? 'dia' : 'dias'}</strong>}</> : 'Nenhuma coleta disponível.'}</p></div>
-      <button className="button button-dark" disabled={state === 'loading'} onClick={refresh}>{state === 'loading' ? 'Verificando…' : 'Verificar nova edição'}</button></header>
-    {state === 'loading' && <p role="status">Carregando notícias…</p>}
-    {state === 'error' && <p role="alert" className="info-strip">Não foi possível carregar as notícias.{data ? ' Exibindo a última edição aberta.' : ' Tente recarregar.'}</p>}
+  return <section className="news news-edition" aria-label="Notícias do Radar">
+    <header className="news-header">
+      <div>
+        {!opportunitiesView && <h2>{favoritesView ? 'Favoritos' : 'Radar Criativo'}</h2>}
+        <p className="muted">{data?.collectedAt ? <>Última coleta bem-sucedida: <time dateTime={data.collectedAt}>{format(data.collectedAt)}</time> (Brasília){daysOld > 0 && <span className="edition-age">há {daysOld} {daysOld === 1 ? 'dia' : 'dias'}</span>}</> :
+          state === 'loading' ? 'Consultando a edição disponível…' : 'Nenhuma edição disponível.'}</p>
+      </div>
+      <button className="button button-outline" disabled={state === 'loading'} onClick={refresh}>
+        {state === 'loading' ? 'Verificando…' : state === 'error' ? 'Tentar novamente' : 'Verificar nova edição'}
+      </button>
+    </header>
+    {state === 'loading' && <p className="sr-only" role="status">{data ? 'Verificando nova edição…' : 'Carregando notícias…'}</p>}
+    {state === 'loading' && !data && !opportunitiesView && <div className="news-grid news-story-grid" aria-hidden="true">
+      {[0, 1, 2, 3].map(index => <div className="news-card news-skeleton" key={index}>
+        <div /><span /><span /><span />
+      </div>)}
+    </div>}
+    {state === 'error' && <p role="alert" className="info-strip">Não foi possível carregar as notícias.{data ? ' Exibindo a última edição aberta.' : ' Tente novamente.'}</p>}
     {storageError && <p role="alert" className="info-strip">Não foi possível acessar os favoritos neste navegador.</p>}
+    <p className="sr-only" role="status">{favoriteStatus}</p>
     {data && <div hidden={!opportunitiesView}><Opportunities active={active && opportunitiesView} items={data.opportunities} editionAt={data.attemptedAt} favorites={favorites} saving={saving} save={id => void toggle(id)} create={onCreateOpportunity} /></div>}
-    {data && <div hidden={opportunitiesView} className="news">
+    {data && <div hidden={opportunitiesView} className="news news-list">
       <div className="context-panel news-filter-panel">
         <div className="news-filters primary-filters">
-        <label>Buscar notícias<input type="search" placeholder="Ex.: tipografia, rebranding, Creative Boom" value={query} onChange={event => { setQuery(event.target.value); setLimit(pageSize) }} /></label>
+        <label>Buscar notícias<input ref={search} type="search" placeholder="Título, tema ou fonte" value={query} onChange={event => { setQuery(event.target.value); setLimit(pageSize) }} /></label>
         {select('Categoria',category,setCategory,categories.map(v => [v,v]))}
-        {select('Publicação',period,setPeriod,[['1','Últimas 24 horas'],['7','Últimos 7 dias'],['14','Últimos 14 dias']])}
+        {select('Publicação',period,setPeriod,periods)}
         <button className="button button-outline" aria-controls="news-advanced" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>Mais filtros</button>
         </div>
         <div className="news-filters" id="news-advanced" hidden={!filtersOpen}>
@@ -152,24 +190,36 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
         <label className="news-checkbox"><input type="checkbox" checked={onlyFavorites} disabled={!favorites} onChange={event => { setOnlyFavorites(event.target.checked); setLimit(pageSize) }} /> Só favoritos</label>
         </div>
       </div>
-      <div className="filter-chips">{[
-        { label: source, clear: () => setSource('') },
-        { label: language === 'pt' ? 'Português' : language === 'en' ? 'Inglês' : language, clear: () => setLanguage('') },
-        { label: kind && 'Google Trends', clear: () => setKind('') },
-        { label: scope && (scope === 'direct' ? 'Criação e mercado' : 'Contexto criativo'), clear: () => setScope('') },
-        { label: onlyFavorites && 'Só favoritos', clear: () => setOnlyFavorites(false) },
-      ].filter(item => item.label).map(item => <button key={String(item.label)} aria-label={`Remover filtro ${item.label}`} onClick={item.clear}>{item.label} ×</button>)}</div>
-      <p role="status" className="muted">{results.length} {results.length === 1 ? 'notícia' : 'notícias'}</p>
-      {!results.length && <div className="empty-state"><h3>Nenhuma notícia encontrada</h3><p>{items.length ? 'Experimente outros filtros ou termos de busca.' : 'Ainda não há notícias nesta edição.'}</p></div>}
-      <div className="news-grid">{results.slice(0,limit).map(item => <article className="news-card" key={item.id} onFocus={() => setReading(item.id)}>
-        <div className="news-meta"><span className="badge badge-neutral">{item.category}</span><button type="button" className="news-favorite" aria-label={`Favoritar: ${item.title}`} aria-pressed={favorites?.includes(item.id) ?? false} disabled={!favorites || saving} onClick={() => void toggle(item.id)}>{favorites?.includes(item.id) ? '★' : '☆'}</button></div>
-        <h3><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></h3>
-        <p className="muted">{item.source} · {item.publishedAt ? <time dateTime={item.publishedAt}>{format(item.publishedAt)}</time> : 'Data de publicação não informada'}{item.editorial?.scope === 'adjacent' && ' · Contexto criativo'}</p>
-        {item.summary && <p>{item.summary}</p>}
-        {item.trend && <p className="news-trend"><a href="https://trends.google.com/trending?geo=BR" target="_blank" rel="noreferrer">Google Trends</a> · {item.trend}</p>}
-        <button type="button" className="button news-create" onClick={() => startBriefing(item)}>Criar post</button>
-      </article>)}</div>
-      {results.length > limit && <button className="button button-dark" onClick={() => setLimit(value => value + pageSize)}>Mostrar mais notícias</button>}
+      {chips.length > 0 && <div className="filter-chips" role="group" aria-label="Filtros ativos">
+        {chips.map(item => <button key={item.key} aria-label={`Remover filtro ${item.label}`} onClick={() => clearFilters(item.clear)}>
+          <span>{item.label}</span><Icon name="close" />
+        </button>)}
+        <button className="news-clear-filters" onClick={() => clearFilters(() => chips.forEach(item => item.clear()))}>Limpar filtros</button>
+      </div>}
+      <div className="news-results" data-reading={reading !== undefined}>
+        <div className="news-results-count">
+          <p role="status">{results.length} {results.length === 1 ? 'notícia' : 'notícias'}</p>
+        </div>
+        <NewsAssistant selection={reading} onOpen={() => { reader.current = null; setReading(null) }} onClose={closeAssistant}
+          article={article} opportunity={article && data.opportunities?.find(item => item.articles[0].id === article.id)}
+          launcher={assistantLauncher} onCreate={startBriefing} />
+        <div className="news-results-feed">
+          {!visible.length ? <div className="empty-state news-empty">
+            <h3>Nenhuma notícia encontrada</h3>
+            <p>{chips.length ? 'Experimente outros filtros ou termos de busca.' : favoritesView
+              ? 'Use a estrela nos cartões para guardar notícias aqui.' : 'Ainda não há notícias nesta edição.'}</p>
+          </div> : <div className="news-grid news-story-grid">
+            {visible.map(item => <NewsCard key={item.id} article={item} saved={favorites?.includes(item.id) ?? false}
+              canSave={Boolean(favorites) && !saving} onSave={() => void toggle(item.id)} onCreate={() => startBriefing(item)}
+              selected={article?.id === item.id} onRead={event => {
+                reader.current = event.currentTarget
+                if (reading === item.id) closeAssistant()
+                else setReading(item.id)
+              }} />)}
+          </div>}
+          {results.length > limit && <button className="button button-outline news-more" onClick={() => setLimit(value => value + pageSize)}>Mostrar mais notícias</button>}
+        </div>
+      </div>
     </div>}
   </section>
 }
