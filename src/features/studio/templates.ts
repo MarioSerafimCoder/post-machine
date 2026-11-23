@@ -7,6 +7,10 @@ import { fitText } from './factory/typography'
 export const templates = { editorial: 'Capa editorial', photo: 'Capa fotográfica', text: 'Conteúdo textual', split: 'Imagem + conteúdo', comparison: 'Comparativo', cta: 'Encerramento / CTA' }
 export type Template = keyof typeof templates
 export type Semantic = { title: string; subtitle?: string; body: string; cta: string; image?: Record<string, unknown> }
+export function textExceedsLayout(scene: Scene) {
+  return scene.objects.some(item => typeof item.text === 'string' && item.text.trim() &&
+    typeof item.maxHeight === 'number' && Number(item.height) * Math.abs(Number(item.scaleY ?? 1)) > item.maxHeight + 2)
+}
 export function semantics(scene: Scene): Semantic {
   const objects = scene.objects.flatMap(o => Array.isArray(o.objects) ? [o, ...o.objects as Record<string, unknown>[]] : [o])
   const text = (name: string) => objects.filter(o => o.semantic === name).map(o => String(o.text ?? '')).join('\n')
@@ -64,10 +68,15 @@ export function fromCampaign(draft: Draft, brand: Brand, preferred?: Template, f
     const textOnly = /^(?:text|textual|somente texto|sem imagem|conteúdo textual)$/.test(intent)
     const explicit = preferred ?? (intent !== 'editorial' && Object.hasOwn(templates, intent) ? intent as Template : undefined)
     const query = !textOnly && s.role !== 'cta' && visualQueries(s)
-    const layout = explicit ?? (query ? s.role === 'cover' ? 'photo' : 'split' : s.role === 'cover' ? 'editorial' : s.role === 'cta' ? 'cta' : 'text')
-    const scene = compose(layout, { title: s.title, subtitle: s.subtitle, body: s.body,
+    let layout = explicit ?? (query ? s.role === 'cover' ? 'photo' : 'split' : s.role === 'cover' ? 'editorial' : s.role === 'cta' ? 'cta' : 'text')
+    const content = { title: s.title, subtitle: s.subtitle, body: s.body,
       cta: s.role === 'cta' || draft.content!.slides.length === 1 ? draft.content!.campaign.cta : '',
-    }, brand, project.format, s.role)
+    }
+    let scene = compose(layout, content, brand, project.format, s.role)
+    if (!explicit && layout === 'photo' && textExceedsLayout(scene)) {
+      const alternate = compose('split', content, brand, project.format, s.role)
+      if (!textExceedsLayout(alternate)) { scene = alternate; layout = 'split' }
+    }
     const title = scene.objects.find(object => object.semantic === 'title')
     if (title && s.headlines) title.headlines = structuredClone(s.headlines)
     return { id: crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, visualSubtitle: s.subtitle, scene,

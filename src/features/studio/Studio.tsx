@@ -16,7 +16,7 @@ import { ProjectLibrary } from './ProjectLibrary'
 import { download } from './export'
 import { ExportPanel } from './ExportPanel'
 import { defaultPreferences, newDraft, type DesignMode, type Draft } from '../campaigns/contract'
-import { templates, compose, semantics, fromCampaign, type Template } from './templates'
+import { templates, compose, semantics, fromCampaign, textExceedsLayout, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
 import { Slides, type SlideReview } from './Slides'
 import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
@@ -535,8 +535,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       setSlideFeedback({ text: 'Projeto importado.', id: crypto.randomUUID() })
     }} /></>
   const source = project.editorialSource ?? campaign?.article
-  const overflow = project.slides[current].scene.objects.some(item => typeof item.text === 'string' && item.text.trim() &&
-    typeof item.maxHeight === 'number' && Number(item.height) * Math.abs(Number(item.scaleY ?? 1)) > item.maxHeight + 2)
+  const overflow = textExceedsLayout(project.slides[current].scene)
   const searchesPending = frameTargets.some(item => {
     const value = autoSearch.status(item)
     return value === 'documental' || value === 'editorial' || value === 'illustration'
