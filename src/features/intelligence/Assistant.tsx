@@ -4,6 +4,7 @@ import type { Page } from '../../lib/navigation'
 import { explainRule } from './knowledge'
 import { recordEditorialFeedback, useEditorialMemory } from './feedback'
 import { AssistantPreferences } from './AssistantPreferences'
+import { AssistantAvatar } from './AssistantAvatar'
 import { signalIdentity, signalVersion, useAssistantSignals, useStudioAnchor, visibleSignals, type Signal } from './signals'
 import { assessments, type Insight } from './types'
 import './assistant.css'
@@ -145,7 +146,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
         if (open) close()
         else { hideBalloon(); setOpen(true) }
       }}>
-      <img src="/assistant/avatar.png" alt="" width="420" height="415" decoding="async" />
+      <AssistantAvatar />
     </button>
   </aside>
   return workspace ? createPortal(assistant, workspace) : assistant

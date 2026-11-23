@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { Icon } from '../../components/Icon'
+import { AssistantAvatar } from '../intelligence/AssistantAvatar'
 import { AssistantPreferences } from '../intelligence/AssistantPreferences'
 import { recordEditorialFeedback, useEditorialMemory } from '../intelligence/feedback'
 import { editorialCategories } from './categories'
@@ -62,12 +63,12 @@ export function NewsAssistant({ selection, onOpen, onClose, article, opportunity
     onKeyDown={event => {
       if (event.key === 'Escape' && open) { event.stopPropagation(); onClose() }
     }}>
-    {!open && <button className="button button-outline news-assistant-launcher" ref={launcher} aria-expanded={false} onClick={onOpen}>
-      <img src="/assistant/avatar.png" alt="" width="34" height="34" /> Assistente Editorial
-    </button>}
+    <button className="editorial-launcher" ref={launcher} aria-label="Assistente Editorial" aria-expanded={open}
+      aria-controls={open ? 'news-assistant-panel' : undefined} onClick={open ? onClose : onOpen}>
+      <AssistantAvatar />
+    </button>
     {open && <section className="editorial-popover news-assistant-panel" id="news-assistant-panel" aria-labelledby="news-assistant-heading" key={selection}>
       <header>
-        <img src="/assistant/avatar.png" alt="" width="34" height="34" />
         <h2 id="news-assistant-heading" ref={heading} tabIndex={-1}>Assistente Editorial</h2>
         <button className="news-assistant-close" aria-label="Fechar assistente" onClick={onClose}><Icon name="close" /></button>
       </header>
