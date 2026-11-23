@@ -63,6 +63,14 @@ export type Slide = Content['slides'][number]
 export type Backup = z.infer<typeof backupSchema>
 export const defaultPreferences: Preferences = { audience: '', tone: tones[0] }
 export const slideCount = (briefing: Briefing) => briefing.format === 'carousel' ? briefing.slideCount : 1
+export function applyBriefingFormat(content: Content, briefing: Briefing): Content {
+  const expected = slideCount(briefing)
+  if (content.slides.length !== expected) {
+    throw Error(`A resposta tem ${content.slides.length} peça(s). O briefing pede ${formats[briefing.format]} com ${expected} peça(s). Ajuste o briefing ou a quantidade de peças na resposta.`)
+  }
+  return content.campaign.format === briefing.format ? content
+    : { ...content, campaign: { ...content.campaign, format: briefing.format } }
+}
 
 export function newDraft(article: Article | null, preferences: Preferences, opportunity?: Opportunity): Draft {
   const now = new Date().toISOString()
@@ -230,9 +238,7 @@ export function reviewImport(input: string, draft?: Draft) {
     slides.some(slide => !slide.title.trim() || !slide.layoutType.trim())) {
     throw Error('Preencha o título, objetivo e tom da campanha, além do título e layout de cada slide.')
   }
-  if (draft && (campaign.format !== draft.briefing.format || slides.length !== slideCount(draft.briefing))) {
-    throw Error(`Ajuste o briefing ou a resposta para ${formats[draft.briefing.format]} com ${slideCount(draft.briefing)} peça(s).`)
-  }
+  const content = draft ? applyBriefingFormat(parsed.data, draft.briefing) : parsed.data
   const originals = draft?.opportunity ? draft.opportunity.articles.map(originalSource) :
     draft?.article ? [originalSource(draft.article)] : draft?.creativeOrigin ? [creativeSource(draft.creativeOrigin)] : []
   const ignored: string[] = []
@@ -248,10 +254,10 @@ export function reviewImport(input: string, draft?: Draft) {
   compareFields(raw.campaign, campaign, 'campaign.')
   raw.slides.forEach((slide, index) => compareFields(slide, slides[index], `slides[${index + 1}].`))
   raw.sources.forEach((source, index) => compareFields(source, sources[index], `sources[${index + 1}].`))
-  if (!originals.length) return { content: parsed.data, ignored }
+  if (!originals.length) return { content, ignored }
   const uniqueSources = new Map(sources.map(source => [source.url, source]))
   for (const original of originals) uniqueSources.delete(original.url)
-  return { content: { ...parsed.data, sources: [...originals, ...Array.from(uniqueSources.values())].slice(0, 50) }, ignored }
+  return { content: { ...content, sources: [...originals, ...Array.from(uniqueSources.values())].slice(0, 50) }, ignored }
 }
 
 export function importContent(input: string, draft?: Draft): Content {

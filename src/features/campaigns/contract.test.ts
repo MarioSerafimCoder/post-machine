@@ -46,11 +46,17 @@ describe('contrato editorial', () => {
     }), post)).toThrow(/sources\.0\.publishedAt.*AAAA-MM-DD/)
   })
 
-  it('rejeita campos ausentes, referências inseguras e formato divergente', () => {
+  it('rejeita campos ausentes, referências inseguras e quantidade divergente', () => {
     expect(() => importContent('{}', post)).toThrow('schemaVersion')
     expect(() => importContent(markdownExample.replace('https://example.com/artigo', 'javascript:alert(1)'), post)).toThrow('sources.0.url')
     expect(() => importContent(markdownExample.replace('Função: content\n', ''), post)).toThrow('Função')
     expect(() => importContent(markdownExample, draft)).toThrow('Carrossel')
+  })
+
+  it('usa o formato do briefing quando a quantidade da resposta é compatível', () => {
+    const result = importContent(markdownExample.replace('Formato: post', 'Formato: carousel'), post)
+    expect(result.campaign.format).toBe('post')
+    expect(result.slides).toHaveLength(1)
   })
 
   it('mantém texto importado como dados e valida o backup inteiro', () => {

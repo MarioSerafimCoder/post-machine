@@ -9,7 +9,7 @@ import { briefingInstructions, recommend, reviewEditorial } from '../intelligenc
 import { campaignScope, preferenceFor, useEditorialMemory } from '../intelligence/feedback'
 import { normalize, type Article } from '../radar/contract'
 import {
-  approaches, backupSchema, createPrompt, defaultPreferences, draftFromReference, formats, importContent,
+  applyBriefingFormat, approaches, backupSchema, createPrompt, defaultPreferences, draftFromReference, formats, importContent,
   markdownExample, maxBackup, maxImport, maxSlides, newDraft, objectives, roles, tones,
   type Backup, type Briefing, type Content, type Draft, type Slide,
 } from './contract'
@@ -129,9 +129,9 @@ export function Campaigns({ request, active, onBack, onDesign }: {
     setError('')
     try {
       const raw = responseInput.current?.id === item.id ? responseInput.current.raw.trim() : ''
-      const content = raw ? importContent(raw, item) : item.content
+      const content = raw ? importContent(raw, item) : item.content && (destination === 'save' ? item.content : applyBriefingFormat(item.content, item.briefing))
       if (raw && item.content && !window.confirm('A resposta colada substituirá o conteúdo revisado desta campanha. Continuar?')) return
-      const saved = persist(raw ? { ...item, content } : item)
+      const saved = persist({ ...item, content })
       await queue.flushAll()
       if (raw) {
         clearPendingResponse()

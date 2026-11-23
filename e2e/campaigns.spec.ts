@@ -109,7 +109,7 @@ test('importa a resposta do GPT com datas parciais ao salvar e abre o projeto ed
   const response = {
     schemaVersion: 1,
     campaign: { title: 'Campanha enviada ao Studio', objective: 'Informar', audience: 'Leigo',
-      tone: 'Provocativo', format: 'post', caption: 'Legenda preservada.', cta: 'Conheça o contexto.' },
+      tone: 'Provocativo', format: 'carousel', caption: 'Legenda preservada.', cta: 'Conheça o contexto.' },
     sources, slides: [{ order: 1, role: 'content', title: 'Título importado diretamente', body: 'Texto de referência do GPT.',
       imageBrief: 'Direção de arte vinculada ao slide.', layoutType: 'editorial' }],
   }
