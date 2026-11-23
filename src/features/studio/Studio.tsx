@@ -86,6 +86,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const exportOpen = !!project && project.id === exportProjectId
   const [auditOpen,setAuditOpen]=useState(false)
   const [editorialProject, setEditorialProject] = useState<string>()
+  const editorialToggle = useRef<HTMLButtonElement>(null)
   const [reviewedSlides, setReviewedSlides] = useState<Map<string, SlideReview>>(() => new Map())
   const [fullReview, setFullReview] = useState<Review>()
   const [guidance, setGuidance] = useState<{ finding: Finding; project: Project }>()
@@ -450,7 +451,11 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         </div>
         <div className="studio-actions studio-output" role="group" aria-label="Finalização">
           <button aria-expanded={auditOpen} onClick={() => setAuditOpen(value => !value)}>Auditar design</button>
-          <button aria-expanded={editorialOpen} onClick={() => setEditorialProject(editorialOpen ? undefined : project.id)}>Revisar carrossel</button>
+          <button ref={editorialToggle} aria-expanded={editorialOpen} aria-controls={editorialOpen ? 'studio-editorial-review' : undefined}
+            onClick={() => {
+              setEditorialProject(editorialOpen ? undefined : project.id)
+              if (!editorialOpen) requestAnimationFrame(() => document.getElementById('studio-editorial-heading')?.focus())
+            }}>Revisar carrossel</button>
           <button ref={exportToggle} className="export-primary" aria-expanded={exportOpen} aria-controls={exportOpen ? 'studio-export' : undefined}
             onClick={() => setExportProjectId(exportOpen ? undefined : project.id)}>Finalizar e exportar</button>
         </div>
@@ -485,7 +490,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     {editorialOpen && <EditorialReview project={project} campaign={campaign} select={index => {
       chooseSlide(index)
       requestAnimationFrame(() => document.querySelector<HTMLElement>('.canvas-stage')?.focus())
-    }} close={() => setEditorialProject(undefined)} />}
+    }} close={() => { setEditorialProject(undefined); editorialToggle.current?.focus({ preventScroll: true }) }} />}
     {auditOpen&&<AuditPanel project={project} assistantArea={active && !exportOpen ? 'studio' : undefined} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected) => {
       await flush()
       if (getCurrent() !== expected) throw Error('O projeto mudou. Rode novamente a auditoria.')

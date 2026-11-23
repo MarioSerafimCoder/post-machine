@@ -15,12 +15,18 @@
 }
 .editorial-dock[data-workspace="studio"] > * { pointer-events: auto; }
 .editorial-dock[data-workspace="studio"] .editorial-launcher { position: absolute; right: 10px; bottom: 10px; }
-.editorial-dock[data-workspace="studio"] .editorial-popover,
 .editorial-dock[data-workspace="studio"] .editorial-balloon {
   right: 12px;
   bottom: 84px;
   max-width: calc(100% - 24px);
   max-height: calc(100% - 96px);
+}
+.editorial-dock[data-workspace="studio"] .editorial-popover {
+  inset: 4px calc(100% + 4px) 4px auto;
+  width: calc(var(--studio-inspector, 228px) - 8px);
+  max-height: none;
+  align-content: start;
+  box-shadow: none;
 }
 .editorial-dock button, .editorial-dock select {
   border: 1px solid var(--line);

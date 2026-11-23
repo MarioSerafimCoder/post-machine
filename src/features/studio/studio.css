@@ -117,7 +117,8 @@
 
 /* Keep contextual tools together so the right edge is reserved for frames. */
 .studio .studio-layout.context-workspace {
-  grid-template-columns: 62px 228px minmax(0, 1fr) 148px;
+  --studio-inspector: 228px;
+  grid-template-columns: 62px var(--studio-inspector) minmax(0, 1fr) 148px;
   height: clamp(378px, calc(100dvh - 242px), 925px);
 }
 .studio .studio-layout[data-collapsed=true][data-selection=false] { grid-template-columns: 62px 0 minmax(0, 1fr) 148px; }
@@ -141,9 +142,24 @@
 .studio-slides .slide-actions button { font-size: 10px; padding: 5px; }
 .studio-slides .slide-actions button:first-child { grid-column: 1 / -1; }
 @media (min-width: 1400px) {
+  .studio .studio-layout.context-workspace { --studio-inspector: 248px; }
   .studio .studio-layout.context-workspace { grid-template-columns: 62px 248px minmax(0, 1fr) 222px; }
   .studio .studio-layout[data-collapsed=true][data-selection=false] { grid-template-columns: 62px 0 minmax(0, 1fr) 222px; }
   .studio .studio-layout[data-frames=false] { grid-template-columns: 62px 248px minmax(0, 1fr) 104px; }
   .studio .studio-layout[data-collapsed=true][data-selection=false][data-frames=false] { grid-template-columns: 62px 0 minmax(0, 1fr) 104px; }
   .studio-slides .slide-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+.studio .studio-layout[data-collapsed=true][data-selection=false]:has(.editorial-popover) {
+  grid-template-columns: 62px var(--studio-inspector) minmax(0, 1fr) 148px;
+}
+@media (min-width: 1400px) {
+  .studio .studio-layout[data-collapsed=true][data-selection=false]:has(.editorial-popover) {
+    grid-template-columns: 62px var(--studio-inspector) minmax(0, 1fr) 222px;
+  }
+}
+.studio .studio-layout[data-collapsed=true][data-selection=false][data-frames=false]:has(.editorial-popover) {
+  grid-template-columns: 62px var(--studio-inspector) minmax(0, 1fr) 104px;
+}
+.studio-layout:has(.editorial-popover) .studio-left { visibility: hidden; }
+.studio :is(input, textarea, select):not(:disabled) { border-color: var(--ui-control-line); }
+.studio .studio-slides :is(header button, .slide-caption, .slide-actions button) { font-size: 12px; }

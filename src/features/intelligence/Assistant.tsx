@@ -153,7 +153,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
       }}>
       <picture>
         <source media="(prefers-reduced-motion: reduce)" srcSet="/assistant/avatar.png" />
-        <img src="/assistant/avatar.gif" alt="" width="420" height="415" decoding="async" />
+        <img src={memory.mode === 'muted' ? '/assistant/avatar.png' : '/assistant/avatar.gif'} alt="" width="420" height="415" decoding="async" />
       </picture>
       {memory.mode !== 'muted' && candidate && <span className="editorial-indicator" aria-hidden="true" />}
     </button>

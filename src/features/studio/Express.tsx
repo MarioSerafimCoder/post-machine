@@ -172,6 +172,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   function loadCampaign(id: string) {
     const item = campaigns?.find(draft => draft.id === id)
     if (!item?.content) return
+    if (linked?.id !== id && slides.some(slide => slide.title.trim() || slide.body.trim()) &&
+        !window.confirm('Substituir o conteúdo dos slides pela campanha selecionada? As imagens continuam disponíveis.')) return
     organize(fromStructured(item.content, item.briefing)); setLinked(item); setCaption(item.content.campaign.caption); setName(item.content.campaign.title.slice(0,100))
     if (item.content.campaign.format === 'story') setFormat('story')
     setError('')
@@ -545,10 +547,20 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     {draftGate === 'ready' && <>
     <ContextWorkspace rail={<ContextRail label="Etapas da Produção Expressa" tools={tools} selected={step} choose={selectStep} />}>
       <div className="express-panel">
+        <header className="express-step">
+          <h3>{step}</h3>
+          <span className="muted">{slides.length - invalid.length} de {slides.length} slide(s) com conteúdo · {photos.length} imagem(ns) · {style.name}</span>
+        </header>
         {(busy || downloading) && <p role="status">{downloading ? 'Baixando imagem…' : 'Preparando…'}</p>}
         {error && <p className="express-warning" role="alert">{error}</p>}
         {status && <p role="status">{status}</p>}
         {panel}
+        {step !== 'Prévia' && <div className="collection-actions express-next">
+          <button className="button button-dark" disabled={busy || downloading || (step === 'Conteúdo' && !!invalid.length)}
+            onClick={() => selectStep(step === 'Conteúdo' ? 'Imagens' : step === 'Imagens' ? 'Templates' : 'Prévia')}>
+            {step === 'Conteúdo' ? 'Avançar para imagens' : step === 'Imagens' ? 'Avançar para templates' : 'Avançar para prévia'}
+          </button>
+        </div>}
       </div>
     </ContextWorkspace></>}
   </section>

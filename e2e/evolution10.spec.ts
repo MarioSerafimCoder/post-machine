@@ -1,4 +1,78 @@
 import { expect, test } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import JSZip from 'jszip'
+
+test('mantém assistente fora da arte e devolve o foco da revisão nas quatro larguras', async ({ page }, info) => {
+  test.skip(info.project.name === 'laptop', 'A matriz usa as quatro resoluções desktop.')
+  await page.goto('/#/studio')
+  const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await button('Criar projeto vazio').click()
+  await button('Adicionar título').click()
+  await page.getByLabel('Texto do elemento').fill('Uma coisa incrível')
+  for (const [width, height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]) {
+    await page.setViewportSize({ width, height })
+    await button('Assistente Editorial').click()
+    const popup = page.getByRole('region', { name: 'Assistente Editorial' })
+    await expect(popup).toBeVisible()
+    const panel = await popup.boundingBox()
+    const art = await page.locator('.canvas-paper').boundingBox()
+    expect(panel!.x + panel!.width).toBeLessThanOrEqual(art!.x)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+    await page.screenshot({ path: info.outputPath(`studio-assistente-${width}.png`) })
+    await page.keyboard.press('Escape')
+    await button('Revisar carrossel').click()
+    await expect(page.getByRole('heading', { name: 'Revisão editorial do projeto' })).toBeFocused()
+    await button('Fechar revisão editorial').click()
+    await expect(button('Revisar carrossel')).toBeFocused()
+  }
+  await button('Salvar').click()
+  await expect(page.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
+  for (const [route, name] of [['radar', 'Radar'], ['auditoria', 'Auditoria'], ['studio', 'Expressa']] as const) {
+    await page.getByRole('link', { name: route === 'studio' ? 'Studio' : name, exact: true }).click()
+    if (route === 'radar') await button('Criar post').first().waitFor()
+    if (route === 'auditoria') {
+      await page.getByRole('button', { name: /Revisar projeto:/ }).first().click()
+      await button('Auditar todos os slides').click()
+      await button('Baixar relatório JSON').waitFor()
+    }
+    if (route === 'studio') {
+      await button('Criar conteúdo').click()
+      await button('Colar ou importar conteúdo pronto').click()
+      await page.getByRole('textbox', { name: /Cole aqui/ }).waitFor()
+    }
+    for (const [width, height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]) {
+      await page.setViewportSize({ width, height })
+      await page.evaluate(() => window.scrollTo(0, 0))
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
+      await page.screenshot({ path: info.outputPath(`${name.toLowerCase()}-${width}.png`) })
+    }
+  }
+})
+
+for (const count of [1, 6, 20]) test(`fabrica e exporta ${count} slide(s) com PNG no tamanho da arte`, async ({ page }, info) => {
+  test.skip(info.project.name === 'laptop', 'A exportação de volume roda uma vez no perfil desktop.')
+  test.setTimeout(75_000)
+  await page.goto('/#/studio')
+  const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await button('Produção Expressa').click()
+  await page.getByRole('textbox', { name: /Cole aqui/ }).fill(Array.from({ length: count }, (_, index) =>
+    `Slide ${index + 1} — Recorte ${index + 1}\nA arte organiza a leitura e preserva o texto original.`).join('\n\n'))
+  await button('Organizar slides').click()
+  await button('Prévia').click()
+  await button(count === 1 ? 'Fabricar meu post' : 'Fabricar meu carrossel').click()
+  await expect(page.getByRole('region', { name: 'Propostas de fabricação' }).getByRole('article')).toHaveCount(3, {timeout: 25_000})
+  await button('Usar esta versão').click()
+  await button('Finalizar e exportar').click()
+  const download = page.waitForEvent('download', { timeout: 38_000 })
+  await button(count === 1 ? 'Exportar PNG' : 'Exportar ZIP').click()
+  const warning = button('Exportar com avisos')
+  if (await Promise.race([download.then(() => false), warning.waitFor({ timeout: 38_000 }).then(() => true)])) await warning.click()
+  const downloaded = await readFile(await (await download).path())
+  const pngs = count === 1 ? [downloaded] : await JSZip.loadAsync(downloaded).then(zip =>
+    Promise.all(zip.filter(path => path.endsWith('.png')).map(file => file.async('nodebuffer'))))
+  expect(pngs).toHaveLength(count)
+  for (const png of pngs) expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1080, 1350])
+})
 
 test('confirma e desfaz em uma ação dois ajustes de margem verificados', async ({ page }) => {
   await page.goto('/#/studio')

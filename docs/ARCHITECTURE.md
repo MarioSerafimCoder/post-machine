@@ -1,5 +1,11 @@
 # Arquitetura e decisões
 
+## Evolução 10
+
+- O IndexedDB do Studio v5 adiciona `expressDrafts` e `expressPhotos`. Cada campanha tem uma preparação recuperável, e a entrada independente tem sua própria chave. O metadado referencia as fotos armazenadas como Blob. A transação verifica a revisão anterior e grava as duas stores juntas. O fluxo converte a proposta aprovada em projeto independente antes de limpar a preparação.
+- O planejador reserva primeiro as associações explícitas. O pareamento seguinte usa termos do briefing ou título e metadados dos arquivos. Proporção e resolução ajudam a desempatar. O fallback mantém a ordem e a prévia usa o mesmo planejador da fabricação.
+- A Auditoria reúne movimentos geométricos sobre uma cópia do projeto, reexecuta o diagnóstico e submete a proposta à confirmação. O lote usa o mesmo checkpoint da correção individual.
+
 ## Editorial Intelligence 2.0
 
 - `src/features/intelligence/` contém catálogo e esquemas de validação, decisão contextual, briefing, leitura dos resultados da Auditoria e interface do assistente. O catálogo normaliza os IDs bibliográficos do ZIP como `sourceIds` e conserva os registros experimentais separados. As ligações explícitas de concretude, negatividade em manchetes e coerência multimídia conservam o escopo da evidência. As datas e o tipo de verificação documental vêm do pacote v2.0.0.

@@ -54,3 +54,6 @@
 .collection-premium { display: inline-block; color: #a00011; font-weight: 650; }
 .express-image-match { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; }
 .express-image-match img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; }
+.express-step { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; }
+.express-step h3 { font-size: var(--ui-title); font-weight: 700; }
+.express-next { margin-top: 12px; }

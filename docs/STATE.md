@@ -1,5 +1,14 @@
 # Estado real — 18/11/2026
 
+## Evolução 10 — Criação, recuperação e automação local
+
+- 10.1: a Produção Expressa retoma ou descarta preparações por campanha ou pela entrada independente. O IndexedDB v5 grava os arquivos como Blob e registra a revisão para rejeitar sobrescritas entre abas. O projeto aprovado usa o salvamento normal do Studio. Reorganizar texto preserva vínculos e enquadramento apenas quando há uma correspondência única. Edições contínuas de texto formam uma operação de desfazer, com autosave ativo. Alinhamento usa a margem da marca e a geometria em coordenadas da arte.
+- 10.2: **Criar conteúdo** abre três origens e encaminha aos módulos existentes. Uma colagem estruturada válida organiza automaticamente uma preparação vazia. Substituir slides editados pede confirmação. A importação direta de Campanhas e a retomada de projetos na página inicial foram reaproveitadas.
+- 10.3: o pareamento reserva imagens explícitas e usa termos do briefing, título, nome e título da fonte. Proporção e resolução ajudam a desempatar candidatos comparáveis. A tela mostra miniaturas, razões, distribuição e controles por teclado. A fabricação mantém três propostas editáveis e usa medições de título, corpo e CTA na escolha, com quebra por grafema quando uma palavra excede a caixa. Correções geométricas em lote têm prévia, confirmação e um passo de desfazer. O lote é recusado quando a revisão detecta nova ocorrência geométrica.
+- 10.4: o painel detalhado do Assistente usa a área lateral sem sobrepor a arte. O modo silenciado usa o quadro estático e fechar a revisão editorial restaura o foco. Campos do Studio ganharam borda mais contrastante e os Frames, rótulos maiores. A Produção Expressa indica etapa, conteúdo preparado e próxima ação. O produto mantém a restrição desktop de 1024 px.
+- `npm ci`, lint, 118 testes unitários, build e dry-run aprovados. Vite e Wrangler local completaram 112 cenários Playwright cada, com dez repetições intencionalmente omitidas no perfil laptop. Os arquivos de 1, 6 e 20 slides foram conferidos em PNG de 1080 × 1350. A suíte cobriu restauração v1, falhas de IndexedDB, cancelamento, recarga da preparação, comparação com a exportação e edição por teclado. A inspeção visual cobriu Studio, Radar, Produção Expressa e Auditoria em 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080.
+- Limites: rascunhos estão no navegador. A sugestão de imagem depende de metadados e exige seleção editorial. O diagnóstico factual e visual subjetivo permanece sob revisão humana.
+
 ## Aviso de leitura da matéria no Radar
 
 - Criar uma pauta a partir de uma notícia do Radar não gera mais o aviso de íntegra pendente. A recomendação de acesso à fonte aparece quando o editor a marca como inacessível. O prompt continua indicando que o Radar forneceu título ou resumo, conforme os dados disponíveis.
