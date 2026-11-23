@@ -93,6 +93,7 @@ export type CollectionSlide = {
   title: string; subtitle?: string; emphasis?: string; body: string; cta?: string; imageBrief?: string
   role?: 'cover' | 'content' | 'cta'; composition?: number; image?: Record<string, unknown>
   intent?: 'highlight' | 'comparison'; framing?: 'cover' | 'contain'
+  focalPoint?: import('./vision/signals').FocalPoint
   headlines?: import('../headlines/contract').HeadlineSession
 }
 const samples: CollectionSlide[] = [
@@ -113,7 +114,8 @@ export function collectionBrand(style: Collection, brand: Brand): Brand {
     headingFont: style.fonts[0], bodyFont: style.fonts[1], ...(style.premium ? {margin:64} : {}) }
 }
 
-export function imageForFrame<T extends Record<string, unknown>>(source: T, frame: Box, framing: 'cover' | 'contain' = 'cover', focusY = .5) {
+export function imageForFrame<T extends Record<string, unknown>>(source: T, frame: Box, framing: 'cover' | 'contain' = 'cover', focusY = .5,
+  point?: CollectionSlide['focalPoint']) {
   const [left, top, width, height] = frame
   const ow = Number(source.width), oh = Number(source.height)
   if (framing === 'contain') {
@@ -123,8 +125,10 @@ export function imageForFrame<T extends Record<string, unknown>>(source: T, fram
   }
   const scale = Math.max(width / ow, height / oh)
   const cropWidth = width / scale, cropHeight = height / scale
+  const offset = (position: number, extent: number, window: number) => Math.max(0, Math.min(extent - window, extent * position - window / 2))
   return { ...source, left, top, width: cropWidth, height: cropHeight, scaleX: scale, scaleY: scale,
-    cropX: (ow - cropWidth) / 2, cropY: (oh - cropHeight) * focusY, semantic: 'image' }
+    cropX: point ? offset(point.x, ow, cropWidth) : (ow - cropWidth) / 2,
+    cropY: point ? offset(point.y, oh, cropHeight) : (oh - cropHeight) * focusY, semantic: 'image' }
 }
 
 export function composeCollection(style: Collection, index: number, content: CollectionSlide, brand: Brand, format: Format, treatment?: Treatment) {
@@ -180,7 +184,7 @@ export function composeCollection(style: Collection, index: number, content: Col
   if (treatment === 'expressive') rect(box([0,.065,.27,.018]),brand.secondary,'collectionAccent')
   if (treatment === 'photo' && !content.image) rect(box([0,.088,1,.004]),brand.secondary,'collectionAccent')
   const imageBounds = box(image)
-  if (content.image) objects.push(imageForFrame(content.image,imageBounds,content.framing,ratio < .9 && imageBounds[2] > imageBounds[3]*1.2 ? .23 : .5))
+  if (content.image) objects.push(imageForFrame(content.image,imageBounds,content.framing,ratio < .9 && imageBounds[2] > imageBounds[3]*1.2 ? .23 : .5,content.focalPoint))
   else if (!readingPage) {
     rect(imageBounds, brand.background !== style.palette[0] ? brand.secondary : style.palette[3], 'imageFrame')
     const [left,top,iw,ih] = imageBounds

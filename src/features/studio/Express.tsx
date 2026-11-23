@@ -24,6 +24,7 @@ import { AuthorTemplates } from './AuthorTemplates'
 import type { AuthorTemplate } from './authorTemplate'
 import { fabricateAuthorTemplate, planAuthorImages } from './factory/authorFabrication'
 import { loadAuthorTemplate } from './storage'
+import { useLocalVision } from './vision/useLocalVision'
 import './collections.css'
 
 const tools: ContextTool[] = [
@@ -54,6 +55,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [author, setAuthor] = useState<AuthorTemplate>()
   const [format, setFormat] = useState(campaign?.content?.campaign.format === 'story' ? 'story' : initialFormat)
   const [photos, setPhotos] = useState<Photo[]>([])
+  const vision = useLocalVision(active)
+  const visual = vision.analyses
   const [photoId, setPhotoId] = useState('')
   const [origin, setOrigin] = useState<'local' | 'openverse' | 'library' | 'url'>('local')
   const [imageBriefSlide, setImageBriefSlide] = useState('')
@@ -67,7 +70,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [progress, setProgress] = useState<number>()
   const [editTarget, setEditTarget] = useState<{ index: number; field: 'text' | 'image' }>()
   const generation = useRef<AbortController | null>(null)
-  const factoryInput = useMemo(() => ({ style, format, brand, slides, assets:photos, author }),[style,format,brand,slides,photos,author])
+  const factoryInput = useMemo(() => ({ style, format, brand, slides, assets:photos, author, visual }),[style,format,brand,slides,photos,author,visual])
   const imagePlan = useMemo(() => step === 'Imagens' ? author ? planAuthorImages(author, factoryInput) : planFactoryImages(factoryInput) : [], [step, factoryInput, author])
   const plannedPhotos = new Set(imagePlan.map(item => item.picture?.id))
   const result = prepared?.input === factoryInput ? prepared.result : undefined
@@ -278,7 +281,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     return ''
   }).filter(Boolean)
   async function startFabrication() {
-    if (invalid.length || generation.current || busy || downloading) return
+    if (invalid.length || generation.current || busy || downloading || vision.progress) return
     const controller = new AbortController()
     generation.current = controller
     setError('')
@@ -452,6 +455,21 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     {origin === 'url' && <div className="collection-actions"><label>URL externa da imagem<input type="url" value={url} onChange={event => setUrl(event.target.value)} /></label>
       <button className="button button-dark" disabled={busy || downloading || !url.trim()} onClick={() => void external()}>Importar imagem</button></div>}
     {!!photos.length && <>
+      <section className="express-vision" aria-label="Análise visual opcional">
+        <p>{visual.size ? 'Sugestões combinam classes visuais reconhecidas e metadados, quando há correspondência. Os vínculos manuais têm prioridade.'
+          : 'Sugestões usam briefing, nomes e metadados. A análise visual opcional carrega cerca de 19 MB e processa as fotos neste navegador.'}</p>
+        <div className="collection-actions">
+          <button className="button button-outline" disabled={busy || downloading || !!vision.progress} onClick={() => vision.start(photos)}>
+            {visual.size ? 'Reanalisar imagens localmente' : 'Analisar imagens localmente'}
+          </button>
+          {(visual.size > 0 || vision.progress) && <button className="button button-outline" onClick={vision.clear}>
+            {vision.progress ? 'Cancelar análise visual' : 'Usar somente metadados'}
+          </button>}
+          {vision.progress && <progress aria-label="Progresso da análise visual" value={vision.progress.done} max={vision.progress.total} />}
+        </div>
+        {vision.progress && <p role="status">{vision.progress.done} de {vision.progress.total} imagens analisadas.</p>}
+        {vision.status && <p role="status">{vision.status}</p>}
+      </section>
       <div className="collection-actions"><h3>Imagens da produção</h3><button className="button button-outline" disabled={busy}
         onClick={() => setSlides(items => {
           const reserved = new Set(items.map(item => item.imageId))
@@ -475,7 +493,10 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       </article>)}</div>
       <div className="express-assignment">{photos.find(photo => photo.id === photoId) && <img
         src={String(photos.find(photo => photo.id === photoId)!.object.src)} alt="Imagem selecionada" />}
-        <div>{slides.map((slide,index) => <div className="express-image-row" key={slide.key} onDragOver={event => {
+        <div>{slides.map((slide,index) => {
+          const planned = imagePlan[index]
+          const focal = planned?.content.focalPoint ?? { x: .5, y: .5 }
+          return <div className="express-image-row" key={slide.key} onDragOver={event => {
           if (dragged.current && !busy) event.preventDefault()
         }} onDrop={event => {
           event.preventDefault()
@@ -486,14 +507,33 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           <div><strong>{imagePlan[index]?.picture?.name ?? 'Sem imagem prevista'}</strong>
             {imagePlan[index]?.picture?.reason && <p>{imagePlan[index].picture!.reason}</p>}
             {imagePlan[index]?.picture?.origin === 'automatic' && <p>Distribuição pela ordem dos arquivos.</p>}
+            {planned?.content.focalPoint && !slide.focalPoint && <p>Ponto focal sugerido pela concentração de contraste.</p>}
           </div>
-        </div><label>Imagem do slide {index+1}<select id={'express-edit-image-' + index} value={slide.imageId === null ? 'none' : slide.imageId ?? ''}
+        </div>
+        {planned?.picture?.origin === 'suggested' && planned.picture.id && <div className="collection-actions">
+          <button className="button button-outline" onClick={() => assignPhoto(slide, index, planned.picture!.id)}>Aceitar sugestão</button>
+          {!!visual.size && !slide.ignoreVisual && <button className="button button-outline" onClick={() => change(slide.key, { ignoreVisual: true })}>Ignorar análise visual neste slide</button>}
+        </div>}
+        {slide.ignoreVisual && !!visual.size && <button className="button button-outline" onClick={() => change(slide.key, { ignoreVisual: false })}>Reativar análise visual neste slide</button>}
+        <label>Imagem do slide {index+1}<select id={'express-edit-image-' + index} value={slide.imageId === null ? 'none' : slide.imageId ?? ''}
           onChange={event => assignPhoto(slide, index, event.target.value === 'none' ? null : event.target.value || undefined)}>
           <option value="">Automática, pela ordem</option><option value="none">Sem imagem</option>{photos.map((photo,i) => <option value={photo.id} key={photo.id}>{i+1} · {photo.name}</option>)}
         </select></label><label>Enquadramento do slide {index+1}<select value={slide.framing ?? 'cover'}
           onChange={event => change(slide.key,{framing:event.target.value === 'contain' ? 'contain' : 'cover'})}>
-          <option value="cover">Preencher com recorte central</option><option value="contain">Mostrar imagem inteira</option>
-        </select></label></div>)}</div></div>
+          <option value="cover">Preencher a área</option><option value="contain">Mostrar imagem inteira</option>
+        </select></label>
+        {planned?.content.image && slide.framing !== 'contain' && <details className="express-focal">
+          <summary>Ajustar ponto focal do slide {index + 1}</summary>
+          {(['x', 'y'] as const).map(axis => <label key={axis}>Ponto focal {axis === 'x' ? 'horizontal' : 'vertical'}
+            <input type="range" min={0} max={100} step={1} value={Math.round(focal[axis] * 100)}
+              onChange={event => change(slide.key, { focalPoint: { ...focal, [axis]: event.currentTarget.valueAsNumber / 100 } })} />
+          </label>)}
+          <div className="collection-actions">
+            <button className="button button-outline" onClick={() => change(slide.key, { focalPoint: { x: .5, y: .5 } })}>Centralizar enquadramento</button>
+            <button className="button button-outline" disabled={!slide.focalPoint} onClick={() => change(slide.key, { focalPoint: undefined })}>Restaurar enquadramento automático</button>
+          </div>
+        </details>}
+        </div>})}</div></div>
     </>}
   </>
   else if (step === 'Templates') panel = <>
@@ -514,7 +554,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         : brand.name || brand.handle || (collectionBrand(style,brand) === brand ? 'Marca local' : 'Paleta da coleção')}</p></div>
     {!!invalid.length && <ul className="express-warnings">{invalid.map(message => <li key={message}>{message}</li>)}</ul>}
     <div className="factory-action">
-      {!result && <button className="button button-dark" disabled={!!invalid.length || progress !== undefined || busy}
+      {!result && <button className="button button-dark" disabled={!!invalid.length || progress !== undefined || busy || !!vision.progress}
         onClick={() => void startFabrication()}>{slides.length === 1 ? 'Fabricar meu post' : 'Fabricar meu carrossel'}</button>}
       {progress !== undefined && <>
         <progress aria-label="Progresso da fabricação" value={progress} max={slides.length} />

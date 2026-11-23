@@ -1,11 +1,12 @@
 import type { CollectionSlide } from '../collections'
 import { normalize } from '../../radar/contract'
 import type { ImageCredit } from '../../images/contract'
+import type { VisualAnalysis } from '../vision/signals'
 
 export type Treatment = 'balanced' | 'photo' | 'expressive'
 type ImageObject = NonNullable<CollectionSlide['image']>
 export type Asset = { id: string; name: string; object: ImageObject }
-export type Input = CollectionSlide & { imageId?: string | null }
+export type Input = CollectionSlide & { imageId?: string | null; ignoreVisual?: boolean }
 export type PlannedSlide = {
   content: CollectionSlide
   role: NonNullable<CollectionSlide['role']>
@@ -18,7 +19,8 @@ export type PlannedSlide = {
 const word = (value: string) => normalize(value).match(/[\p{L}\p{N}]{4,}/gu) ?? []
 const irrelevant = new Set(['imagem', 'foto', 'fotografia', 'slide', 'para', 'como', 'sobre', 'esta', 'este', 'uma', 'composição', 'with', 'from', 'photo', 'image'])
 
-export function planSlides(inputs: Input[], assets: Asset[], geometry?: { width: number; height: number; imageRatio?: number }) : PlannedSlide[] {
+export function planSlides(inputs: Input[], assets: Asset[], geometry?: { width: number; height: number; imageRatio?: number },
+  visual?: ReadonlyMap<string, VisualAnalysis>) : PlannedSlide[] {
   const byId = new Map(assets.map(asset => [asset.id,asset]))
   const identity = (image: ImageObject) => typeof image.src === 'string' ? image.src : image
   const reserved = new Set(inputs.flatMap(slide => {
@@ -37,15 +39,24 @@ export function planSlides(inputs: Input[], assets: Asset[], geometry?: { width:
     if (slide.image || slide.imageId !== undefined) return []
     const brief = new Set(word(slide.imageBrief ?? '').filter(term => !irrelevant.has(term)))
     const title = new Set(word(slide.title).filter(term => !irrelevant.has(term)))
+    const context = new Set(normalize([slide.imageBrief, slide.title].filter(Boolean).join(' ')).match(/[\p{L}\p{N}]{3,}/gu) ?? [])
     return indexed.flatMap(({ asset, terms }, order) => {
       const matching = [...new Set([...brief, ...title])].filter(term => terms.has(term))
-      if (!matching.length || (matching.length === 1 && !brief.has(matching[0]))) return []
+      const cue = slide.ignoreVisual ? undefined : visual?.get(asset.id)?.cue
+      const visualMatch = cue?.terms.find(term => context.has(term))
+      const metadataMatch = matching.length > 1 || matching.some(term => brief.has(term))
+      if (!visualMatch && !metadataMatch) return []
       const w = Number(asset.object.width), h = Number(asset.object.height)
       const preferredRatio = slide.role === 'cover' ? 1.25 : geometry?.imageRatio ?? 1
       const crop = w > 0 && h > 0 ? Math.min(w / h / preferredRatio, preferredRatio / (w / h)) : 0
       const resolution = geometry ? Math.min(1, w / (geometry.width * .5), h / (geometry.height * .4)) : 0
-      const score = matching.reduce((sum, term) => sum + (brief.has(term) ? 3 : 1), 0) * 10 + crop + resolution
-      return [{ asset, index, order, score, reason: `Termos em comum no nome do arquivo ou título da fonte: ${matching.slice(0, 4).join(', ')}.` }]
+      const score = (metadataMatch ? matching.reduce((sum, term) => sum + (brief.has(term) ? 3 : 1), 0) * 10 : 0) +
+        (visualMatch ? 35 : 0) + crop + resolution
+      const reasons = [
+        ...(visualMatch && cue ? [`Análise local sugere “${cue.label}”, relacionado a “${visualMatch}” no slide.`] : []),
+        ...(metadataMatch ? [`Termos em comum no nome do arquivo ou título da fonte: ${matching.slice(0, 4).join(', ')}.`] : []),
+      ]
+      return [{ asset, index, order, score, reason: reasons.join(' ') }]
     })
   }).sort((a, b) => b.score - a.score || a.index - b.index || a.order - b.order)
   for (const candidate of candidates) {
@@ -77,7 +88,7 @@ export function planSlides(inputs: Input[], assets: Asset[], geometry?: { width:
     const ratio = image ? Number(image.width)/Number(image.height) : 0
     const orientation = !image ? 'none' : ratio > 1.15 ? 'horizontal' : ratio < .87 ? 'vertical' : 'square'
     return {
-      content:{ ...slide,image }, role, picture, orientation,
+      content:{ ...slide, image, focalPoint: slide.focalPoint ?? (picture?.id && !slide.ignoreVisual ? visual?.get(picture.id)?.focalPoint : undefined) }, role, picture, orientation,
       characters:slide.title.length + slide.body.length + (slide.subtitle?.length ?? 0) + (slide.cta?.length ?? 0),
       focus:slide.intent,
     }

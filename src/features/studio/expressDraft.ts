@@ -3,7 +3,7 @@ import { abortTransaction, transaction } from './database'
 import type { CollectionSlide } from './collections'
 import type { Format } from './model'
 
-export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null }
+export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean }
 export type ExpressPhoto = { id: string; name: string; bytes: number; object: Record<string, unknown>; file: Blob }
 type DraftFields = {
   text: string; slides: ExpressSlide[]; linked?: Draft; name: string; caption?: string
@@ -115,6 +115,8 @@ export function reconcileExpressSlides(values: CollectionSlide[], previous: Expr
     const id = signature(slide)
     const candidates = matches.get(id)
     const match = candidates?.length === 1 && counts.get(id) === 1 ? candidates[0] : undefined
-    return { ...slide, key: match?.key ?? newKey(), imageId: match?.imageId, framing: match?.framing ?? slide.framing }
+    return { ...slide, key: match?.key ?? newKey(), imageId: match?.imageId, framing: match?.framing ?? slide.framing,
+      ...(match?.focalPoint ? { focalPoint: match.focalPoint } : {}), ...(match?.ignoreVisual ? { ignoreVisual: true } : {}),
+    }
   })
 }

@@ -4,10 +4,11 @@ import { dimensions, newProject, type Brand, type Format, type Project } from '.
 import { planSlides, compositionPreference, type Asset, type Input, type PlannedSlide, type Treatment } from './planning'
 import { evaluateScene, type Issue } from './evaluate'
 import type { AuthorTemplate } from '../authorTemplate'
+import type { VisualAnalysis } from '../vision/signals'
 
 export const treatments: Treatment[] = ['balanced','photo','expressive']
 export const candidateLimitPerSlide = 18
-export type FactoryInput = { style: Collection; format: Format; brand: Brand; slides: Input[]; assets: Asset[]; author?: AuthorTemplate }
+export type FactoryInput = { style: Collection; format: Format; brand: Brand; slides: Input[]; assets: Asset[]; author?: AuthorTemplate; visual?: ReadonlyMap<string, VisualAnalysis> }
 export type VersionSlide = { composition: number; issues: Issue[] }
 export type Proposal = { treatment: Treatment; project: Project; details: VersionSlide[] }
 export type Fabrication = { proposals: Proposal[]; slides: PlannedSlide[]; collection: string; elapsed: number; candidates: number }
@@ -16,7 +17,7 @@ export function planFactoryImages(input: FactoryInput) {
   const [width, height] = dimensions[input.format]
   const frame = input.style.layouts[3]?.image
   const imageRatio = frame?.[3] ? frame[2] * width / (frame[3] * height) : undefined
-  return planSlides(input.slides, input.assets, { width, height, imageRatio })
+  return planSlides(input.slides, input.assets, { width, height, imageRatio }, input.visual)
 }
 
 function unavailableFonts(brand: Brand): Set<string> {

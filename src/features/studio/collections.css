@@ -98,3 +98,7 @@
 .adaptation-comparison img { display: block; max-height: min(42vh, 335px); max-width: 100%; object-fit: contain; align-self: center; }
 .adaptation-findings { display: grid; gap: 6px; }
 .adaptation-findings ul { max-height: 125px; overflow: auto; }
+.express-vision { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.express-focal { padding-block: 6px; }
+.express-focal summary { cursor: pointer; font-weight: 600; }
+.express-focal input[type=range] { padding-inline: 0; accent-color: var(--accent); }

@@ -110,7 +110,7 @@ export function composePremium(kind: Premium, index: number, content: Collection
   if (frame) {
     if (content.image) {
       const portraitInWideFrame = Number(content.image.height) > Number(content.image.width) && frame[2] > frame[3]*1.2
-      objects.push(imageForFrame(content.image,frame,content.framing,portraitInWideFrame ? .23 : .5))
+      objects.push(imageForFrame(content.image,frame,content.framing,portraitInWideFrame ? .23 : .5,content.focalPoint))
     }
     else rect(frame,card ? '#39383e' : dark ? '#2a3336' : '#dedbd4','imageFrame')
   }

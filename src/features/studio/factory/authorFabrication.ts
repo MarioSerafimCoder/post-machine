@@ -11,6 +11,7 @@ import type { Issue } from './evaluate'
 import type { Fabrication, FactoryInput, Proposal } from './fabricate'
 import { planSlides, type PlannedSlide } from './planning'
 import { fitText } from './typography'
+import type { FocalPoint } from '../vision/signals'
 
 const textFields = ['title', 'subtitle', 'body', 'cta'] as const
 
@@ -18,18 +19,18 @@ export function planAuthorImages(template: AuthorTemplate, input: FactoryInput) 
   const [width, height] = dimensions[template.format]
   const frame = template.design.slides[0].scene.objects.find(object => templateRole(object) === 'image')
   const ratio = frame && (Number(frame.width) * Number(frame.scaleX ?? 1)) / (Number(frame.height) * Number(frame.scaleY ?? 1))
-  return planSlides(input.slides, input.assets, { width, height, imageRatio: ratio && Number.isFinite(ratio) ? ratio : undefined })
+  return planSlides(input.slides, input.assets, { width, height, imageRatio: ratio && Number.isFinite(ratio) ? ratio : undefined }, input.visual)
 }
 
 async function placeImage(canvas: StaticCanvas, slot: FabricObject, source: Record<string, unknown> | undefined,
-  role: 'image' | 'logo', framing: 'cover' | 'contain', signal: AbortSignal) {
+  role: 'image' | 'logo', framing: 'cover' | 'contain', signal: AbortSignal, focalPoint?: FocalPoint) {
   const width = slot.width * Math.abs(slot.scaleX)
   const height = slot.height * Math.abs(slot.scaleY)
   if (!(width > 0 && height > 0)) throw Error('O espaço reservado para imagem deve ter largura e altura.')
   const attributes = { angle: slot.angle, flipX: slot.flipX, flipY: slot.flipY, opacity: slot.opacity,
     visible: slot.visible, label: slot.label, templateRole: role, semantic: role }
   const replacement = source ? await FabricImage.fromObject({
-    ...imageForFrame(source, [0, 0, width, height], framing), ...attributes,
+    ...imageForFrame(source, [0, 0, width, height], framing, .5, focalPoint), ...attributes,
   }, { signal }) : new Rect({ ...attributes, semantic: 'imageFrame', width, height, fill: 'transparent', strokeWidth: 0 })
   replacement.setPositionByOrigin(slot.getCenterPoint(), 'center', 'center')
   replacement.setCoords()
@@ -77,7 +78,7 @@ async function fillSlide(template: AuthorTemplate, project: Proposal['project'],
     for (const { object, role, box } of objects) {
       signal.throwIfAborted()
       if (role === 'image' && (slide.content.image || removeImage && object instanceof FabricImage)) {
-        await placeImage(canvas, object, slide.content.image, 'image', slide.content.framing ?? 'cover', signal)
+        await placeImage(canvas, object, slide.content.image, 'image', slide.content.framing ?? 'cover', signal, slide.content.focalPoint)
       } else if (role === 'logo' && swapBrand && brand.logo) {
         await placeImage(canvas, object, await logoSource(brand.logo, signal), 'logo', 'contain', signal)
       } else if (object instanceof Textbox && role && (role === 'signature' ? swapBrand : role === 'title' || role === 'subtitle' || role === 'body' || role === 'cta')) {
