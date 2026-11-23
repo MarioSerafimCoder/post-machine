@@ -65,6 +65,10 @@
 }
 .author-templates > header, .studio-dialog > header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .author-templates h3, .studio-dialog h2 { font-size: var(--ui-title); font-weight: 700; }
+.author-templates .author-import { display: inline-flex; cursor: pointer; }
+.author-import:not(:has(input:disabled)):hover { background: var(--ui-hover); }
+.author-import:has(input:disabled) { cursor: default; opacity: .56; }
+.author-import:has(input:focus-visible) { outline: 2px solid var(--ui-focus); outline-offset: 3px; }
 .author-template-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .author-template-grid h4 { font-weight: 700; overflow-wrap: anywhere; }
 .author-template-grid p { overflow-wrap: anywhere; }

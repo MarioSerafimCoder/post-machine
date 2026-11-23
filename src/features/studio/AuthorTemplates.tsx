@@ -109,7 +109,7 @@ export function AuthorTemplates({ format, selected, use, edit }: {
   const selectTemplate = (item: TemplateSummary) => run(async () => { await use(await loadAuthorTemplate(item.id)); setPreview(undefined) })
   return <section className="author-templates" aria-label="Meus templates">
     <header><div><h3>Meus templates</h3><p className="muted">Composições salvas no Studio neste navegador.</p></div>
-      <label>Importar backup de template<input type="file" accept=".zip" disabled={busy} onChange={event => {
+      <label className="button button-outline author-import">Importar backup de template<input className="sr-only" type="file" accept=".zip" disabled={busy} onChange={event => {
         const file = event.target.files?.[0]
         event.target.value = ''
         if (file) void run(async () => {

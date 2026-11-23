@@ -1,5 +1,15 @@
 # Arquitetura e decisões
 
+## Evolução 11
+
+- O IndexedDB do Studio v6 adiciona a store `authorTemplates`. O contrato v1 guarda uma composição, formato, identidade, finalidade, miniatura PNG e revisão. A transação de gravação compara a revisão esperada. Templates, projetos e recuperação referenciam o mesmo acervo de blobs por SHA-256. A limpeza inclui esses três conjuntos de referências.
+- A marcação `templateRole` é opcional em objetos Fabric. Objetos antigos podem herdar funções semânticas compatíveis. A fabricação usa os campos visíveis das camadas de nível superior, mantém as camadas fixas e informa campos ausentes ou texto excedente sem descartar a preparação. O template autoral rende uma proposta por fabricação. As coleções continuam oferecendo três.
+- O ZIP autoral usa `template.json` e o mesmo empacotamento e verificação de mídia do projeto. A restauração cria um novo registro, incluindo imagens, logotipos, fontes WOFF2 e créditos associados. Alterar uma composição autoral passa por uma cópia de trabalho do Studio e exige **Atualizar template**.
+- A adaptação considera margens e relações verticais, ajusta áreas de texto e imagem de forma independente e ancora chamadas, assinaturas e logotipos próximos do rodapé. A Auditoria roda antes da confirmação. As variantes autorais compartilham um identificador de família e a geometria é usada quando a biblioteca ainda não tem o formato de destino.
+- A classificação opcional usa [MobileNetV2 INT8 do ONNX Model Zoo](https://huggingface.co/onnxmodelzoo/mobilenetv2-12-int8) (Apache 2.0, revisão `b5c248f66acc836ca8893c58229b00d2520c388b`, SHA-256 `cc028fe6cae7bc11a4ff53cfc9b79c920e8be65ce33a904ec3e2a8f66d77f95f`) e [ONNX Runtime Web](https://onnxruntime.ai/docs/tutorials/web/deploy.html) 1.31.1 (MIT). O worker carrega 3,66 MB de pesos, 14,85 MB de WASM e cerca de 78 kB de JS antes de compressão. Todos os arquivos são estáticos e servidos pela própria aplicação. A CSP autoriza compilação WASM e o worker usa uma thread.
+- O MobileNet classifica imagens inteiras nas classes do ImageNet. A aplicação liga um subconjunto dessas classes a termos em português e inglês, exige pontuação mínima e explica a associação encontrada. Vínculos manuais têm prioridade. Um cálculo separado procura concentração de contraste e sugere um ponto focal apenas acima do limiar. Recortes manuais têm precedência.
+- A reanálise offline funciona enquanto o worker e os recursos dele estão carregados. A aplicação preserva as sugestões por metadados quando o carregamento ou a execução falha. Fotos, classificações e arquivos de trabalho permanecem no navegador. A classificação e o download dos arquivos estáticos têm custo operacional adicional de R$ 0.
+
 ## Evolução 10
 
 - O IndexedDB do Studio v5 adiciona `expressDrafts` e `expressPhotos`. Cada campanha tem uma preparação recuperável, e a entrada independente tem sua própria chave. O metadado referencia as fotos armazenadas como Blob. A transação verifica a revisão anterior e grava as duas stores juntas. O fluxo converte a proposta aprovada em projeto independente antes de limpar a preparação.

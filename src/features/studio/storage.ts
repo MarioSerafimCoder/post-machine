@@ -430,19 +430,31 @@ export async function listAuthorTemplates(): Promise<TemplateSummary[]> {
   })
 }
 
-export function loadAuthorTemplate(id: string): Promise<AuthorTemplate> {
-  return withStudioStorage(async () => {
-    const stored = await transaction([templateStore], 'readonly', tx => {
-      const request = tx.objectStore(templateStore).get(id)
-      return () => request.result as StoredTemplate | undefined
-    })
-    if (!stored) throw Error('Este template não está mais disponível na biblioteca.')
-    const design = await hydrate(validateProject(stored.design), assetId => transaction(['assets'], 'readonly', tx => {
-      const asset = tx.objectStore('assets').get(assetId)
-      return () => asset.result as Blob | undefined
-    }))
-    return { ...stored, ...templateMetadataSchema.parse(stored), design }
+export async function loadAuthorTemplate(id: string): Promise<AuthorTemplate> {
+  const { stored, assets } = await transaction([templateStore, 'assets'], 'readonly', tx => {
+    const request = tx.objectStore(templateStore).get(id)
+    const reads = new Map<string, IDBRequest<Blob | undefined>>()
+    let stored: StoredTemplate | undefined
+    let failure: unknown
+    request.onsuccess = () => {
+      if (!request.result) return
+      try {
+        const design = validateProject(request.result.design)
+        stored = { ...request.result, design }
+        mapProjectAssets(design, source => {
+          const assetId = assetRef.exec(source)?.[1]
+          if (assetId && !reads.has(assetId)) reads.set(assetId, tx.objectStore('assets').get(assetId))
+        })
+      } catch (cause) { failure = cause }
+    }
+    return () => {
+      if (failure) throw failure
+      return { stored, assets: new Map([...reads].map(([key, value]) => [key, value.result])) }
+    }
   })
+  if (!stored) throw Error('Este template não está mais disponível na biblioteca.')
+  const design = await hydrate(stored.design, async assetId => assets.get(assetId))
+  return { ...stored, ...templateMetadataSchema.parse(stored), design }
 }
 
 async function writeTemplate(id: string, expected: string | undefined, update: (previous: StoredTemplate | undefined) => StoredTemplate | undefined, assets?: Map<string, Blob>) {

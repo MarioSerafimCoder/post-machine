@@ -31,7 +31,8 @@ async function placeImage(canvas: StaticCanvas, slot: FabricObject, source: Reco
     visible: slot.visible, label: slot.label, templateRole: role, semantic: role }
   const replacement = source ? await FabricImage.fromObject({
     ...imageForFrame(source, [0, 0, width, height], framing, .5, focalPoint), ...attributes,
-  }, { signal }) : new Rect({ ...attributes, semantic: 'imageFrame', width, height, fill: 'transparent', strokeWidth: 0 })
+  }, { signal }) : new Rect({ ...attributes, semantic: role === 'image' ? 'imageFrame' : 'logo',
+    width, height, fill: 'transparent', strokeWidth: 0 })
   replacement.setPositionByOrigin(slot.getCenterPoint(), 'center', 'center')
   replacement.setCoords()
   const index = canvas.getObjects().indexOf(slot)
@@ -79,8 +80,8 @@ async function fillSlide(template: AuthorTemplate, project: Proposal['project'],
       signal.throwIfAborted()
       if (role === 'image' && (slide.content.image || removeImage && object instanceof FabricImage)) {
         await placeImage(canvas, object, slide.content.image, 'image', slide.content.framing ?? 'cover', signal, slide.content.focalPoint)
-      } else if (role === 'logo' && swapBrand && brand.logo) {
-        await placeImage(canvas, object, await logoSource(brand.logo, signal), 'logo', 'contain', signal)
+      } else if (role === 'logo' && swapBrand && (brand.logo || object instanceof FabricImage)) {
+        await placeImage(canvas, object, brand.logo ? await logoSource(brand.logo, signal) : undefined, 'logo', 'contain', signal)
       } else if (object instanceof Textbox && role && (role === 'signature' ? swapBrand : role === 'title' || role === 'subtitle' || role === 'body' || role === 'cta')) {
         const value = role === 'signature' ? brand.handle || brand.name : slide.content[role as typeof textFields[number]] ?? ''
         const scale = Math.max(.01, Math.abs(object.scaleY))

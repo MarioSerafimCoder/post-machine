@@ -2,6 +2,7 @@ export const projectsChangedEvent = 'post-machine:projects-changed'
 
 function open(): Promise<IDBDatabase> { return new Promise((resolve, reject) => {
   const request = indexedDB.open('post-machine-studio', 6)
+  let blocked = false
   request.onupgradeneeded = event => {
     for (const name of ['projects', 'assets', 'settings', 'recovery', 'projectLibrary', 'expressDrafts', 'expressPhotos', 'authorTemplates']) {
       if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name)
@@ -10,11 +11,15 @@ function open(): Promise<IDBDatabase> { return new Promise((resolve, reject) => 
   }
   request.onsuccess = () => {
     const db = request.result
+    if (blocked) { db.close(); return }
     db.onversionchange = () => db.close()
     resolve(db)
   }
   request.onerror = () => reject(request.error)
-  request.onblocked = () => reject(Error('Feche outras abas do Post Machine para atualizar o armazenamento.'))
+  request.onblocked = () => {
+    blocked = true
+    reject(Error('Feche outras abas do Post Machine para atualizar o armazenamento.'))
+  }
 }) }
 export function abortTransaction(transaction: IDBTransaction) {
   try { transaction.abort() }

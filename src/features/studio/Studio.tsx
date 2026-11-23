@@ -39,7 +39,7 @@ import { sameReviewSettings, sameReviewVersion, type Review } from '../audit/rev
 import { resolvePage } from '../../lib/navigation'
 import { applyCollectionBrand, buildCollectionProject, demoSlides, type Collection } from './collections'
 import { AuthorTemplates, SaveTemplate } from './AuthorTemplates'
-import { copyTemplateDesign, type AuthorTemplate, type TemplateSummary } from './authorTemplate'
+import { copyTemplateDesign, templateRole, type AuthorTemplate, type TemplateSummary } from './authorTemplate'
 import { AdaptLayoutDialog } from './AdaptLayoutDialog'
 import './collections.css'
 
@@ -66,6 +66,11 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
   const [slideFeedback, setSlideFeedback] = useState<{ text: string; id: string }>()
+  useEffect(() => {
+    if (!slideFeedback) return
+    const timer = window.setTimeout(() => setSlideFeedback(undefined), 2800)
+    return () => window.clearTimeout(timer)
+  }, [slideFeedback])
   const [templateDraft, setTemplateDraft] = useState<{ design: Project; previous?: TemplateSummary }>()
   const [templateEdit, setTemplateEdit] = useState<{ projectId: string; template: TemplateSummary }>()
   const [adaptSource, setAdaptSource] = useState<Project>()
@@ -338,9 +343,11 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       target.insertAt(index, image)
     } else {
       image.semantic = 'image'
-      const frame = target.getObjects().find(object => object.semantic === 'imageFrame')
+      const frame = selected && templateRole(selected) === 'image' && !selected.group ? selected :
+        target.getObjects().find(object => object.semantic === 'imageFrame' && !object.templateRole)
       image.scaleToWidth(frame ? frame.getScaledWidth() : 700)
-      image.set({ left: frame?.left ?? 80, top: frame?.top ?? 300, originX: 'left', originY: 'top' })
+      image.set({ left: frame?.left ?? 80, top: frame?.top ?? 300, originX: frame?.originX ?? 'left', originY: frame?.originY ?? 'top',
+        angle: frame?.angle ?? 0, templateRole: frame?.templateRole })
       const index = frame ? target.getObjects().indexOf(frame) : -1
       if (frame) {
         cropImage(image, frame.getScaledWidth() / frame.getScaledHeight())
@@ -445,7 +452,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <label className="studio-project-name">Projeto<input value={project.name} maxLength={100} onChange={event => setProject({ ...project, name: event.target.value, updatedAt: new Date().toISOString() })} /></label>
         <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
         <span key={status} className={status === 'Salvo' ? 'studio-save-status studio-feedback' : 'studio-save-status'} data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
-        {slideFeedback && <span key={slideFeedback.id} className="studio-feedback sr-only" role="status">{slideFeedback.text}</span>}
+        {slideFeedback && <span key={slideFeedback.id} className="studio-save-status studio-feedback" role="status">{slideFeedback.text}</span>}
         </div>
         <details className="studio-more" onBlur={event => {
           if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false

@@ -1,5 +1,13 @@
 # Roteiro por fases
 
+## Evolução 11 — Templates autorais e automação visual
+
+- 11.1 e 11.2 consolidam estados de interação, controles e movimento reduzido, com feedback das ações do Studio, Produção Expressa e Auditoria.
+- 11.3 guarda templates autorais e funções semânticas no navegador, com edição protegida por revisão, backup e preenchimento dentro da Produção Expressa.
+- 11.4 compara e audita cópias entre retrato, quadrado e Story. Templates podem guardar variantes da mesma família.
+- 11.5 usa classificação de imagem local sob demanda e permite controle manual do ponto focal. Sugestões por metadados continuam disponíveis.
+- 11.6 verifica os fluxos desktop em quatro resoluções e a publicação pelo workflow protegido. Os resultados ficam em [STATE.md](STATE.md).
+
 ## Evolução 09 — Produtividade e consistência da interface
 
 - Retomar o último projeto local pelo início e iniciar a revisão pelos projetos recentes da Auditoria.

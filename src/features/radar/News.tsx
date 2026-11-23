@@ -141,7 +141,7 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
       <p role="status" className="muted">{results.length} {results.length === 1 ? 'notícia' : 'notícias'}</p>
       {!results.length && <div className="empty-state"><h3>Nenhuma notícia encontrada</h3><p>{items.length ? 'Experimente outros filtros ou termos de busca.' : 'Ainda não há notícias nesta edição.'}</p></div>}
       <div className="news-grid">{results.slice(0,limit).map(item => <article className="news-card" key={item.id} onFocus={() => setReading(item.id)}>
-        <div className="news-meta"><span className="badge badge-green">{item.category}</span><button type="button" className="news-favorite" aria-label={`Favoritar: ${item.title}`} aria-pressed={favorites?.includes(item.id) ?? false} disabled={!favorites || saving} onClick={() => void toggle(item.id)}>{favorites?.includes(item.id) ? '★' : '☆'}</button></div>
+        <div className="news-meta"><span className="badge badge-neutral">{item.category}</span><button type="button" className="news-favorite" aria-label={`Favoritar: ${item.title}`} aria-pressed={favorites?.includes(item.id) ?? false} disabled={!favorites || saving} onClick={() => void toggle(item.id)}>{favorites?.includes(item.id) ? '★' : '☆'}</button></div>
         <h3><a href={item.url} target="_blank" rel="noreferrer">{item.title}</a></h3>
         <p className="muted">{item.source} · {item.publishedAt ? <time dateTime={item.publishedAt}>{format(item.publishedAt)}</time> : 'Data de publicação não informada'}{item.editorial?.scope === 'adjacent' && ' · Contexto criativo'}</p>
         {item.summary && <p>{item.summary}</p>}
