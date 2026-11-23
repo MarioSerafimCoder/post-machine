@@ -63,6 +63,18 @@ describe('auditoria técnica',()=>{
   it('sinaliza campo obrigatório vazio em template',()=>{
     expect(inspectCanvas(canvas(),'s',1,defaultBrand,'cover','cover').some(f=>f.ruleId==='REQUIRED_FIELD')).toBe(true)
   })
+  it('ignora caixas opcionais e duplicatas vazias quando a capa já tem conteúdo', () => {
+    const value = canvas(new Textbox('Título', { semantic: 'title' }), new Textbox('Corpo', { semantic: 'body' }),
+      new Textbox('', { semantic: 'cta' }), new Textbox('', { semantic: 'brand' }), new Textbox('  ', { semantic: 'title' }))
+    expect(inspectCanvas(value, 's', 1, defaultBrand, 'photo', 'cover', undefined, [1080, 1350])
+      .filter(f => f.ruleId === 'EMPTY_TEXT' || f.ruleId === 'REQUIRED_FIELD')).toEqual([])
+  })
+  it('localiza a caixa da chamada realmente vazia em um encerramento', () => {
+    const value = canvas(new Textbox('Título', { semantic: 'title' }), new Textbox('', { semantic: 'body' }),
+      new Textbox('', { semantic: 'cta' }))
+    expect(inspectCanvas(value, 's', 1, defaultBrand, 'cta', 'cta', undefined, [1080, 1350])
+      .filter(f => f.ruleId === 'EMPTY_TEXT')).toEqual([expect.objectContaining({ objectId: '2', details: expect.stringContaining('chamada para ação') })])
+  })
   it('exige marca apenas quando ativada',()=>{
     expect(inspectCanvas(canvas(),'s',1,defaultBrand,'blank','content',{requireBrand:true,requireLogo:false,enforcePalette:false,minBodySize:24,minLargeSize:36,contrastNormal:4.5,contrastLarge:3}).some(f=>f.ruleId==='BRAND_MISSING')).toBe(true)
   })

@@ -20,6 +20,15 @@ export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber
  const [width,height] = editingSize ?? [canvas.width,canvas.height]
  const add=(ruleId:string,severity:Severity,category:Category,item:Located|null,message:string,details:string,suggestion:string,fix=false,confidence:Finding['confidence']='measured')=>found.push({id:`${slideId}:${item?.path??'slide'}:${ruleId}`,ruleId,severity,category,slideId,slideNumber,objectId:item?.path??null,message,details,suggestion,autoFixAvailable:fix,confidence})
  const background=parseColor(canvas.backgroundColor)
+ const semantic=(name:string)=>objects.some(i=>i.object.semantic===name&&(!(i.object instanceof Textbox)||i.object.text.trim()))
+ const missingTitle = !semantic('title')
+ const missingCta = role === 'cta' && !semantic('cta')
+ const emptyFields = new Map<string, string>()
+ if (editingSize) {
+   if (missingTitle) emptyFields.set('title', 'O título')
+   if (missingCta) emptyFields.set('cta', 'A chamada para ação')
+   if (role === 'content' && layout !== 'blank' && !semantic('body')) emptyFields.set('body', 'O texto de desenvolvimento')
+ }
  for(const item of objects){
   const {object:o,box}=item; const essential=['title','body','cta','brand'].includes(o.semantic??'')
   if(!Number.isFinite(box.width)||!Number.isFinite(box.height)||box.width<=0||box.height<=0) add('INVALID_SIZE','error','geometry',item,'Dimensões inválidas','A largura ou altura calculada não é positiva.','Ajuste as dimensões manualmente.')
@@ -29,7 +38,12 @@ export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber
     if(o.text.trim()&& (box.left<margin-1||box.top<margin-1||box.left+box.width>width-margin+1||box.top+box.height>height-margin+1)) add('SAFE_MARGIN','warning','geometry',item,'Texto fora da margem segura','Parte do texto está além da margem configurada.','Reposicione a caixa dentro da área segura.',!item.path.includes('.')&&!o.lockMovementX&&!o.lockMovementY&&box.width<=width-2*margin&&box.height<=height-2*margin)
     if(o.maxHeight&&o.getScaledHeight()>o.maxHeight+2) add('TEXT_OVERFLOW','error','typography',item,'Texto excede a área',`Altura ${Math.round(o.getScaledHeight())} px; limite ${Math.round(o.maxHeight)} px.`,'Amplie a caixa, troque o template ou reduza o texto editorialmente.')
     if(o.text.trim()&&(!o.visible||o.opacity===0)) add('TEXT_INVISIBLE','error','typography',item,'Texto invisível','O elemento contém texto, mas não aparece.','Torne o elemento visível ou remova-o.')
-    if(editingSize&&!o.text.trim()&&['title','body','cta'].includes(o.semantic??'')) add('EMPTY_TEXT','warning','typography',item,'Campo de texto vazio','Uma caixa editorial está sem conteúdo.','Preencha o campo ou remova a caixa se ela não fizer parte desta peça.')
+    const name = o.semantic ?? ''
+    const field = emptyFields.get(name)
+    if (field && !o.text.trim()) {
+      add('EMPTY_TEXT','warning','typography',item,'Campo de texto vazio',`${field} está sem conteúdo neste slide.`,'Preencha a caixa de texto.')
+      emptyFields.delete(name)
+    }
     if(editingSize)continue
     const configured=['Inter','Arial','Arial Black','Georgia','Verdana','Courier New',...brand.fonts.map(f=>f.family)]
     if(!configured.includes(o.fontFamily)||!document.fonts.check(`${o.fontSize}px "${o.fontFamily}"`)) add('FONT_UNAVAILABLE','warning','typography',item,'Fonte não confirmada',`Fonte ${o.fontFamily}. O navegador pode usar uma substituta.`,'Carregue uma WOFF2 válida ou escolha uma fonte disponível.',false,'unverifiable')
@@ -66,9 +80,8 @@ export function inspectCanvas(canvas: StaticCanvas, slideId: string, slideNumber
   if(o.semantic==='imageHint')add('IMAGE_MISSING','warning','image',item,'Imagem prevista ausente','O template ainda contém o espaço reservado.','Insira uma imagem local.')
   if(options.enforcePalette&&typeof o.fill==='string'&&!['imageHint','imageFrame'].includes(o.semantic??'')&&![brand.primary,brand.secondary,brand.background,'#ffffff'].includes(o.fill.toLowerCase()))add('PALETTE','info','branding',item,'Cor fora da paleta','A opção de paleta foi ativada.','Confirme se esta variação é intencional.',false,'estimated')
  }
- const semantic=(name:string)=>objects.some(i=>i.object.semantic===name&&(!(i.object instanceof Textbox)||i.object.text.trim()))
- if(layout!=='blank'&&!semantic('title'))add('REQUIRED_FIELD','warning','branding',null,'Título ausente','O template não tem título preenchido.','Escreva um título ou escolha outro template.')
- if(role==='cta'&&!semantic('cta'))add('REQUIRED_FIELD','warning','branding',null,'CTA ausente','O slide de encerramento não tem chamada preenchida.','Escreva uma chamada para ação.')
+ if(layout!=='blank'&&missingTitle)add('REQUIRED_FIELD','warning','branding',null,'Título ausente','O template não tem título preenchido.','Escreva um título ou escolha outro template.')
+ if(missingCta)add('REQUIRED_FIELD','warning','branding',null,'CTA ausente','O slide de encerramento não tem chamada preenchida.','Escreva uma chamada para ação.')
  if(editingSize)return found
  if(options.requireBrand&&(!brand.name&&!brand.handle||!semantic('brand')))add('BRAND_MISSING','warning','branding',null,'Marca ausente','Este projeto exige identificação de marca.','Configure e adicione o nome ou identificador da marca.')
  if(options.requireLogo&&(!brand.logo||!semantic('logo')))add('LOGO_MISSING','warning','branding',null,'Logotipo ausente','Este projeto exige logotipo.','Configure e adicione o logotipo da marca.')
