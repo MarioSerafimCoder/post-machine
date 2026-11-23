@@ -2,12 +2,13 @@ import { ActiveSelection, Canvas, Circle, FabricObject, Group, Line, Rect, Textb
 import type { Scene } from './model'
 import type { HeadlineSession } from '../headlines/contract'
 import type { ImageCredit } from '../images/contract'
+import type { TemplateRole } from './authorTemplate'
 
 declare module 'fabric' {
-  interface FabricObject { semantic?: string; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession; imageCredit?: ImageCredit }
-  interface SerializedObjectProps { semantic?: string; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession; imageCredit?: ImageCredit }
+  interface FabricObject { semantic?: string; templateRole?: TemplateRole; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession; imageCredit?: ImageCredit }
+  interface SerializedObjectProps { semantic?: string; templateRole?: TemplateRole; assetId?: string; maxHeight?: number; label?: string; headlines?: HeadlineSession; imageCredit?: ImageCredit }
 }
-FabricObject.customProperties = ['semantic', 'assetId', 'maxHeight', 'label', 'headlines', 'imageCredit',
+FabricObject.customProperties = ['semantic', 'templateRole', 'assetId', 'maxHeight', 'label', 'headlines', 'imageCredit',
   'lockMovementX', 'lockMovementY', 'lockScalingX', 'lockScalingY', 'lockRotation', 'evented']
 export const sceneOf = (canvas: Canvas): Scene => canvas.toObject() as Scene
 export function addObject(canvas: Canvas, type: 'title' | 'text' | 'rect' | 'circle' | 'line', color = '#111111') {

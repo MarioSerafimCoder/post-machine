@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { brandSchema, type Project } from './model'
 import { headlineSessionSchema } from '../headlines/contract'
 import { imageCreditSchema } from '../images/contract'
+import { availableTemplateRoles, type TemplateRole } from './authorTemplate'
 const sceneSchema = z.object({ background: z.string().max(100), version: z.string().optional(), contentImage: z.record(z.string(), z.unknown()).optional(), objects: z.array(z.record(z.string(), z.unknown())).max(500) })
 const projectSchema = z.object({ schemaVersion: z.literal(1), id: z.uuid(), name: z.string().max(100), format: z.enum(['portrait', 'square', 'story']), brand: brandSchema, auditSettings: z.object({ requireBrand: z.boolean(), requireLogo: z.boolean(), enforcePalette: z.boolean(), minBodySize: z.number().min(1).max(200), minLargeSize: z.number().min(1).max(200), contrastNormal: z.number().min(1).max(21), contrastLarge: z.number().min(1).max(21) }).optional(), caption: z.string().max(8000).optional(), campaignId: z.uuid().nullable(), campaignUpdatedAt: z.iso.datetime().nullable(), updatedAt: z.iso.datetime(), slides: z.array(z.object({ id: z.uuid(), scene: sceneSchema, layout: z.string().max(100), role: z.string().max(100), imageBrief: z.string().max(8000) })).min(1).max(20), assetEncoding: z.literal('media-v1').optional() })
 const linearGradient = z.object({
@@ -32,6 +33,7 @@ export function validateProject(input: unknown): Project & { assetEncoding?: 'me
       }
       if (key === 'headlines') { headlineSessionSchema.parse(data); continue }
       if (key === 'imageCredit') { imageCreditSchema.parse(data); continue }
+      if (key === 'templateRole' && data !== undefined && !availableTemplateRoles(String(object.type)).includes(data as TemplateRole)) throw Error('Função de template incompatível com o elemento.')
       inspect(data, depth + 1)
     }
   }

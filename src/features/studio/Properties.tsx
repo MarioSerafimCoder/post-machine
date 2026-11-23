@@ -6,6 +6,7 @@ import { cropImage, restoreFraming } from './images'
 import { editorialGradient } from './premium'
 import { replaceTextboxText } from './editText'
 import { align, duplicate, groupSelection } from './objects'
+import { availableTemplateRoles, templateRole, templateRoles } from './authorTemplate'
 
 export function Properties({ canvas, changed, textChanged, endTextSession, brand, format, replaceImage, children }: {
   brand: Brand; format: Format; canvas: Canvas | null; changed: () => void; textChanged: (target: Textbox) => void; endTextSession: () => void; replaceImage: () => void; children?: ReactNode
@@ -65,6 +66,13 @@ export function Properties({ canvas, changed, textChanged, endTextSession, brand
   }
   return <aside className="studio-properties" aria-label="Propriedades do elemento">
     <h3>{multi ? canvas.getActiveObjects().length + ' elementos selecionados' : text ? 'Editar texto' : image ? 'Editar imagem' : 'Editar elemento'}</h3>
+    {!multi && <label>Função no template<select value={object.templateRole ?? ''} onChange={event => {
+      const role = availableTemplateRoles(object.type).find(item => item === event.target.value)
+      set({ templateRole: role })
+    }}>
+      <option value="">{templateRole({ type: object.type, semantic: object.semantic }) ? 'Herdar função do elemento' : 'Sem função atribuída'}</option>
+      {availableTemplateRoles(object.type).map(role => <option key={role} value={role}>{templateRoles[role]}</option>)}
+    </select></label>}
     {text && <>
       <label>Texto do elemento<textarea ref={textField} value={text.text} maxLength={8000} onBlur={endTextSession} onSelect={event => {
         textSelection.current = { object:text,value:text.text,start:event.currentTarget.selectionStart,end:event.currentTarget.selectionEnd }

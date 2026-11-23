@@ -58,3 +58,31 @@
 .express-step h3 { font-size: var(--ui-title); font-weight: 700; }
 .express-next { margin-top: 12px; }
 .express-stage { display: grid; gap: 16px; min-width: 0; }
+
+.author-templates {
+  width: 100%; display: grid; gap: 12px; padding: 16px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+}
+.author-templates > header, .studio-dialog > header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.author-templates h3, .studio-dialog h2 { font-size: var(--ui-title); font-weight: 700; }
+.author-template-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.author-template-grid h4 { font-weight: 700; overflow-wrap: anywhere; }
+.author-template-grid p { overflow-wrap: anywhere; }
+.author-template-actions { margin-top: 4px; border-top: 1px solid var(--line); }
+.author-template-actions summary { padding-block: 8px; cursor: pointer; font-weight: 600; }
+.studio-dialog {
+  width: min(630px, calc(100% - 36px)); max-height: calc(100dvh - 44px); margin: auto;
+  border: 1px solid var(--line); border-radius: 10px; padding: 20px; color: var(--ink); background: var(--surface);
+}
+.studio-dialog::backdrop { background: #11111199; }
+.studio-dialog > :not(header) { margin-top: 12px; }
+.template-form { display: grid; gap: 10px; }
+.template-form .collection-thumb { height: 140px; }
+.template-form :is(label, textarea) { display: grid; gap: 4px; }
+.author-templates select, .template-form :is(input, textarea, select) {
+  min-height: var(--ui-compact-height); padding: 7px 10px; border: 1px solid var(--ui-control-line); border-radius: 5px; background: var(--surface);
+}
+.template-form label { font-weight: 600; }
+.template-form :is(input, textarea, select) { font-weight: 400; }
+.template-form textarea { min-height: 60px; resize: vertical; }
+.template-form > button { justify-self: start; }

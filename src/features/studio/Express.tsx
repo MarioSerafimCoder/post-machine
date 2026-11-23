@@ -20,6 +20,10 @@ import { useAssistantSignal } from '../intelligence/signals'
 import { requiresReview, type Issue } from './factory/evaluate'
 import { SaveQueue } from '../../lib/saveQueue'
 import { openExpressDraft, reconcileExpressSlides, type ExpressDraft, type ExpressPhoto, type ExpressSlide } from './expressDraft'
+import { AuthorTemplates } from './AuthorTemplates'
+import type { AuthorTemplate } from './authorTemplate'
+import { fabricateAuthorTemplate, planAuthorImages } from './factory/authorFabrication'
+import { loadAuthorTemplate } from './storage'
 import './collections.css'
 
 const tools: ContextTool[] = [
@@ -35,8 +39,9 @@ const maxImageBytes = 80_000_000
 const key = () => crypto.randomUUID()
 const entry = (data: CollectionSlide = { title:'', body:'' }): Entry => ({ ...data, key:key() })
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : String(cause)
-export function Express({ active, brand, campaign, format: initialFormat, cancel, open }: {
+export function Express({ active, brand, campaign, format: initialFormat, cancel, open, editTemplate }: {
   active: boolean; brand: Brand; campaign?: Draft; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
+  editTemplate: (template: AuthorTemplate) => Promise<void>
 }) {
   const [step, setStep] = useState<Step>('Conteúdo')
   const [text, setText] = useState('')
@@ -46,6 +51,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [name, setName] = useState(campaign?.content?.campaign.title.slice(0,100) ?? '')
   const [caption, setCaption] = useState(campaign?.content?.campaign.caption)
   const [style, setStyle] = useState(collections[0])
+  const [author, setAuthor] = useState<AuthorTemplate>()
   const [format, setFormat] = useState(campaign?.content?.campaign.format === 'story' ? 'story' : initialFormat)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [photoId, setPhotoId] = useState('')
@@ -61,8 +67,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const [progress, setProgress] = useState<number>()
   const [editTarget, setEditTarget] = useState<{ index: number; field: 'text' | 'image' }>()
   const generation = useRef<AbortController | null>(null)
-  const factoryInput = useMemo(() => ({ style, format, brand, slides, assets:photos }),[style,format,brand,slides,photos])
-  const imagePlan = useMemo(() => step === 'Imagens' ? planFactoryImages(factoryInput) : [], [step, factoryInput])
+  const factoryInput = useMemo(() => ({ style, format, brand, slides, assets:photos, author }),[style,format,brand,slides,photos,author])
+  const imagePlan = useMemo(() => step === 'Imagens' ? author ? planAuthorImages(author, factoryInput) : planFactoryImages(factoryInput) : [], [step, factoryInput, author])
   const plannedPhotos = new Set(imagePlan.map(item => item.picture?.id))
   const result = prepared?.input === factoryInput ? prepared.result : undefined
   const [previewIndex, setPreviewIndex] = useState(0)
@@ -81,8 +87,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     if (state === 'error') setDraftError(`Falha ao salvar a preparação. ${errorText(failure)}`)
     else if (state === 'saved') setDraftError('')
   }, 250))
-  const snapshot = useMemo<ExpressDraft>(() => ({ text, slides, linked, name, caption, styleId: style.id, format, step, origin, photos }),
-    [text, slides, linked, name, caption, style, format, step, origin, photos])
+  const snapshot = useMemo<ExpressDraft>(() => ({ text, slides, linked, name, caption, styleId: style.id, format, step, origin, photos, authorTemplateId: author?.id }),
+    [text, slides, linked, name, caption, style, format, step, origin, photos, author])
   useEffect(() => {
     let alive = true
     void storedDraft.load().then(result => {
@@ -99,9 +105,9 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   useEffect(() => {
     if (draftGate !== 'ready' || completed.current) return
     if (!(text.trim() || name.trim() || caption?.trim() || photos.length || slides.some(slide => slide.title.trim() || slide.body.trim()) ||
-      style !== collections[0] || format !== initialFormat || slides.length > 1 || storedDraft.hasSaved())) return
+      author || style !== collections[0] || format !== initialFormat || slides.length > 1 || storedDraft.hasSaved())) return
     draftQueue.schedule(slot, snapshot)
-  }, [draftGate, draftQueue, slot, snapshot, text, name, caption, photos, slides, style, format, initialFormat, storedDraft])
+  }, [draftGate, draftQueue, slot, snapshot, text, name, caption, photos, slides, style, format, initialFormat, storedDraft, author])
   useEffect(() => {
     const flush = () => { if (!completed.current) void draftQueue.flush(slot).catch(() => undefined) }
     const unload = (event: BeforeUnloadEvent) => { if (draftQueue.hasPending && !completed.current) { flush(); event.preventDefault() } }
@@ -158,7 +164,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       setCaption(result.structured?.campaign.caption)
       if (result.structured) {
         setName(result.structured.campaign.title.slice(0,100))
-        setFormat(result.structured.campaign.format === 'story' ? 'story' : initialFormat === 'story' ? 'portrait' : initialFormat)
+        if (!author) setFormat(result.structured.campaign.format === 'story' ? 'story' : initialFormat === 'story' ? 'portrait' : initialFormat)
       }
       setError('')
       setStatus(`${result.slides.length} slide(s) organizados. Confira o conteúdo e avance para Imagens ou Templates.`)
@@ -181,7 +187,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     if (linked?.id !== id && slides.some(slide => slide.title.trim() || slide.body.trim()) &&
         !window.confirm('Substituir o conteúdo dos slides pela campanha selecionada? As imagens continuam disponíveis.')) return
     organize(fromStructured(item.content, item.briefing)); setLinked(item); setCaption(item.content.campaign.caption); setName(item.content.campaign.title.slice(0,100))
-    if (item.content.campaign.format === 'story') setFormat('story')
+    if (!author && item.content.campaign.format === 'story') setFormat('story')
     setError('')
   }
 
@@ -279,12 +285,14 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     setStatus('')
     setProgress(0)
     try {
-      const output = await fabricate(factoryInput,controller.signal,complete => setProgress(complete))
+      const output = author
+        ? await fabricateAuthorTemplate(author, factoryInput, controller.signal, setProgress)
+        : await fabricate(factoryInput, controller.signal, complete => setProgress(complete))
       if (live.current && !controller.signal.aborted) {
         setPrepared({ input:factoryInput,result:output })
         setSelected(0)
         setPreviewIndex(0)
-        setStatus('Três propostas prontas para comparar.')
+        setStatus(author ? 'Prévia do template pronta para revisar.' : 'Três propostas prontas para comparar.')
       }
     } catch (cause) {
       if (live.current && !controller.signal.aborted) setError(errorText(cause))
@@ -488,12 +496,22 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         </select></label></div>)}</div></div>
     </>}
   </>
-  else if (step === 'Templates') panel = <CollectionGallery selected={style.id} format={format} setFormat={setFormat} use={value => {
-    setStyle(value); setStatus(`${value.name} selecionada.`)
-  }} />
+  else if (step === 'Templates') panel = <>
+    <AuthorTemplates format={format} selected={author?.id} use={value => {
+      setAuthor(value); setFormat(value.format); setStatus(`${value.name} selecionado em ${formatNames[value.format]}.`)
+    }} edit={async value => { await draftQueue.flush(slot); await editTemplate(value) }} />
+    <CollectionGallery selected={author ? undefined : style.id} format={format} setFormat={value => {
+      setFormat(value)
+      if (author && author.format !== value) { setAuthor(undefined); setStatus('Formato da coleção alterado. Selecione uma composição nesse formato.') }
+    }} use={value => {
+      setAuthor(undefined); setStyle(value); setStatus(`${value.name} selecionada.`)
+    }} />
+  </>
   else panel = <>
     <div className="express-summary"><h3>{slides.length} {slides.length === 1 ? 'slide' : 'slides'}</h3>
-      <p>{style.name} · {formatNames[format]} · {brand.name || brand.handle || (collectionBrand(style,brand) === brand ? 'Marca local' : 'Paleta da coleção')}</p></div>
+      <p>{author?.name ?? style.name} · {formatNames[format]} · {author
+        ? author.brandMode === 'linked' ? 'Identidade do template' : 'Minha marca'
+        : brand.name || brand.handle || (collectionBrand(style,brand) === brand ? 'Marca local' : 'Paleta da coleção')}</p></div>
     {!!invalid.length && <ul className="express-warnings">{invalid.map(message => <li key={message}>{message}</li>)}</ul>}
     <div className="factory-action">
       {!result && <button className="button button-dark" disabled={!!invalid.length || progress !== undefined || busy}
@@ -505,12 +523,13 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           setStatus('Fabricação cancelada. O conteúdo continua disponível.')
         }}>Cancelar fabricação</button>
       </>}
-      {!result && progress === undefined && !invalid.length && <p className="muted">Compare três propostas na coleção selecionada.</p>}
+      {!result && progress === undefined && !invalid.length && <p className="muted">{author
+        ? 'Confira como o conteúdo se encaixa nas áreas do template.' : 'Compare três propostas na coleção selecionada.'}</p>}
     </div>
     {result && <ProposalReview result={result} selected={selected} slideIndex={previewIndex} busy={busy}
       show={(version,index) => { setSelected(version); if (index !== undefined) setPreviewIndex(index) }}
       open={proposal => void create(proposal)} edit={editSlide} divide={splitSlide} canDivide={slides.length < maxSlides}
-      replace={replaceComposition} />}
+      replace={author ? undefined : replaceComposition} />}
   </>
 
   async function leave() {
@@ -518,7 +537,18 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     catch { /* A tentativa fica disponível na preparação. */ }
   }
 
-  function recover(data: ExpressDraft) {
+  async function recover(data: ExpressDraft) {
+    if (data.authorTemplateId) {
+      setBusy(true)
+      try {
+        const template = await loadAuthorTemplate(data.authorTemplateId)
+        setAuthor(template)
+        data = { ...data, format: template.format }
+      } catch (cause) {
+        setDraftError(`Template da preparação indisponível. Selecione outro em Templates. ${errorText(cause)}`)
+        data = { ...data, step: 'Templates' }
+      } finally { setBusy(false) }
+    }
     setText(data.text); setSlides(data.slides); setLinked(data.linked); setName(data.name)
     setCaption(data.caption); setPhotos(data.photos); setPhotoId(data.photos[0]?.id ?? '')
     setFormat(data.format); setStyle(collections.find(item => item.id === data.styleId) ?? collections[0])
@@ -547,7 +577,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       <h3>Preparação anterior disponível</h3>
       <p>{candidate.name || 'Produção Expressa'} · {candidate.slides.length} slide(s) · {candidate.photos.length} imagem(ns)</p>
       <div className="collection-actions">
-        <button className="button button-dark" disabled={busy} onClick={() => recover(candidate)}>Retomar preparação</button>
+        <button className="button button-dark" disabled={busy} onClick={() => void recover(candidate)}>Retomar preparação</button>
         <button className="button button-outline" disabled={busy} onClick={() => void discard()}>Descartar rascunho</button>
       </div>
     </div>}
@@ -555,12 +585,12 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     <ContextWorkspace rail={<ContextRail label="Etapas da Produção Expressa" tools={tools} selected={step} choose={selectStep}
       disabled={busy || downloading} completed={[
         ...(!invalid.length ? ['Conteúdo'] : []), ...(photos.length || slides.every(item => item.imageId === null) ? ['Imagens'] : []),
-        ...(step === 'Prévia' || style !== collections[0] ? ['Templates'] : []), ...(result ? ['Prévia'] : []),
+        ...(step === 'Prévia' || author || style !== collections[0] ? ['Templates'] : []), ...(result ? ['Prévia'] : []),
       ]} />}>
       <div className="express-panel">
         <header className="express-step">
           <h3>{step}</h3>
-          <span className="muted">{slides.length - invalid.length} de {slides.length} slide(s) com conteúdo · {photos.length} imagem(ns) · {style.name}</span>
+          <span className="muted">{slides.length - invalid.length} de {slides.length} slide(s) com conteúdo · {photos.length} imagem(ns) · {author?.name ?? style.name}</span>
         </header>
         {(busy || downloading) && <p role="status">{downloading ? 'Baixando imagem…' : 'Preparando…'}</p>}
         {error && <p className="express-warning" role="alert">{error}</p>}

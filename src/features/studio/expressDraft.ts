@@ -8,6 +8,7 @@ export type ExpressPhoto = { id: string; name: string; bytes: number; object: Re
 type DraftFields = {
   text: string; slides: ExpressSlide[]; linked?: Draft; name: string; caption?: string
   styleId: string; format: Format; step: string; origin: 'local' | 'openverse' | 'library' | 'url'
+  authorTemplateId?: string
 }
 export type ExpressDraft = DraftFields & { photos: ExpressPhoto[] }
 type StoredDraft = DraftFields & { revision: string; photoIds: string[] }

@@ -3,10 +3,11 @@ import { loadFonts } from '../fonts'
 import { dimensions, newProject, type Brand, type Format, type Project } from '../model'
 import { planSlides, compositionPreference, type Asset, type Input, type PlannedSlide, type Treatment } from './planning'
 import { evaluateScene, type Issue } from './evaluate'
+import type { AuthorTemplate } from '../authorTemplate'
 
 export const treatments: Treatment[] = ['balanced','photo','expressive']
 export const candidateLimitPerSlide = 18
-export type FactoryInput = { style: Collection; format: Format; brand: Brand; slides: Input[]; assets: Asset[] }
+export type FactoryInput = { style: Collection; format: Format; brand: Brand; slides: Input[]; assets: Asset[]; author?: AuthorTemplate }
 export type VersionSlide = { composition: number; issues: Issue[] }
 export type Proposal = { treatment: Treatment; project: Project; details: VersionSlide[] }
 export type Fabrication = { proposals: Proposal[]; slides: PlannedSlide[]; collection: string; elapsed: number; candidates: number }

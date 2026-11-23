@@ -5,6 +5,7 @@ import { imageCreditSchema, type ImageCredit } from '../images/contract'
 import { imageObjects } from '../images/credits'
 
 import { abortTransaction, projectsChangedEvent, transaction } from './database'
+import { templateMetadataSchema, type AuthorTemplate, type TemplateMetadata, type TemplateSummary } from './authorTemplate'
 
 const dataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob) })
 const assetRef = /^asset:([a-f0-9]{64})$/
@@ -241,10 +242,11 @@ export function removeProject(expected: ProjectSummary) {
 }
 
 export function inspectStorage(clean = false) {
-  const inspect = () => withStudioStorage(() => transaction(['projects', 'recovery', 'settings', 'assets'], clean ? 'readwrite' : 'readonly', tx => {
+  const inspect = () => withStudioStorage(() => transaction(['projects', 'recovery', 'settings', 'assets', 'authorTemplates'], clean ? 'readwrite' : 'readonly', tx => {
     const projects = tx.objectStore('projects').getAll()
     const recovery = tx.objectStore('recovery').getAll()
     const settings = tx.objectStore('settings').get('brand')
+    const templates = tx.objectStore('authorTemplates').getAll()
     const assets = tx.objectStore('assets')
     const keys = assets.getAllKeys()
     const values = assets.getAll()
@@ -252,7 +254,7 @@ export function inspectStorage(clean = false) {
     let failure: unknown
     values.onsuccess = () => {
       try {
-        const roots = [...projects.result, ...recovery.result].map(validateProject)
+        const roots = [...projects.result, ...recovery.result, ...templates.result.map(item => item.design)].map(validateProject)
         const brand = settings.result === undefined ? undefined : brandSchema.parse(settings.result)
         const files = new Map(keys.result.map((key, index) => {
           const blob = values.result[index]
@@ -331,15 +333,19 @@ export class BackupLimitError extends Error {
 }
 
 export async function backupProject(project: Project): Promise<Blob> {
+  return backupDesign(project)
+}
+
+async function backupDesign(project: Project, metadata?: TemplateMetadata): Promise<Blob> {
   const packed = await pack(project)
-  const manifest = new TextEncoder().encode(JSON.stringify(packed.project))
+  const manifest = new TextEncoder().encode(JSON.stringify(metadata ? { metadata, design: packed.project } : packed.project))
   let total = manifest.byteLength
   if (total > backupLimits.entry || packed.assets.size + 1 > backupLimits.entries) throw new BackupLimitError()
   for (const blob of packed.assets.values()) {
     total += blob.size
     if (blob.size > backupLimits.entry || total > backupLimits.total) throw new BackupLimitError()
   }
-  const zip = new JSZip().file('project.json', manifest)
+  const zip = new JSZip().file(metadata ? 'template.json' : 'project.json', manifest)
   for (const [id, blob] of packed.assets) zip.file(`assets/${id}`, await blob.arrayBuffer(), { createFolders: false })
   const archive = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
   if (archive.size > backupLimits.total) throw new BackupLimitError()
@@ -370,32 +376,126 @@ function readZipEntry(file: JSZip.JSZipObject, maxBytes: number, account: (size:
   })
 }
 
-export async function restoreProject(file: File): Promise<Project> {
+async function readDesignBackup(file: File, template: boolean) {
   if (file.size > backupLimits.total) throw Error('Backup excede 150 MB.')
   const zip = await JSZip.loadAsync(await file.arrayBuffer()).catch(() => { throw Error('O arquivo não é um backup ZIP válido.') })
   if (Object.keys(zip.files).length > backupLimits.entries) throw Error('Backup excede o limite de arquivos.')
-  const manifest = zip.file('project.json')
-  if (!manifest) throw Error('O backup não contém o documento do projeto.')
+  const manifest = zip.file(template ? 'template.json' : 'project.json')
+  if (!manifest) throw Error(template ? 'O backup não contém um template autoral.' : 'O backup não contém o documento do projeto.')
   let total = 0
   const account = (size: number) => (total += size) <= backupLimits.total
   const json = await readZipEntry(manifest, backupLimits.entry, account)
   let document: StoredProject
-  try { document = validateProject(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(json))) }
+  let metadata: TemplateMetadata | undefined
+  try {
+    const raw = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(json))
+    metadata = template ? templateMetadataSchema.parse(raw.metadata) : undefined
+    document = validateProject(template ? raw.design : raw)
+  }
   catch { throw Error('O documento do backup está corrompido ou usa uma versão incompatível.') }
   const project = await hydrate(document, async id => {
     const asset = zip.file(`assets/${id}`)
     if (!asset) return undefined
     const data = await readZipEntry(asset, backupLimits.entry, account)
     const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', data))].map(n => n.toString(16).padStart(2,'0')).join('')
-    if (hash !== id) throw Error('Imagem corrompida no backup.')
+    if (hash !== id) throw Error('Imagem ou fonte corrompida no backup.')
     const font = String.fromCharCode(...data.slice(0,4)) === 'wOF2'
     const png = data[0] === 137 && data[1] === 80; const jpeg = data[0] === 255 && data[1] === 216
     return new Blob([data as BlobPart], { type: font ? 'font/woff2' : png ? 'image/png' : jpeg ? 'image/jpeg' : 'image/webp' })
   })
+  return { project, metadata }
+}
+
+export async function restoreProject(file: File): Promise<Project> {
+  const { project } = await readDesignBackup(file, false)
   project.id = crypto.randomUUID(); project.name = `${project.name.slice(0, 85)} (restaurado)`; project.updatedAt = new Date().toISOString()
   await saveProject(project); return project
 }
 
 export function loadRecovery(id: string): Promise<Project> {
   return withStudioStorage(() => loadStoredProject(id, 'recovery'))
+}
+
+type StoredTemplate = TemplateSummary & { design: StoredProject }
+const templateStore = 'authorTemplates'
+
+export async function listAuthorTemplates(): Promise<TemplateSummary[]> {
+  return transaction([templateStore], 'readonly', tx => {
+    const request = tx.objectStore(templateStore).getAll()
+    return () => (request.result as StoredTemplate[]).map(item => ({
+      ...templateMetadataSchema.parse(item), id: item.id, format: item.format, favorite: item.favorite,
+      thumbnail: item.thumbnail, revision: item.revision,
+    }))
+      .sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name, 'pt-BR'))
+  })
+}
+
+export function loadAuthorTemplate(id: string): Promise<AuthorTemplate> {
+  return withStudioStorage(async () => {
+    const stored = await transaction([templateStore], 'readonly', tx => {
+      const request = tx.objectStore(templateStore).get(id)
+      return () => request.result as StoredTemplate | undefined
+    })
+    if (!stored) throw Error('Este template não está mais disponível na biblioteca.')
+    const design = await hydrate(validateProject(stored.design), assetId => transaction(['assets'], 'readonly', tx => {
+      const asset = tx.objectStore('assets').get(assetId)
+      return () => asset.result as Blob | undefined
+    }))
+    return { ...stored, ...templateMetadataSchema.parse(stored), design }
+  })
+}
+
+async function writeTemplate(id: string, expected: string | undefined, update: (previous: StoredTemplate | undefined) => StoredTemplate | undefined, assets?: Map<string, Blob>) {
+  return withStudioStorage(async () => {
+    let written = false
+    const result = await transaction([templateStore, 'assets'], 'readwrite', tx => {
+      const store = tx.objectStore(templateStore)
+      const request = store.get(id)
+      let next: StoredTemplate | undefined
+      request.onsuccess = () => {
+        const previous = request.result as StoredTemplate | undefined
+        if (previous?.revision !== expected) return
+        try {
+          next = update(previous)
+          if (next) {
+            assets?.forEach((blob, hash) => tx.objectStore('assets').put(blob, hash))
+            store.put(next, id)
+          } else store.delete(id)
+          written = true
+        } catch { abortTransaction(tx) }
+      }
+      return () => next
+    })
+    if (!written) throw Error('Este template mudou em outra aba. Atualize a biblioteca antes de editar.')
+    return result
+  })
+}
+
+export async function saveAuthorTemplate(metadata: TemplateMetadata, design: Project, thumbnail: Blob, previous?: TemplateSummary) {
+  const fields = templateMetadataSchema.parse(metadata)
+  if (design.slides.length !== 1 || !design.slides[0].scene.objects.length) throw Error('Selecione uma composição de um slide com elementos.')
+  if (thumbnail.type !== 'image/png' || thumbnail.size === 0 || thumbnail.size > 2_000_000) throw Error('Miniatura inválida.')
+  const id = previous?.id ?? crypto.randomUUID()
+  const packed = await pack({ ...design, id, name: fields.name, campaignId: null, campaignUpdatedAt: null, caption: undefined })
+  return writeTemplate(id, previous?.revision, current => ({
+    ...fields, id, format: design.format, favorite: current?.favorite ?? false, thumbnail,
+    revision: crypto.randomUUID(), design: packed.project,
+  }), packed.assets)
+}
+
+export async function updateAuthorTemplate(template: TemplateSummary, change: { name?: string; favorite?: boolean } | null) {
+  const metadata = change ? templateMetadataSchema.parse({ ...template, name: change.name ?? template.name }) : undefined
+  await writeTemplate(template.id, template.revision, previous => previous && change && metadata ? {
+    ...previous, ...metadata, favorite: change.favorite ?? previous.favorite, revision: crypto.randomUUID(),
+  } : undefined)
+}
+
+export async function backupAuthorTemplate(id: string) {
+  const template = await loadAuthorTemplate(id)
+  return backupDesign(template.design, templateMetadataSchema.parse(template))
+}
+
+export async function readAuthorTemplateBackup(file: File) {
+  const { project, metadata } = await readDesignBackup(file, true)
+  return { design: project, metadata: templateMetadataSchema.parse(metadata) }
 }

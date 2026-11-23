@@ -52,14 +52,16 @@ function Preview({ project, index, scale, label }: { project: Project; index: nu
 export function ProposalReview({ result, selected, slideIndex, show, open, replace, edit, divide, canDivide, busy }: {
   result: Fabrication; selected: number; slideIndex: number; busy: boolean
   show: (version: number,slide?: number) => void; open: (proposal: Proposal) => void
-  replace: (composition: number) => void;
+  replace?: (composition: number) => void;
   edit: (step: 'Conteúdo' | 'Imagens') => void; divide: () => void; canDivide: boolean
 }) {
   const proposal = result.proposals[selected]
   const slide = result.slides[slideIndex]
   const details = proposal.details[slideIndex]
+  const author = !replace
+  const previewTitle = author ? result.collection : labels[proposal.treatment][0]
   return <section className="factory-review" aria-label="Propostas de fabricação">
-    <div className="factory-options">{result.proposals.map((version,index) => {
+    {!author && <div className="factory-options">{result.proposals.map((version,index) => {
       const [name,description] = labels[version.treatment]
       const isTypographic = version.treatment === 'photo' && !result.slides.some(item => item.picture)
       const affected = version.details.filter(detail => detail.issues.some(requiresReview)).length
@@ -72,9 +74,9 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
             aria-label={`Visualizar ${name}`} onClick={() => show(index)}>Visualizar</button>
         </div>
       </article>
-    })}</div>
-    <section className="factory-detail" id="express-proposal-preview" tabIndex={-1} aria-label={`Prévia ${labels[proposal.treatment][0]}`}>
-      <header><div><h3>{labels[proposal.treatment][0]} · {result.collection}</h3>
+    })}</div>}
+    <section className="factory-detail" id="express-proposal-preview" tabIndex={-1} aria-label={`Prévia ${previewTitle}`}>
+      <header><div><h3>{author ? previewTitle : `${previewTitle} · ${result.collection}`}</h3>
         <p className="muted">Slide {slideIndex+1} de {result.slides.length}</p></div>
         <button className="button button-dark" disabled={busy} onClick={() => open(proposal)}>Usar esta versão</button></header>
       <div className="factory-body">
@@ -86,9 +88,9 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
               title={item.content.title} onClick={() => show(selected,index)}>
               {String(index+1).padStart(2,'0')}{proposal.details[index].issues.some(requiresReview) && ' •'}
             </button>)}</nav>
-          <label>Composição do slide<select value={details.composition} disabled={busy} onChange={event => replace(Number(event.target.value))}>
+          {replace && <label>Composição do slide<select value={details.composition} disabled={busy} onChange={event => replace(Number(event.target.value))}>
             {compositionNames.map((name,index) => <option key={name} value={index}>{name}</option>)}
-          </select></label>
+          </select></label>}
           <strong>{slide.content.title || 'Sem título'}</strong>
           {slide.content.subtitle && <p>{slide.content.subtitle}</p>}
           <p className="factory-copy">{slide.content.body || 'Sem corpo de texto'}</p>

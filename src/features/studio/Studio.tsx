@@ -38,6 +38,8 @@ import type { AuditReport, Finding } from '../audit/contract'
 import { sameReviewSettings, sameReviewVersion, type Review } from '../audit/review'
 import { resolvePage } from '../../lib/navigation'
 import { applyCollectionBrand, buildCollectionProject, demoSlides, type Collection } from './collections'
+import { AuthorTemplates, SaveTemplate } from './AuthorTemplates'
+import { copyTemplateDesign, type AuthorTemplate, type TemplateSummary } from './authorTemplate'
 import './collections.css'
 
 const Express = lazy(() => import('./Express').then(module => ({ default: module.Express })))
@@ -63,6 +65,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
   const [slideFeedback, setSlideFeedback] = useState<{ text: string; id: string }>()
+  const [templateDraft, setTemplateDraft] = useState<{ design: Project; previous?: TemplateSummary }>()
+  const [templateEdit, setTemplateEdit] = useState<{ projectId: string; template: TemplateSummary }>()
   const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent, endTextSession } = useDocument()
   const [backupTimes, setBackupTimes] = useState<Record<string, number>>({})
   const [backupPending, setBackupPending] = useState(false)
@@ -326,7 +330,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       if (index < 0) { image.dispose(); throw Error('Selecione a imagem diretamente na camada para substituí-la.') }
       image.scaleToWidth(selected.getScaledWidth())
       cropImage(image, selected.getScaledWidth() / selected.getScaledHeight())
-      image.set({ semantic: selected.semantic, left: selected.left, top: selected.top, angle: selected.angle,
+      image.set({ semantic: selected.semantic, templateRole: selected.templateRole, left: selected.left, top: selected.top, angle: selected.angle,
         originX: selected.originX, originY: selected.originY, flipX: selected.flipX, flipY: selected.flipY })
       target.remove(selected)
       target.insertAt(index, image)
@@ -362,6 +366,20 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setEntry(undefined)
     setError('')
   }
+  async function editTemplate(template: AuthorTemplate) {
+    const copy = copyTemplateDesign(template)
+    await openCreated(copy)
+    setTemplateEdit({ projectId: copy.id, template })
+  }
+  function prepareTemplate(previous?: TemplateSummary) {
+    const source = getCurrent()
+    const slide = source?.slides[currentRef.current]
+    if (!source || !slide?.scene.objects.length) {
+      setError('Adicione elementos ao slide antes de salvar a composição como template.')
+      return
+    }
+    setTemplateDraft({ design: { ...source, slides: [slide] }, previous })
+  }
   async function createFromCollection(style: Collection) {
     if (startingRef.current) return
     startingRef.current = true
@@ -393,12 +411,14 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio-headlines .headline-diagnosis')?.focus())
   })
   if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
-    <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format} cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} />
+    <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format}
+      cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} editTemplate={editTemplate} />
   </Suspense>
   if (!project && entry === 'collections') return <section className="studio-welcome">
     <div className="studio-entry"><h2>Biblioteca de templates</h2><button className="button button-outline" disabled={starting} onClick={() => setEntry(undefined)}>Voltar aos projetos</button></div>
     {error && <p role="alert">{error}</p>}
     {starting && <p role="status">Salvando projeto…</p>}
+    <AuthorTemplates format={format} use={template => openCreated(copyTemplateDesign(template))} edit={editTemplate} />
     <Suspense fallback={<p role="status">Abrindo a biblioteca…</p>}>
       <CollectionGallery format={format} setFormat={setFormat} use={style => void createFromCollection(style)} />
     </Suspense>
@@ -408,6 +428,12 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     {error && <p role="alert">{error}</p>}
     <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><DamagedProjects items={libraryResult.damaged} /><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slideCount} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
   return <section className="studio" aria-label="Editor Studio">
+    {templateDraft && <SaveTemplate project={templateDraft.design} previous={templateDraft.previous}
+      close={() => setTemplateDraft(undefined)} saved={item => {
+        if (templateDraft.previous && templateEdit) setTemplateEdit({ ...templateEdit, template: item })
+        setTemplateDraft(undefined)
+        setSlideFeedback({ text: 'Template salvo em Meus templates.', id: crypto.randomUUID() })
+      }} />}
     <header className="studio-toolbar" aria-label="Ações do projeto">
       <div className="studio-toolbar-row">
         <div className="studio-actions studio-project-actions" role="group" aria-label="Gestão do projeto">
@@ -433,6 +459,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
             menu.querySelector('summary')?.focus()
           }}>
             <button disabled={backupPending} onClick={() => void downloadBackup()}>Backup completo</button>
+            <button onClick={() => prepareTemplate()}>Salvar como template</button>
+            {project.id === templateEdit?.projectId && <button onClick={() => prepareTemplate(templateEdit.template)}>Atualizar template</button>}
             <button onClick={() => {
               if (window.confirm('Recuperar a versão anterior confirmada? Faça backup para preservar as alterações atuais.')) {
                 void loadRecovery(project.id).then(value => { chooseSlide(0); replace(value) }, cause => setError(cause instanceof Error ? cause.message : 'Não foi possível recuperar a versão anterior.'))
