@@ -31,7 +31,7 @@ export function compose(layout: Template, content: Semantic, brand: Brand, forma
   }
   rect(m, m, 54, 8, brand.primary)
   if (layout === 'editorial') { text('title', content.title, m, h * .19, width, h * .38, 112); text('body', content.body, m, h * .64, width * .85, h * .20, 38) }
-  if (layout === 'photo') { image(m, h * .12, width, h * .44); text('title', content.title, m, h * .60, width, h * .19, 70); text('body', content.body, m, h * .81, width, h * .09, 30) }
+  if (layout === 'photo') { text('title', content.title, m, h * .60, width, h * .19, 70); text('body', content.body, m, h * .81, width, h * .09, 30); image(m, h * .12, width, h * .44) }
   if (layout === 'text') { text('title', content.title, m, h * .14, width, h * .22, 78); rect(m, h * .40, width, 3, brand.primary); text('body', content.body, m, h * .45, width, h * .39, 44) }
   if (layout === 'split') { text('title', content.title, m, h * .13, width, h * .22, 78); image(m, h * .40, width * .46, h * .43); text('body', content.body, m + width * .53, h * .40, width * .47, h * .43, 36) }
   if (layout === 'comparison') {

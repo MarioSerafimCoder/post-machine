@@ -19,7 +19,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await expect(page.getByLabel('Prompt editorial')).toHaveValue(/Separe fatos verificáveis/)
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
     schemaVersion: 1, campaign: { title: 'Acervo de teste', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'carousel', caption: 'Legenda original da campanha.', cta: '' },
-    slides: [{ order: 1, role: 'cover', title: 'Pátios urbanos', body: 'A luz organiza o espaço.', imageBrief: '', layoutType: 'editorial' },
+    slides: [{ order: 1, role: 'cover', title: 'Pátios urbanos', body: 'A luz organiza o espaço.', imageBrief: '', layoutType: 'text' },
       { order: 2, role: 'cta', title: 'Leia mais', body: '', imageBrief: '', layoutType: 'editorial' }], sources: [],
   }))
   await page.getByRole('button', { name: 'Importar conteúdo', exact: true }).click()
