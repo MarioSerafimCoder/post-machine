@@ -52,9 +52,13 @@ export function App() {
   const previousLabel = useRef(label)
   useEffect(() => {
     document.title = `${label} — Post Machine`
-    if (previousLabel.current !== label) heading.current?.focus()
+    if (previousLabel.current !== label) {
+      const visibleHeading = page === 'studio' ? heading.current?.parentElement?.querySelector<HTMLElement>('.studio-library h1') : null
+      const target = visibleHeading ?? heading.current
+      target?.focus()
+    }
     previousLabel.current = label
-  }, [label])
+  }, [label, page])
   return <AssistantSignals.Provider value={assistantSignals}><section className="desktop-required" aria-label="Disponível somente para desktop"><span className="brand-mark" aria-hidden="true">PM</span><h1>Um espaço para criar no desktop.</h1><p>O Post Machine foi feito exclusivamente para computadores. Abra em um desktop ou amplie a janela para pelo menos 1024 px.</p></section><div className="app-shell">
     <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus() }}>Pular para o conteúdo</a>
     <div className="main-shell">

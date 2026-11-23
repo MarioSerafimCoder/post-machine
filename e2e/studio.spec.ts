@@ -24,6 +24,7 @@ test('recusa conteúdo descompactado excessivo sem alterar a biblioteca de proje
 test('post editável com texto, ferramentas, teclado e upload local', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message))
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
   const canvas = page.locator('.upper-canvas')
@@ -67,8 +68,8 @@ test('post editável com texto, ferramentas, teclado e upload local', async ({ p
 })
 
 test('campanha gera carrossel editável, troca template e organiza slides', async ({ page }) => {
-  await page.goto('/#/radar')
-  await page.getByRole('button', { name: 'Pautas e prompts', exact: true }).click()
+  await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
   await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
   await page.getByLabel('Quantidade de slides').selectOption('3')
@@ -91,6 +92,7 @@ test('campanha gera carrossel editável, troca template e organiza slides', asyn
 
 test('recupera imagens e histórico, restaura backup e exporta PNG e ZIP nas dimensões reais', async ({ page }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByLabel('Projeto', { exact: true }).fill('Projeto persistente')
   await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
@@ -140,7 +142,9 @@ test('recupera imagens e histórico, restaura backup e exporta PNG e ZIP nas dim
 })
 
 test('falha de IndexedDB mantém alterações e permite retentativa', async ({ page }) => {
-  await page.goto('/#/studio'); await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await expect(page.getByText('Nenhum backup ZIP registrado para este projeto.')).toBeVisible()
   await page.getByRole('button', { name: 'Salvar', exact: true }).click()
   await expect(page.getByText('Salvo', { exact: true })).toBeVisible()
@@ -176,6 +180,7 @@ test('preserva texto parecido com referências a arquivos e reutiliza o hash de 
   const name = `asset:${'a'.repeat(64)}`
   const text = 'data:image/png;base64,AAAA'
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByLabel('Projeto', { exact: true }).fill(name)
   await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
@@ -270,11 +275,13 @@ test('abre, atualiza e restaura um projeto v1 cuja revisão antiga guardava text
 
 test('confere a revisão do projeto ao excluir pela biblioteca em outra aba', async ({ page, context }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByLabel('Projeto', { exact: true }).fill('Projeto compartilhado')
   await page.getByRole('button', { name: 'Projetos', exact: true }).click()
   const stale = await context.newPage()
   await stale.goto('/#/studio')
+  await stale.getByText('•••', { exact: true }).and(stale.getByLabel('Ações de Projeto compartilhado', { exact: true })).click()
   await expect(stale.getByRole('button', { name: 'Excluir Projeto compartilhado', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Abrir Projeto compartilhado', exact: true }).click()
   await page.getByLabel('Projeto', { exact: true }).fill('Projeto atualizado')
@@ -285,12 +292,15 @@ test('confere a revisão do projeto ao excluir pela biblioteca em outra aba', as
   await stale.getByRole('button', { name: 'Excluir Projeto compartilhado', exact: true }).click()
   await expect(stale.getByRole('alert')).toContainText('O projeto mudou em outra aba')
   await expect(stale.getByRole('button', { name: 'Abrir Projeto atualizado', exact: true })).toBeVisible()
+  await stale.getByText('•••', { exact: true }).and(stale.getByLabel('Ações de Projeto atualizado', { exact: true })).click()
   await stale.getByRole('button', { name: 'Excluir Projeto atualizado', exact: true }).click()
   await expect(stale.getByRole('button', { name: 'Abrir Projeto atualizado', exact: true })).toHaveCount(0)
 })
 
 test('avisa overflow e mantém o editor usável em 1024, 1280 e 1440', async ({ page }) => {
-  await page.goto('/#/studio'); await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByRole('button', { name: 'Templates', exact: true }).click()
   await page.getByRole('button', { name: 'Capa editorial', exact: true }).click()
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
@@ -312,7 +322,9 @@ test('avisa overflow e mantém o editor usável em 1024, 1280 e 1440', async ({ 
 })
 
 test('fonte WOFF2 local é carregada, incluída no backup e recuperada', async ({ page }) => {
-  await page.goto('/#/studio'); await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
+  await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
+  await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByRole('button', { name: 'Minha marca', exact: true }).click()
   await page.getByLabel('Carregar fonte WOFF2').setInputFiles('public/fonts/inter-regular.woff2')
   await expect(page.getByLabel('Fonte dos títulos')).toHaveValue(/^Marca-/)
@@ -341,6 +353,7 @@ test('ajusta zoom conforme a janela, mantém zoom manual e organiza seleção po
   test.skip(info.project.name === 'laptop', 'O caso percorre as quatro resoluções desktop')
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Criar projeto vazio').click()
   const fit = button('Ajustar à tela')
   const size = () => page.locator('.upper-canvas').evaluate(canvas => (canvas as HTMLCanvasElement).width)

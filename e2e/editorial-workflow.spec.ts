@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('detecta caixa vazia em edição e revisa a sequência do carrossel', async ({ page }, info) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()
   const field = page.getByLabel('Texto do elemento')
@@ -37,6 +38,7 @@ test('detecta caixa vazia em edição e revisa a sequência do carrossel', async
 
 test('prévia identifica campos extras e usa direção de imagem na Produção Expressa', async ({ page }, info) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Produção Expressa', exact: true }).click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify({
     schemaVersion: 1,

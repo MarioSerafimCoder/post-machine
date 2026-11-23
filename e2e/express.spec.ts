@@ -5,7 +5,8 @@ import { createCanvas, loadImage } from '@napi-rs/canvas'
 
 test('galeria renderiza capas diferentes e abre uma coleção de seis slides', async ({ page }) => {
   await page.goto('/#/studio')
-  await page.getByRole('button', {name:'Biblioteca de templates'}).click()
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
+  await page.getByRole('button', {name:'Usar template'}).click()
   const gallery = page.getByRole('region', {name:'Coleções de templates'})
   await expect(gallery.getByRole('article')).toHaveCount(11)
   const first = gallery.getByRole('article').first()
@@ -24,6 +25,7 @@ test('galeria renderiza capas diferentes e abre uma coleção de seis slides', a
 
 test('preparação com texto, lote, associação e prévia persiste projeto editável', async ({ page }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', {name:'Produção Expressa',exact:true}).click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill('Slide 1 — Uma capa\nPrimeira ideia.\nSlide 2 — Fechamento\nSegunda ideia.')
   await page.getByRole('button', {name:'Organizar slides'}).click()
@@ -90,6 +92,7 @@ test('preparação com texto, lote, associação e prévia persiste projeto edit
 
 test('fabricação pode ser cancelada sem perder o texto ou salvar propostas', async ({ page }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', {name:'Produção Expressa',exact:true}).click()
   const input = Array.from({length:20},(_,index) => `Slide ${index+1} — Roteiro ${index+1}\n${'Parágrafo editorial com bastante texto e palavras distintas. '.repeat(39)}`).join('\n')
   await page.getByRole('textbox',{name:/Cole aqui/}).fill(input)
@@ -109,6 +112,7 @@ test('fabricação pode ser cancelada sem perder o texto ou salvar propostas', a
 
 test('importa link compatível e orienta envio local quando o provedor falha', async ({ page }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', {name:'Produção Expressa',exact:true}).click()
   await page.getByRole('button', {name:'Imagens',exact:true}).click()
   await page.getByRole('button', {name:'Link externo',exact:true}).click()
@@ -134,6 +138,7 @@ test('coleções premium fabricam, editam o gradiente e ordenam frames', async (
   test.skip(info.project.name === 'laptop','O cenário verifica as quatro resoluções desktop')
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button',{name,exact:true})
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Produção Expressa').click()
   await page.getByRole('textbox',{name:/Cole aqui/}).fill('Slide 1 — Um novo olhar\nContexto da capa.\nSlide 2 — O princípio\nUma leitura editorial.\nSlide 3 — Experimente\nEscolha sua próxima ideia.')
   await button('Organizar slides').click()

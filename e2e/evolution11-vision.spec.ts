@@ -6,6 +6,7 @@ const cat = { name: 'arquivo-b.png', mimeType: 'image/png', path: 'e2e/fixtures/
 
 async function imagePreparation(page: Page) {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Produção Expressa').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill('Slide 1 — Retrato de gato\nUma composição com luz lateral.')
   await button(page, 'Organizar slides').click()

@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { validateProject } from './validation'
-import { brandSchema, type Brand, type Project } from './model'
+import { newProjectIdentity, brandSchema, type Brand, type Project } from './model'
 import { imageCreditSchema, type ImageCredit } from '../images/contract'
 import { imageObjects } from '../images/credits'
 
@@ -108,8 +108,11 @@ export function withStudioStorage<T>(action: () => Promise<T>): Promise<T> {
 export function saveProject(project: Project, expected?: Project) {
   return withStudioStorage(() => writeProject(project, expected))
 }
+export function saveLibraryProject(project: Project, expected?: Project) {
+  return withStudioStorage(() => writeProject(project, expected, false))
+}
 export class ProjectConflict extends Error {}
-async function writeProject(project: Project, expected?: Project) {
+async function writeProject(project: Project, expected?: Project, rememberBrand = true) {
   const previous = expected && revisions.get(expected)
   const packed = await pack(project, previous?.assets)
   const serialized = JSON.stringify(packed.project)
@@ -131,7 +134,7 @@ async function writeProject(project: Project, expected?: Project) {
             }
           }
         })
-        tx.objectStore('settings').put(packed.project.brand, 'brand')
+        if (rememberBrand) tx.objectStore('settings').put(packed.project.brand, 'brand')
         tx.objectStore('projects').put(packed.project, project.id)
         tx.objectStore('projectLibrary').put(summarizeProject(packed.project), project.id)
         written = true
@@ -143,12 +146,12 @@ async function writeProject(project: Project, expected?: Project) {
   revisions.set(project, { baseline: serialized, assets: packed.bySource })
   window.dispatchEvent(new Event(projectsChangedEvent))
 }
-export type ProjectSummary = Pick<Project, 'id' | 'name' | 'format' | 'updatedAt'> & { slideCount: number; revision: string }
+export type ProjectSummary = Pick<Project, 'id' | 'name' | 'format' | 'updatedAt' | 'createdAt'> & { slideCount: number; revision: string }
 type LibraryEntry = ProjectSummary | { id: string; name: string; damaged: true }
 
 function summarizeProject(project: Project): ProjectSummary {
-  const { id, name, format, updatedAt } = project
-  return { id, name, format, updatedAt, slideCount: project.slides.length, revision: crypto.randomUUID() }
+  const { id, name, format, updatedAt, createdAt } = project
+  return { id, name, format, updatedAt, createdAt, slideCount: project.slides.length, revision: crypto.randomUUID() }
 }
 
 export async function listProjects() {
@@ -408,8 +411,8 @@ async function readDesignBackup(file: File, template: boolean) {
 
 export async function restoreProject(file: File): Promise<Project> {
   const { project } = await readDesignBackup(file, false)
-  project.id = crypto.randomUUID(); project.name = `${project.name.slice(0, 85)} (restaurado)`; project.updatedAt = new Date().toISOString()
-  await saveProject(project); return project
+  const restored = { ...project, ...newProjectIdentity(), name: `${project.name.slice(0, 85)} (restaurado)` }
+  await saveProject(restored); return restored
 }
 
 export function loadRecovery(id: string): Promise<Project> {

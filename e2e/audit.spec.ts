@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 test('audita, localiza, corrige, desfaz e preserva projeto', async ({page})=>{
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message))
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button',{name:'Criar projeto vazio'}).click()
   await page.getByLabel('Projeto',{exact:true}).fill('Auditoria de teste')
   await page.getByRole('button',{name:'Adicionar título',exact:true}).click()
@@ -55,9 +56,11 @@ test('audita, localiza, corrige, desfaz e preserva projeto', async ({page})=>{
 test('limita tentativas confirmadas e isola checkpoints por projeto', async ({ page }) => {
   await page.goto('/#/studio')
   const create = page.getByRole('button', { name: 'Criar projeto vazio' })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await create.click()
   await page.getByLabel('Projeto', { exact: true }).fill('Projeto B')
   await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await create.click()
   await page.getByLabel('Projeto', { exact: true }).fill('Projeto A')
   await page.getByRole('button', { name: 'Adicionar título', exact: true }).click()

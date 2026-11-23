@@ -8,11 +8,11 @@ import { campaignHeadlineContext } from '../headlines/context'
 import { readCampaign } from '../campaigns/storage'
 import { replaceTextboxText } from './editText'
 import { measureTitle } from './headlineFit'
-import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStart'
+import { type CampaignStartMode } from '../campaigns/CampaignStart'
 import { loadFonts } from './fonts'
 import { useDocument } from './useDocument'
-import { listProjects, loadProject, loadRecovery, removeProject, readBrand, backupProject, restoreProject, saveProject, BackupLimitError, type ProjectSummary } from './storage'
-import { DamagedProjects } from './DamagedProjects'
+import { listProjects, loadProject, loadRecovery, readBrand, backupProject, saveProject, BackupLimitError } from './storage'
+import { ProjectLibrary } from './ProjectLibrary'
 import { download } from './export'
 import { ExportPanel } from './ExportPanel'
 import type { Draft } from '../campaigns/contract'
@@ -25,11 +25,10 @@ import { EditorialReview } from './EditorialReview'
 import { ActiveSelection, Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
 import { Properties } from './Properties'
-import { defaultBrand, emptySlide, dimensions, formatNames, newProject, newProjectBrand, type Format, type Project } from './model'
+import { newProjectIdentity, defaultBrand, emptySlide, dimensions, formatNames, newProject, newProjectBrand, type Format, type Project } from './model'
 import { addObject, duplicate, sceneOf } from './objects'
 import { cropImage, readImage } from './images'
 import './studio.css'
-import { StorageSettings } from './StorageSettings'
 import { AuditPanel } from '../audit/AuditPanel'
 import { useAuditAssistant } from '../intelligence/auditSignal'
 import { useAssistantAnchor } from '../intelligence/signals'
@@ -90,8 +89,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     window.addEventListener('focus', update)
     return () => { window.clearInterval(timer); window.removeEventListener('focus', update) }
   }, [active])
-  const [libraryResult, setLibrary] = useState<Awaited<ReturnType<typeof listProjects>>>({ projects: [], damaged: [] })
-  const library = libraryResult.projects
+  const [libraryResult, setLibrary] = useState<Awaited<ReturnType<typeof listProjects>>>()
   const [brand, setBrand] = useState(defaultBrand)
   const [entry, setEntry] = useState<'express' | 'collections'>()
   const [starting, setStarting] = useState(false)
@@ -305,14 +303,6 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     } catch (cause) { setError(cause instanceof BackupLimitError ? cause.message : 'Não foi possível gerar o backup deste projeto.') }
     finally { setBackupPending(false) }
   }
-  async function deleteProject(item: ProjectSummary) {
-    if (!window.confirm('Excluir este projeto local?')) return
-    try {
-      const removed = await removeProject(item)
-      setLibrary(await listProjects())
-      setError(removed ? '' : 'O projeto mudou em outra aba. Confira a versão atual antes de excluir.')
-    } catch { setError('Não foi possível excluir o projeto. Recarregue a página para conferir a biblioteca.') }
-  }
   const handleRequest = useEffectEvent(async ({draft,mode}: NonNullable<typeof request>) => {
     try {
       await flush()
@@ -482,10 +472,13 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       <CollectionGallery format={format} setFormat={setFormat} use={style => void createFromCollection(style)} />
     </Suspense>
   </section>
-  if (!project) return <section className="studio-welcome"><p className="eyebrow">POST MACHINE / STUDIO</p><h2>Dê forma à sua próxima ideia.</h2><p>Crie um post com texto, imagens e elementos editáveis.</p><div className="studio-entry"><button className="button express-entry" onClick={() => { setExpressDraft(undefined); setEntry('express') }}>Produção Expressa</button><button className="button button-outline" onClick={() => setEntry('collections')}>Biblioteca de templates</button></div><label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>{Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}</select></label><button className="button button-dark" onClick={() => createEmptyProject()}>Criar projeto vazio</button><CampaignStart choose={onStartCampaign} />
-    <label>Restaurar projeto ZIP<input type="file" accept=".zip" onChange={e => { const file = e.target.files?.[0]; if (file) void restoreProject(file).then(value => { chooseSlide(0); replace(value, true) }, error => setError(String(error))); e.target.value = '' }} /></label>
-    {error && <p role="alert">{error}</p>}
-    <StorageSettings flush={flush} /><h3>Projetos neste navegador</h3><DamagedProjects items={libraryResult.damaged} /><div className="project-library">{library.map(item => <article key={item.id}><h4>{item.name}</h4><p>{item.slideCount} slide(s) · {formatNames[item.format]}</p><button className="button button-outline" onClick={() => void openProject(item.id)}>Abrir {item.name}</button><button className="button button-outline" onClick={() => void deleteProject(item)}>Excluir {item.name}</button></article>)}</div></section>
+  if (!project) return <ProjectLibrary result={libraryResult} refresh={async () => setLibrary(await listProjects())}
+    error={error} flush={flush} open={openProject} create={() => createEmptyProject()}
+    express={() => { setExpressDraft(undefined); setEntry('express') }} templates={() => setEntry('collections')}
+    format={format} setFormat={setFormat} campaign={onStartCampaign} imported={value => {
+      chooseSlide(0); replace(value, true); setError('')
+      setSlideFeedback({ text: 'Projeto importado.', id: crypto.randomUUID() })
+    }} />
   return <section className="studio" aria-label="Editor Studio">
     {adaptSource && <AdaptLayoutDialog source={adaptSource} firstSlide={current} close={() => setAdaptSource(undefined)}
       confirm={async copy => { await openCreated(copy); setAdaptSource(undefined) }} />}
@@ -529,7 +522,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
               }
             }}>Recuperar versão anterior</button>
             <button onClick={() => {
-              const copy = { ...project, id: crypto.randomUUID(), name: project.name.slice(0, 90) + ' (cópia)' }
+              const copy = { ...project, ...newProjectIdentity(), name: project.name.slice(0, 90) + ' (cópia)' }
               replace(copy)
             }}>Duplicar projeto</button>
           </div>

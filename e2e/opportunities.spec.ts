@@ -29,6 +29,7 @@ test('workspace desktop mantém navegação e ferramentas em quatro resoluções
     await page.setViewportSize({ width, height })
     await page.goto('/#/studio')
     await page.reload()
+    await page.getByText('＋ Novo projeto', { exact: true }).click()
     await page.getByRole('button', { name: 'Criar projeto vazio', exact: true }).click()
     const tools = page.getByRole('navigation', { name: 'Ferramentas do Studio' })
     await tools.getByRole('button', { name: 'Templates' }).press('Enter')

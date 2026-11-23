@@ -58,7 +58,7 @@ test('limpeza preserva imagens compartilhadas, marca e checkpoints', async ({ pa
   const errors: string[] = []
   page.on('pageerror', cause => errors.push(cause.message))
   await page.goto('/#/studio')
-  await page.getByRole('button', { name: 'Criar projeto vazio' }).waitFor()
+  await page.getByText('＋ Novo projeto', { exact: true }).waitFor()
   await page.evaluate(async () => {
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 100
@@ -82,6 +82,7 @@ test('limpeza preserva imagens compartilhadas, marca e checkpoints', async ({ pa
   })
   await page.reload()
   page.on('dialog', dialog => dialog.accept())
+  await page.getByText('•••', { exact: true }).and(page.getByLabel('Ações de Projeto A', { exact: true })).click()
   await page.getByRole('button', { name: 'Excluir Projeto A' }).click()
   await expect(page.getByRole('button', { name: 'Excluir Projeto A' })).toHaveCount(0)
   await page.getByText('Configurações de armazenamento').click()
@@ -96,7 +97,7 @@ test('limpeza preserva imagens compartilhadas, marca e checkpoints', async ({ pa
     }
   })
   await page.getByRole('button', { name: 'Limpar arquivos órfãos' }).click()
-  await expect(page.getByRole('status')).toContainText('Não foi possível')
+  await expect(page.getByRole('status').filter({ hasText: 'Não foi possível' })).toBeVisible()
   await page.getByRole('button', { name: 'Verificar armazenamento' }).click()
   await expect(page.getByText(/1 arquivos sem referência/)).toBeVisible()
   await page.getByRole('button', { name: 'Limpar arquivos órfãos' }).click()

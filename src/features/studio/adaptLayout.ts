@@ -3,7 +3,7 @@ import { defaultSettings } from '../audit/contract'
 import { templateRole } from './authorTemplate'
 import { fitText } from './factory/typography'
 import { loadFonts } from './fonts'
-import { dimensions, formatNames, type Format, type Project, type Scene } from './model'
+import { newProjectIdentity, dimensions, formatNames, type Format, type Project, type Scene } from './model'
 import { verifySceneLoaded } from './sceneIntegrity'
 import './objects'
 
@@ -18,8 +18,8 @@ export async function adaptLayout(source: Project, format: Format, signal?: Abor
   const ratio = (height - margin * 2) / (oldHeight - margin * 2)
   const y = (value: number) => value < margin ? value : value > oldHeight - margin ? height - (oldHeight - value) : margin + (value - margin) * ratio
   const project: Project = {
-    ...source, id: crypto.randomUUID(), name: `${source.name.slice(0, 85)} · ${formatNames[format]}`,
-    format, updatedAt: new Date().toISOString(), slides: [],
+    ...source, ...newProjectIdentity(), name: `${source.name.slice(0, 85)} · ${formatNames[format]}`,
+    format, slides: [],
   }
   const conservative: number[] = []
   const settings = source.auditSettings ?? defaultSettings

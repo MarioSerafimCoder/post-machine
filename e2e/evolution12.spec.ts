@@ -49,6 +49,7 @@ test('cola, busca em paralelo, usa apoio editorial e retoma escolhas e créditos
   const delayed = new Promise<void>(resolve => { release = resolve })
   const queries = await mockImages(page, delayed)
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Produção Expressa').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).evaluate(input => {
     const transfer = new DataTransfer()
@@ -77,6 +78,7 @@ test('cola, busca em paralelo, usa apoio editorial e retoma escolhas e créditos
   await page.screenshot({ path: info.outputPath('busca-progressiva.png'), fullPage: true })
   await button(page, 'Voltar aos projetos').click()
   await page.reload()
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Produção Expressa').click()
   await button(page, 'Retomar preparação').click()
   await expect(images.nth(0)).toContainText('Travado')
@@ -150,6 +152,7 @@ test('descarta resposta antiga após editar um card com busca em andamento', asy
   const delayed = new Promise<void>(resolve => { release = resolve })
   const queries = await mockImages(page, delayed)
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Produção Expressa').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill('Slide 1 — Café e xícara\nUma imagem do cotidiano.')
   await button(page, 'Organizar slides').click()

@@ -6,6 +6,7 @@ const studioButton = (page: Page, name: string) => page.getByRole('button', { na
 
 test('controles do Studio por teclado preservam o slide e funcionam nas quatro resoluções', async ({ page }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await studioButton(page, 'Criar projeto vazio').click()
   await studioButton(page, 'Adicionar slide').click()
   await studioButton(page, 'Adicionar título').click()
@@ -48,6 +49,7 @@ test('controles do Studio por teclado preservam o slide e funcionam nas quatro r
 for (const [format, height] of [['square', 1080], ['story', 1920]] as const) {
   test(`exporta ${format} com forma translúcida e sem guias, mesmo após falha temporária`, async ({ page }, info) => {
     await page.goto('/#/studio')
+    await page.getByText('＋ Novo projeto', { exact: true }).click()
     await page.getByLabel('Formato do projeto').selectOption(format)
     await studioButton(page, 'Criar projeto vazio').click()
     await studioButton(page, 'Elementos').click()

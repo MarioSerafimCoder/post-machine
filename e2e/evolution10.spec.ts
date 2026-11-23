@@ -6,6 +6,7 @@ test('mantém assistente fora da arte e devolve o foco da revisão nas quatro la
   test.skip(info.project.name === 'laptop', 'A matriz usa as quatro resoluções desktop.')
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Criar projeto vazio').click()
   await button('Adicionar título').click()
   await page.getByLabel('Texto do elemento').fill('Uma coisa incrível')
@@ -54,6 +55,7 @@ for (const count of [1, 6, 20]) test(`fabrica e exporta ${count} slide(s) com PN
   test.setTimeout(75_000)
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Produção Expressa').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill(Array.from({ length: count }, (_, index) =>
     `Slide ${index + 1} — Recorte ${index + 1}\nA arte organiza a leitura e preserva o texto original.`).join('\n\n'))
@@ -77,6 +79,7 @@ for (const count of [1, 6, 20]) test(`fabrica e exporta ${count} slide(s) com PN
 test('confirma e desfaz em uma ação dois ajustes de margem verificados', async ({ page }) => {
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Criar projeto vazio').click()
   for (let index = 0; index < 2; index++) {
     if (index) await button('Adicionar slide').click()
@@ -117,6 +120,7 @@ test('cria conteúdo pela entrada unificada e organiza o JSON na colagem', async
 test('desfaz uma sequência de digitação e alinha pela margem da marca', async ({ page }) => {
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Criar projeto vazio').click()
   await button('Adicionar título').click()
   const field = page.getByLabel('Texto do elemento')
@@ -143,6 +147,7 @@ test('desfaz uma sequência de digitação e alinha pela margem da marca', async
 test('retoma a preparação com imagem e vínculo após voltar aos projetos e recarregar', async ({ page }) => {
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Produção Expressa').click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill('Slide 1 — Pátios de arquitetura\nA luz orienta os percursos.')
   await button('Organizar slides').click()
@@ -163,8 +168,9 @@ test('retoma a preparação com imagem e vínculo após voltar aos projetos e re
   await association.selectOption({ label: '1 · patio.png' })
   await page.getByLabel('Enquadramento do slide 1').selectOption('contain')
   await button('Voltar aos projetos').click()
-  await button('Produção Expressa').waitFor()
+  await page.getByText('＋ Novo projeto', { exact: true }).waitFor()
   await page.reload()
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Produção Expressa').click()
   await button('Retomar preparação').click()
   await expect(association.locator('option:checked')).toHaveText('1 · patio.png')

@@ -91,6 +91,7 @@ test('usa aviso da fabricação e abre o slide correspondente', async ({ page },
     const check = document.fonts.check.bind(document.fonts)
     document.fonts.check = (font, text) => !font.startsWith('48px') && check(font, text)
   })
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Produção Expressa').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill(`Slide 1 — Capa curta\n\nSlide 2 — Explicação detalhada\n${'Um exemplo que precisa de espaço de leitura. '.repeat(140)}`)
   await button(page, 'Organizar slides').click()
@@ -112,6 +113,7 @@ test('usa aviso da fabricação e abre o slide correspondente', async ({ page },
 test('localiza achado real da auditoria e retira recomendação obsoleta', async ({ page }, info) => {
   test.skip(info.project.name === 'laptop', 'Este cenário percorre os quatro viewports desktop')
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Criar projeto vazio').click()
   await button(page, 'Adicionar título').click()
   await page.getByText('Propriedades avançadas', { exact: true }).click()
@@ -145,6 +147,7 @@ test('localiza achado real da auditoria e retira recomendação obsoleta', async
 
 test('ancora o robô no editor e separa ocultar de dispensar', async ({ page }, info) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Criar projeto vazio').click()
   await button(page, 'Adicionar título').click()
   await page.getByLabel('Texto do elemento').fill('Uma coisa incrível')

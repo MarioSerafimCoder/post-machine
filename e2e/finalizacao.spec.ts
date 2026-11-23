@@ -6,6 +6,7 @@ test('finaliza, mantém legenda e cancela uma renderização sem alterar o proje
   await context.grantPermissions(['clipboard-read','clipboard-write'])
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button',{name,exact:true})
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button('Criar projeto vazio').click()
   await page.getByRole('textbox',{name:'Projeto',exact:true}).fill('Finalização QA')
   await button('Finalizar e exportar').click()

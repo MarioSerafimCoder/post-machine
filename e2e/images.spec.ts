@@ -114,6 +114,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
 
 test('Auditoria identifica imagem local ilegível em vez de perder o relatório', async ({ page }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByRole('button', { name: 'Projetos', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Abrir Novo projeto' })).toBeVisible()
@@ -144,6 +145,7 @@ test('Auditoria identifica imagem local ilegível em vez de perder o relatório'
 
 test('Openverse mostra falha de rede, permite tentar novamente e explica HTTP 429', async ({ page }) => {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByRole('button', { name: 'Imagens', exact: true }).click()
   await page.getByRole('button', { name: 'Pesquisar imagens', exact: true }).click()

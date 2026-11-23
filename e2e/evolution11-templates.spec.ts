@@ -6,6 +6,7 @@ const button = (page: Page, name: string) => page.getByRole('button', { name, ex
 
 async function authorTemplate(page: Page) {
   await page.goto('/#/studio')
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Criar projeto vazio').click()
   await button(page, 'Adicionar título').click()
   await page.getByLabel('Texto do elemento').fill('Título da composição original')
@@ -35,6 +36,7 @@ test('reabre e reutiliza composições autorais com conteúdo integral e editáv
   await page.close()
   const returned = await context.newPage()
   await returned.goto('/#/studio')
+  await returned.getByText('＋ Novo projeto', { exact: true }).click()
   await button(returned, 'Produção Expressa').click()
   await returned.getByRole('textbox', { name: /Cole aqui/ }).fill('Slide 1 — A fala da tipografia\nO corpo segue integral no Studio.')
   await button(returned, 'Organizar slides').click()
@@ -59,7 +61,8 @@ test('reabre e reutiliza composições autorais com conteúdo integral e editáv
   await returned.getByRole('button', { name: /Retângulo/ }).click()
   await expect(returned.getByLabel('Função no template')).toHaveValue('fixed')
   await button(returned, 'Projetos').click()
-  await button(returned, 'Biblioteca de templates').click()
+  await returned.getByText('＋ Novo projeto', { exact: true }).click()
+  await button(returned, 'Usar template').click()
   const card = returned.getByRole('region', { name: 'Meus templates' }).getByRole('article').filter({ hasText: 'Caderno de direção' })
   await card.getByText('Gerenciar template').click()
   const downloaded = returned.waitForEvent('download')
@@ -78,10 +81,12 @@ test('reabre e reutiliza composições autorais com conteúdo integral e editáv
 
 test('protege edições simultâneas e permite editar, favoritar e duplicar', async ({ page, context }) => {
   await authorTemplate(page)
-  await button(page, 'Biblioteca de templates').click()
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
+  await button(page, 'Usar template').click()
   const other = await context.newPage()
   await other.goto('/#/studio')
-  await button(other, 'Biblioteca de templates').click()
+  await other.getByText('＋ Novo projeto', { exact: true }).click()
+  await button(other, 'Usar template').click()
   for (const tab of [page, other]) {
     const card = tab.getByRole('region', { name: 'Meus templates' }).getByRole('article')
     await card.getByText('Gerenciar template').click()
@@ -108,6 +113,7 @@ test('protege edições simultâneas e permite editar, favoritar e duplicar', as
   await update.getByRole('button', { name: 'Salvar template' }).click()
   await expect(update).toHaveCount(0)
   await button(page, 'Projetos').click()
-  await button(page, 'Biblioteca de templates').click()
+  await page.getByText('＋ Novo projeto', { exact: true }).click()
+  await button(page, 'Usar template').click()
   await expect(card.getByText('Descrição editada no Studio.')).toBeVisible()
 })

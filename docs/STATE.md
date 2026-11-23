@@ -1,5 +1,10 @@
 # Estado real — 23/11/2026
 
+## Biblioteca visual do Studio
+
+- A entrada do Studio ganhou cabeçalho compacto, menu **Novo projeto**, biblioteca em grade ou lista, busca por nome e ordenação por edição, nome e criação. A data de criação é registrada a partir desta entrega e fica ausente nos registros anteriores. O esquema mantém a leitura de projetos e backups anteriores.
+- Os cards usam a primeira página renderizada sob demanda, com fila local e cache por revisão. Projetos vazios ou com prévia indisponível recebem um placeholder. O menu permite renomear, duplicar, baixar o backup ZIP e confirmar exclusão. Importação, campanhas, templates, Produção Expressa e ferramentas de armazenamento seguem acessíveis pelos fluxos existentes.
+
 ## Evolução 12 — Busca fotográfica automática
 
 - O Studio publicado iniciou as buscas no carrossel sobre o filme natalino da GEICO, mas os cinco frames de imagem ficaram em “Sem sugestão”. A consulta exata em português e sua reformulação voltavam ao mesmo assunto da manchete. Depois das tentativas documentais, o Studio agora reconhece pistas explícitas do briefing, do título e do corpo e consulta termos em inglês para o evento ou a técnica. Os resultados precisam trazer evidências do contexto e continuam sujeitos às mesmas regras de licença. Incluem a indicação de apoio editorial e o link original nos créditos.
@@ -7,6 +12,7 @@
 - O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45199869186) aprovou `400db4f`. O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45200923322) publicou a versão `41d7e765-bccb-442e-9ff8-380bb2cdc3fa` a 100% do tráfego e verificou o Cloudflare Access antes e depois da publicação.
 - No projeto original reaberto no Chrome após o deploy, o frame 4 recebeu uma fotografia de apoio e a capa recebeu outra depois de repetir uma consulta interrompida. Os frames 2 e 5 terminaram sem sugestão compatível. O frame 3 ficou indisponível após novas tentativas, com requisição do Openverse interrompida. O encerramento continuou textual. O Studio salvou as duas fotos no projeto existente.
 - A revisão durante a edição tratava cada caixa de texto vazia como pendência, inclusive a chamada para ação reservada pelo template em capas e slides de conteúdo. A regra agora verifica a função do slide e procura conteúdo em todas as caixas do mesmo tipo antes de avisar. Uma caixa obrigatória vazia ainda pode ser localizada pelo bot, inclusive em projetos salvos antes da mudança.
+- Lint, 129 testes unitários, build e 136 cenários Playwright passaram, com 10 repetições omitidas no perfil laptop. O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45202084186) aprovou `1bf10db` e o [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45203060825) promoveu a versão `75246922-1166-487f-bbe8-3a22db59a943` a 100%. No projeto original, o quinto frame deixou de mostrar “Campo de texto vazio” após reabrir o Studio e as duas fotos editoriais continuaram salvas.
 
 - Campanhas com quantidade compatível abrem o Studio no formato selecionado no briefing, inclusive quando o JSON ou Markdown traz outro rótulo de formato. Divergências de quantidade informam os dois valores. Lint, 125 testes unitários, build e 12 cenários Playwright dirigidos passaram.
 

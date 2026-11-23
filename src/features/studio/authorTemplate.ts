@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { formatNames, type Project } from './model'
+import { newProjectIdentity, formatNames, type Project } from './model'
 
 export const templateRoles = {
   title: 'Título', subtitle: 'Subtítulo', body: 'Corpo', image: 'Imagem', cta: 'CTA',
@@ -43,7 +43,7 @@ export function copyTemplateDesign(template: AuthorTemplate): Project {
   const { design, name, format } = template
   return {
     ...structuredClone(design),
-    id: crypto.randomUUID(), name: `${name.slice(0, 85)} · ${formatNames[format]}`, updatedAt: new Date().toISOString(),
+    ...newProjectIdentity(), name: `${name.slice(0, 85)} · ${formatNames[format]}`,
     slides: design.slides.map(slide => ({ ...structuredClone(slide), id: crypto.randomUUID(), visualChoice: undefined })),
   }
 }
