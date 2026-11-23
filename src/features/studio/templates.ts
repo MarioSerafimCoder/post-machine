@@ -53,8 +53,8 @@ export function fromCampaign(draft: Draft, brand: Brand) {
   project.name = draft.content.campaign.title; project.caption = draft.content.campaign.caption; project.brand = brand; project.campaignId = draft.id; project.campaignUpdatedAt = draft.updatedAt
   project.slides = draft.content.slides.map((s): VisualSlide => {
     const intent = s.layoutType.trim().toLowerCase()
-    const wantsImage = !!s.imageBrief.trim() || ['photo', 'split', 'fotográfica', 'imagem + conteúdo'].includes(intent)
-    const search = wantsImage && s.role !== 'cta' && visualQueries({ ...s, role: s.role })
+    const textOnly = /^(?:text|textual|somente texto|sem imagem|conteúdo textual)$/.test(intent)
+    const search = !textOnly && s.role !== 'cta' && visualQueries({ ...s, role: s.role })
     const layout = search ? s.role === 'cover' ? 'photo' : 'split' : s.role === 'cover' ? 'editorial' : s.role === 'cta' ? 'cta' : 'text'
     const scene = compose(layout, { title: s.title, body: s.body,
       cta: s.role === 'cta' || draft.content!.slides.length === 1 ? draft.content!.campaign.cta : '',

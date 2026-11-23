@@ -101,7 +101,7 @@ test('abre conteúdo importado no Studio e preenche o frame em segundo plano', a
   await button(page, 'Gerar prompt para IA').click()
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
     schemaVersion: 1, campaign: { title: 'Ponte estaiada', objective: 'Informar', audience: 'Moradores', tone: 'Profissional', format: 'post', caption: '', cta: '' },
-    sources: [], slides: [{ order: 1, role: 'content', title: 'Ponte estaiada', body: 'A obra liga dois bairros.', imageBrief: 'Ponte estaiada', layoutType: 'split' }],
+    sources: [], slides: [{ order: 1, role: 'content', title: 'Ponte estaiada', body: 'A obra liga dois bairros.', imageBrief: '', layoutType: 'editorial' }],
   }))
   await button(page, 'Importar conteúdo').click()
   await button(page, 'Salvar e abrir no Studio').click()
