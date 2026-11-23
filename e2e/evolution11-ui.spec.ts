@@ -1,0 +1,35 @@
+import { expect, test } from '@playwright/test'
+
+test('distingue seleção, hover e foco sem alterar a largura do menu', async ({ page }) => {
+  await page.goto('/#/inicio')
+  const nav = page.locator('.primary-nav')
+  const home = nav.getByRole('link').first()
+  const radar = nav.getByRole('link', { name: 'Radar', exact: true })
+  await expect(home).toHaveAttribute('aria-current', 'page')
+  expect(await home.evaluate(element => getComputedStyle(element, '::after').height)).toBe('2px')
+  const width = (await radar.boundingBox())!.width
+  await radar.hover()
+  await expect(radar).toHaveCSS('background-color', 'rgb(239, 239, 239)')
+  await home.focus()
+  await page.keyboard.press('Tab')
+  await expect(radar).toBeFocused()
+  await expect(radar).toHaveCSS('outline-style', 'solid')
+  await radar.press('Enter')
+  await expect(radar).toHaveAttribute('aria-current', 'page')
+  expect((await radar.boundingBox())!.width).toBe(width)
+})
+
+test('mantém o fluxo e o foco com movimento reduzido', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/#/inicio')
+  const create = page.getByRole('button', { name: 'Criar conteúdo', exact: true })
+  await create.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toHaveCSS('transition-duration', '0s')
+  await page.keyboard.press('Escape')
+  await expect(create).toBeFocused()
+  await create.click()
+  await dialog.getByRole('button', { name: 'Colar ou importar conteúdo pronto' }).click()
+  await page.getByRole('button', { name: 'Templates', exact: true }).click()
+  await expect(page.locator('.express-stage')).toHaveCSS('animation-name', 'none')
+})

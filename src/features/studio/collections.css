@@ -57,3 +57,4 @@
 .express-step { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; }
 .express-step h3 { font-size: var(--ui-title); font-weight: 700; }
 .express-next { margin-top: 12px; }
+.express-stage { display: grid; gap: 16px; min-width: 0; }

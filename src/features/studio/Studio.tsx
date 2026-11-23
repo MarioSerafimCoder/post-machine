@@ -62,6 +62,7 @@ function readBackupDate(id: string) {
 export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: 'express' } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'express' }; onStartCampaign: (mode: CampaignStartMode) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [error, setError] = useState('')
+  const [slideFeedback, setSlideFeedback] = useState<{ text: string; id: string }>()
   const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent, endTextSession } = useDocument()
   const [backupTimes, setBackupTimes] = useState<Record<string, number>>({})
   const [backupPending, setBackupPending] = useState(false)
@@ -181,6 +182,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       const stage = document.querySelector<HTMLElement>('.canvas-stage')
       stage?.focus({ preventScroll: true })
       stage?.scrollIntoView({ block:'center' })
+      const paper = stage?.querySelector('.canvas-paper')
+      if (paper && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        paper.animate([{ outline: '3px solid #d60016' }, { outline: '3px solid transparent' }], { duration: 420 })
+      }
     })
   }
   function receiveReview(report: AuditReport, source: Project, index?: number) {
@@ -281,6 +286,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     const selectedId = project.slides[current].id
     chooseSlide(slides.findIndex(slide => slide.id === selectedId))
     setProject({ ...project, slides })
+    setSlideFeedback({ text: `Slide movido para a posição ${to + 1}.`, id: crypto.randomUUID() })
   }
   function slideAction(action: 'add' | 'duplicate' | 'remove' | 'up' | 'down') {
     if (!project) return
@@ -291,6 +297,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     if (action === 'remove') { if (!window.confirm('Excluir este slide?')) return; slides.splice(current, 1); next = Math.min(current, slides.length - 1) }
     if (action === 'up' || action === 'down') { next += action === 'up' ? -1 : 1; [slides[next], slides[current]] = [slides[current], slides[next]] }
     chooseSlide(next); setProject({ ...project, slides })
+    setSlideFeedback({ text: {
+      add: 'Slide adicionado.', duplicate: 'Slide duplicado.', remove: 'Slide excluído.',
+      up: `Slide movido para a posição ${next + 1}.`, down: `Slide movido para a posição ${next + 1}.`,
+    }[action], id: crypto.randomUUID() })
   }
   function openImages(tab: 'search' | 'library', useBrief = false) {
     const slide = project?.slides[current]
@@ -404,7 +414,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <button onClick={() => void back()}>Projetos</button>
         <label className="studio-project-name">Projeto<input value={project.name} maxLength={100} onChange={event => setProject({ ...project, name: event.target.value, updatedAt: new Date().toISOString() })} /></label>
         <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
-        <span className="studio-save-status" data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
+        <span key={status} className={status === 'Salvo' ? 'studio-save-status studio-feedback' : 'studio-save-status'} data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
+        {slideFeedback && <span key={slideFeedback.id} className="studio-feedback sr-only" role="status">{slideFeedback.text}</span>}
         </div>
         <details className="studio-more" onBlur={event => {
           if (event.relatedTarget instanceof Node && !event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false

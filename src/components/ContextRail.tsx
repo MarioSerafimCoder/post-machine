@@ -3,11 +3,14 @@ import { Icon, type IconName } from './Icon'
 
 export type ContextTool = { label: string; icon: IconName }
 
-export function ContextRail({ label, tools, selected, choose }: {
+export function ContextRail({ label, tools, selected, choose, completed = [], disabled = false }: {
   label: string; tools: readonly ContextTool[]; selected: string | null; choose: (label: string) => void
+  completed?: readonly string[]; disabled?: boolean
 }) {
   return <nav className="context-rail" aria-label={label}>
-    {tools.map(tool => <button key={tool.label} type="button" aria-pressed={selected === tool.label}
+    {tools.map(tool => <button key={tool.label} type="button" aria-label={tool.label} aria-pressed={selected === tool.label}
+      disabled={disabled} data-complete={completed.includes(tool.label) || undefined}
+      aria-description={completed.includes(tool.label) ? 'Etapa concluída' : undefined}
       title={tool.label} onClick={() => choose(tool.label)}>
       <Icon name={tool.icon} /><span>{tool.label}</span>
     </button>)}

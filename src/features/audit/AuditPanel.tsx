@@ -20,6 +20,8 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
   const [scope,setScope] = useState<number>()
   const [busy,setBusy] = useState(false)
   const [progress,setProgress] = useState('')
+  const [analyzed, setAnalyzed] = useState({ done: 0, total: 1 })
+  const [feedback, setFeedback] = useState('')
   const [error,setError] = useState('')
   const [severity,setSeverity] = useState<Severity|'all'>('all')
   const [category,setCategory] = useState<Category|'all'>('all')
@@ -43,9 +45,11 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
   useEffect(() => () => controller.current?.abort(), [])
   async function run(index?: number, value=project, corrections: string[] = fixes.current) {
     controller.current?.abort(); const abort = new AbortController();controller.current=abort
-    setBusy(true);setError('');setProgress('Preparando…')
+    setBusy(true);setError('');setProgress('Preparando…');setAnalyzed({ done: 0, total: index === undefined ? value.slides.length : 1 })
     try {
-      const result=await auditProject({project:value,slideIndex:index,signal:abort.signal,progress:(done,total)=>{if(!abort.signal.aborted)setProgress(`${done} de ${total} slides`)}})
+      const result=await auditProject({project:value,slideIndex:index,signal:abort.signal,progress:(done,total)=>{
+        if (!abort.signal.aborted) { setAnalyzed({ done, total }); setProgress(`${done} de ${total} slides`) }
+      }})
       if(abort.signal.aborted)return
       onReport?.(result,value,index)
       setReport({...result,corrections});setSource(value);setScope(index);setReviewed(new Set());setProgress('')
@@ -67,6 +71,7 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
       const applied = await onChange(proposal.project, project, true)
       fixes.current = [...fixes.current, `${finding.id}: ${proposal.description}`]
       setUndoSource(applied)
+      setFeedback('Correção aplicada. Você pode desfazer a alteração.')
       await run(scope, applied)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -81,6 +86,7 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
       await onUndo?.()
       fixes.current = [...fixes.current, 'Última correção desfeita.']
       setUndoSource(undefined)
+      setFeedback('Última correção desfeita.')
     } catch (cause) { setError(String(cause)) }
   }
   async function fixBatch(items: Finding[]) {
@@ -116,6 +122,7 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
       setAttempts({ ...attemptsRef.current })
       fixes.current = [...fixes.current, ...changes.map(({ finding, description }) => `${finding.id}: ${description}`)]
       setUndoSource(applied)
+      setFeedback(`${changes.length} correções aplicadas. Você pode desfazer o lote.`)
       await run(scope, applied)
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)) }
     finally { processing.current = false; setProposing(false) }
@@ -133,6 +140,8 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
   const updateSettings=(next:typeof settings)=>{if(next.minBodySize<1||next.minBodySize>200||next.minLargeSize<1||next.minLargeSize>200||next.contrastNormal<1||next.contrastNormal>21||next.contrastLarge<1||next.contrastLarge>21)return;void Promise.resolve().then(()=>onChange({...project,auditSettings:next,updatedAt:new Date().toISOString()}, project)).catch(cause=>setError(String(cause)))}
   const toggle=(key:'requireBrand'|'requireLogo'|'enforcePalette')=>updateSettings({...settings,[key]:!settings[key]})
   return <section className={contextual ? "audit-panel audit-context" : "audit-panel"} aria-label="Auditoria de design" tabIndex={-1} id={currentSlide === undefined ? 'audit-Diagnóstico' : undefined}>
+    {busy && <progress aria-label="Progresso da auditoria" value={analyzed.done} max={analyzed.total} />}
+    {feedback && <p className="audit-feedback" key={feedback} role="status">{feedback}</p>}
     <div className="audit-actions" hidden={view !== 'diagnosis' && !!report}><button className="button button-dark" disabled={busy || proposing} onClick={()=>void run()}>Auditar todos os slides</button>{currentSlide!==undefined&&<button className="button button-outline" disabled={busy || proposing} onClick={()=>void run(currentSlide)}>Auditar slide atual</button>}{progress&&<span role="status">{progress}</span>}{busy&&<button onClick={()=>{controller.current?.abort();setProgress('Auditoria interrompida.')}}>Cancelar</button>}</div>
     <details className="audit-settings" hidden={view !== 'diagnosis'}><summary>Regras da marca e limites</summary><label><input type="checkbox" checked={settings.requireBrand} onChange={()=>toggle('requireBrand')}/> Exigir identificação de marca</label><label><input type="checkbox" checked={settings.requireLogo} onChange={()=>toggle('requireLogo')}/> Exigir logotipo</label><label><input type="checkbox" checked={settings.enforcePalette} onChange={()=>toggle('enforcePalette')}/> Conferir paleta</label><label>Texto mínimo (px) <input type="number" min="1" max="200" value={settings.minBodySize} onChange={e=>updateSettings({...settings,minBodySize:Number(e.target.value)})}/></label><label>Título mínimo (px) <input type="number" min="1" max="200" value={settings.minLargeSize} onChange={e=>updateSettings({...settings,minLargeSize:Number(e.target.value)})}/></label><label>Contraste texto comum <input type="number" min="1" max="21" step="0.1" value={settings.contrastNormal} onChange={e=>updateSettings({...settings,contrastNormal:Number(e.target.value)})}/></label><label>Contraste texto grande <input type="number" min="1" max="21" step="0.1" value={settings.contrastLarge} onChange={e=>updateSettings({...settings,contrastLarge:Number(e.target.value)})}/></label></details>
     {error&&<p role="alert" className="audit-error">{error}</p>}

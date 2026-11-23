@@ -8,7 +8,7 @@
 .campaign-library { align-self: start; }
 .campaign-library ul, .campaign-slides { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 .campaign-library-item { width: 100%; text-align: left; border: 1px solid #e5e5df; border-radius: 8px; background: white; padding: 10px; cursor: pointer; }
-.campaign-library-item[aria-pressed=true] { background: #f2f5e9; border-color: #7f7f7f; }
+.campaign-library-item[aria-pressed=true] { background: var(--surface-muted); border-color: #7f7f7f; }
 .campaign-library-item span { display: block; margin-top: 5px; font-size: .75rem; }
 .campaign-backup, .campaign-editor { display: grid; gap: 12px; min-width: 0; }
 .campaign-backup { border-top: 1px solid #e5e5df; padding-top: 14px; }

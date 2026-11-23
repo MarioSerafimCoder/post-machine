@@ -136,6 +136,12 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   function change(slide: string, patch: Partial<Entry>) {
     setSlides(value => value.map(item => item.key === slide ? { ...item, ...patch } : item))
   }
+  function assignPhoto(slide: Entry, index: number, id: string | null | undefined) {
+    change(slide.key, { imageId: id })
+    const photo = photos.find(item => item.id === id)
+    setStatus(photo ? `${photo.name} vinculada ao slide ${index + 1}.` :
+      id === null ? `Slide ${index + 1} definido sem imagem.` : `Slide ${index + 1} voltou à distribuição automática.`)
+  }
   function organize(values: CollectionSlide[]) {
     setSlides(previous => reconcileExpressSlides(values, previous, key))
   }
@@ -256,6 +262,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     setPhotos(items => items.filter(item => item.id !== id))
     setSlides(items => items.map(item => item.imageId === id ? { ...item, imageId:undefined } : item))
     if (photoId === id) setPhotoId('')
+    setStatus('Imagem e seus vínculos removidos da preparação.')
   }
 
   const invalid = slides.map((slide,index) => {
@@ -464,7 +471,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           if (dragged.current && !busy) event.preventDefault()
         }} onDrop={event => {
           event.preventDefault()
-          if (!busy && photos.some(photo => photo.id === dragged.current)) change(slide.key, { imageId: dragged.current })
+          if (!busy && photos.some(photo => photo.id === dragged.current)) assignPhoto(slide, index, dragged.current)
           dragged.current = undefined
         }}><div className="express-image-match">
           {typeof imagePlan[index]?.content.image?.src === 'string' && <img src={imagePlan[index].content.image!.src as string} alt="" />}
@@ -473,7 +480,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
             {imagePlan[index]?.picture?.origin === 'automatic' && <p>Distribuição pela ordem dos arquivos.</p>}
           </div>
         </div><label>Imagem do slide {index+1}<select id={'express-edit-image-' + index} value={slide.imageId === null ? 'none' : slide.imageId ?? ''}
-          onChange={event => change(slide.key,{imageId:event.target.value === 'none' ? null : event.target.value || undefined})}>
+          onChange={event => assignPhoto(slide, index, event.target.value === 'none' ? null : event.target.value || undefined)}>
           <option value="">Automática, pela ordem</option><option value="none">Sem imagem</option>{photos.map((photo,i) => <option value={photo.id} key={photo.id}>{i+1} · {photo.name}</option>)}
         </select></label><label>Enquadramento do slide {index+1}<select value={slide.framing ?? 'cover'}
           onChange={event => change(slide.key,{framing:event.target.value === 'contain' ? 'contain' : 'cover'})}>
@@ -545,7 +552,11 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       </div>
     </div>}
     {draftGate === 'ready' && <>
-    <ContextWorkspace rail={<ContextRail label="Etapas da Produção Expressa" tools={tools} selected={step} choose={selectStep} />}>
+    <ContextWorkspace rail={<ContextRail label="Etapas da Produção Expressa" tools={tools} selected={step} choose={selectStep}
+      disabled={busy || downloading} completed={[
+        ...(!invalid.length ? ['Conteúdo'] : []), ...(photos.length || slides.every(item => item.imageId === null) ? ['Imagens'] : []),
+        ...(step === 'Prévia' || style !== collections[0] ? ['Templates'] : []), ...(result ? ['Prévia'] : []),
+      ]} />}>
       <div className="express-panel">
         <header className="express-step">
           <h3>{step}</h3>
@@ -553,8 +564,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         </header>
         {(busy || downloading) && <p role="status">{downloading ? 'Baixando imagem…' : 'Preparando…'}</p>}
         {error && <p className="express-warning" role="alert">{error}</p>}
-        {status && <p role="status">{status}</p>}
-        {panel}
+        {status && <p className="express-feedback" key={status} role="status">{status}</p>}
+        <div className="express-stage" key={step}>{panel}</div>
         {step !== 'Prévia' && <div className="collection-actions express-next">
           <button className="button button-dark" disabled={busy || downloading || (step === 'Conteúdo' && !!invalid.length)}
             onClick={() => selectStep(step === 'Conteúdo' ? 'Imagens' : step === 'Imagens' ? 'Templates' : 'Prévia')}>
