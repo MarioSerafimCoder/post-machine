@@ -1,67 +1,59 @@
 import { describe, expect, it } from 'vitest'
-import { rankAutomaticImages as rankPhotographs, visualQueries } from './automaticSearch'
-import { responseSchema, type ImageResult } from './contract'
+import { evaluateCandidate, evaluateCatalog, requestFor, similarImage } from './automaticSearch'
+import type { DocumentaryAsset } from './documentaryContract'
+import { campaignContext, needsImage, researchUrl } from './visualContext'
+import type { ImageCredit } from './contract'
 
-const photo = (patch: Partial<ImageResult> = {}): ImageResult => responseSchema.parse({ page_count: 1, results: [{
-  id: '762ec81b-3312-40d6-8ce2-e70aa6b43465', title: 'Ponte da arquitetura urbana', creator: 'Autoria da fixture',
-  category: 'photograph', url: 'https://upload.wikimedia.org/original.jpg',
-  foreign_landing_url: 'https://commons.wikimedia.org/wiki/File:Original.jpg', width: 1400, height: 1000,
-  license: 'by', license_url: 'https://creativecommons.org/licenses/by/4.0/', license_version: '4.0', ...patch,
-}] }).results[0]
+const page = 'https://www.geico.com/about/pressreleases/2026/20261123/'
+const copy = { title: 'Um filme feito à mão', role: 'cover', imageBrief: 'Still de How 15% Saved Christmas' }
+const source = { title: "GEICO rolls into its first Macy’s Thanksgiving Day Parade and premieres 'How 15% Saved Christmas'", url: page }
+const visual = {
+  subject: 'GEICO estreia How 15% Saved Christmas', campaignName: 'How 15% Saved Christmas', year: 2026,
+  entities: ['GEICO', 'Screen Novelties'], excludedSubjects: ['Road Trip to Parade'], mediaType: 'stop-motion holiday film',
+}
+const context = campaignContext({ title: 'Um filme feito à mão', sources: [source], visual, slides: [copy] })
+const request = requestFor('project/cover', copy, context, 1.2)!
+const film: DocumentaryAsset = {
+  page, provider: 'official', evidence: 'body',
+  url: 'https://www.geico.com/public/images/aboutgeico/GEICO_15_Percent_Saved_Christmas.jpg',
+  caption: 'GEICO - How 15 Percent Saved Christmas - 11-23-26', title: source.title,
+  width: 1200, height: 629, ticket: '',
+}
 
-describe('política visual automática', () => {
-  const query = visualQueries({ title: 'Ponte e arquitetura urbana', imageBrief: 'Fotografia de ponte e arquitetura', body: 'Vista do bairro.' })!
-  it('prioriza a consulta factual e usa apoio fotográfico apenas na última camada', () => {
-    expect(query.stages.map(stage => stage.strategy)).toEqual(['documental', 'documental-expandida', 'editorial'])
-    expect(query.stages[1].query).toContain('bridge')
-    expect(visualQueries({ title: 'Arquitetura urbana', imageBrief: 'Sem fotografia nesta peça' })).toBeUndefined()
-    expect(visualQueries({ title: 'Comparar opções', role: 'comparison' })).toBeUndefined()
-    expect(visualQueries({ title: 'Arquitetura urbana', imageBrief: 'Ilustração conceitual de futuro' })?.stages[0].query).not.toMatch(/conceitual|ilustracao/)
+describe('inteligência visual documental', () => {
+  it('leva o nome completo da campanha à busca mesmo quando a headline o omite', () => {
+    expect(context.query).toBe('GEICO How 15% Saved Christmas stop-motion holiday film 2026')
+    expect(context.names).toContain('Screen Novelties')
+    expect(evaluateCandidate(film, request)).toMatchObject({ match: { classification: 'confirmed' } })
+    const next = campaignContext({ title: 'Um filme feito à mão', sources: [{ ...source, url: 'https://www.geico.com/about/pressreleases/' }], visual, slides: [copy] })
+    expect(requestFor('project/cover', copy, next, 1.2)?.signature).not.toBe(request.signature)
+    expect(requestFor('project/cover', copy, context, 1.6)?.signature).toBe(request.signature)
+    expect(requestFor('project/cover', copy, context, 1.2, 1)?.signature).not.toBe(request.signature)
   })
-  it('exige indícios documentais, pertinência e licença para adaptação', () => {
-    const stock = photo({ title: 'Ponte arquitetura, stock photo' })
-    expect(rankPhotographs([stock, photo()], query, 'documental', new Set()).map(item => item.result.title)).toEqual(['Ponte da arquitetura urbana'])
-    expect(rankPhotographs([stock], query, 'editorial', new Set())).toHaveLength(1)
-    expect(rankPhotographs([
-      photo({ category: 'illustration' }), photo({ title: 'Ponte arquitetura, AI generated' }),
-      photo({ title: 'Pássaro no telhado' }), photo({ license: 'by-nd', license_url: 'https://creativecommons.org/licenses/by-nd/4.0/' }),
-      photo({ width: 240 }),
-    ], query, 'editorial', new Set())).toHaveLength(0)
-    expect(rankPhotographs([photo()], query, 'documental', new Set([photo().url!]))).toHaveLength(0)
+  it('rejeita Natal genérico e material do desfile mesmo quando a página menciona o filme', () => {
+    expect(evaluateCandidate({ ...film, page: 'https://www.flickr.com/photo', provider: 'brave', evidence: 'search',
+      title: 'Christmas puppets in New York', caption: undefined }, request)).toEqual({ score: 0, rejected: true })
+    expect(evaluateCandidate({ ...film, caption: 'Road Trip to Parade: GEICO float' }, request)).toEqual({ score: 0, rejected: true })
+    expect(evaluateCandidate({ ...film, provider: 'brave', evidence: 'search' }, request)).toMatchObject({ match: { classification: 'related' } })
   })
-  it('usa um evento mencionado no corpo apenas como apoio editorial', () => {
-    const visual = visualQueries({ title: 'A seguradora fez um filme de Natal. Por quê?',
-      body: 'A estreia acontece no desfile da Macy’s.' })!
-    const context = visual.stages.at(-1)!
-    expect(context).toMatchObject({ strategy: 'editorial', query: 'macys thanksgiving day parade' })
-    const archive = photo({ title: 'Macy’s Thanksgiving Day Parade 2022' })
-    const unrelated = photo({ title: 'Thanksgiving parade in Plymouth' })
-    const wrongLicense = photo({ title: archive.title, license: 'by-nd', license_url: 'https://creativecommons.org/licenses/by-nd/4.0/' })
-    expect(rankPhotographs([archive], visual, 'documental', new Set())).toHaveLength(0)
-    expect(rankPhotographs([archive, unrelated, wrongLicense], visual, 'editorial', new Set(), context)).toHaveLength(1)
+  it('reconhece campanhas animadas reais e reserva os bastidores para a peça que os pede', () => {
+    const bts = { ...film, evidence: 'poster' as const, section: 'Behind the scenes with Screen Novelties',
+      caption: 'How 15% Saved Christmas — puppet making and animation' }
+    const copy = { title: 'Puppet making', body: 'Behind the scenes with Screen Novelties', role: 'content' }
+    expect(evaluateCandidate(bts, requestFor('project/bts', copy, context, 1)!)).toMatchObject({ match: { classification: 'confirmed' } })
+    expect(needsImage({ title: 'Composição exclusivamente tipográfica', visualContext: { imageType: 'textual' } })).toBe(false)
+    expect(needsImage({ title: 'Leia a legenda', role: 'cta' })).toBe(false)
   })
-  it('separa a técnica de animação de usos fotográficos de stop motion', () => {
-    const visual = visualQueries({ title: 'A animação artesanal faz parte da proposta' })!
-    const context = visual.stages.at(-1)!
-    const movie = photo({ title: 'Stop-motion animation behind the scenes' })
-    const waterfall = photo({ title: 'Waterfall captured with stop motion' })
-    expect(rankPhotographs([movie, waterfall], visual, 'editorial', new Set(), context).map(item => item.result.title)).toEqual([movie.title])
+  it('usa Openverse como apoio com relevância e mantém correspondência de página original', () => {
+    const credit: ImageCredit = { schemaVersion: 1, provider: 'openverse', sourceId: '762ec81b-3312-40d6-8ce2-e70aa6b43465',
+      retrievedAt: '2026-11-24T10:00:00Z', sourcePage: page }
+    expect(evaluateCatalog(credit, 'Fotografia da matéria', request, false)?.match.classification).toBe('confirmed')
+    expect(evaluateCatalog({ ...credit, sourcePage: 'https://www.flickr.com/photo' }, 'Christmas puppets documentary', request, false)).toBeUndefined()
+    expect(similarImage('09abcdabcd123456', new Set(['foto:09abcdabcd123457']))).toBe(true)
   })
-  it('prioriza correspondência exata com a fonte e exige licença mesmo para a foto original', () => {
-    const sourcePage = 'https://example.org/noticia'
-    const visual = visualQueries({ title: 'Ponte e arquitetura urbana', sourcePage })!
-    const original = photo({ title: 'Foto de abertura', foreign_landing_url: sourcePage })
-    const blocked = photo({ foreign_landing_url: sourcePage, license: undefined })
-    expect(rankPhotographs([photo(), original, blocked], visual, 'documental', new Set())[0]).toMatchObject({
-      result: original, original: true,
-    })
-    expect(rankPhotographs([blocked], visual, 'documental', new Set())).toHaveLength(0)
-  })
-  it('usa ilustração licenciada apenas como apoio explícito e temático', () => {
-    const visual = visualQueries({ title: 'Ponte e arquitetura urbana', imageBrief: 'Ilustração da ponte', allowIllustration: true })!
-    expect(visual.stages.at(-1)?.strategy).toBe('illustration')
-    const original = photo({ category: 'illustration' })
-    const generic = photo({ category: 'illustration', title: 'Ponte arquitetura, imagem genérica abstrata' })
-    expect(rankPhotographs([generic, original], visual, 'illustration', new Set()).map(item => item.result)).toEqual([original])
+  it('aceita destinos HTTPS públicos com URLs relativas resolvidas e elimina destinos privados', () => {
+    expect(researchUrl('/frames/film.jpg', page)?.href).toBe('https://www.geico.com/frames/film.jpg')
+    expect(['http://example.com/image', 'https://127.0.0.1/a', 'https://user@example.com/a', 'https://local.test/a']
+      .map(url => !!researchUrl(url))).toEqual([false, false, false, false])
   })
 })

@@ -2,7 +2,7 @@ import { Rect, Textbox } from 'fabric'
 import type { Draft } from '../campaigns/contract'
 import { dimensions, newProject, type Brand, type Format, type Scene, type VisualSlide } from './model'
 import './objects'
-import { visualQueries } from '../images/automaticSearch'
+import { needsImage, textLayout } from '../images/visualContext'
 import { fitText } from './factory/typography'
 export const templates = { editorial: 'Capa editorial', photo: 'Capa fotográfica', text: 'Conteúdo textual', split: 'Imagem + conteúdo', comparison: 'Comparativo', cta: 'Encerramento / CTA' }
 export type Template = keyof typeof templates
@@ -66,9 +66,9 @@ export function fromCampaign(draft: Draft, brand: Brand, preferred?: Template, f
   if (draft.content.sources.length) project.editorialReferences = draft.content.sources
   project.slides = draft.content.slides.map((s): VisualSlide => {
     const intent = s.layoutType.trim().toLowerCase()
-    const textOnly = /^(?:text|textual|somente texto|sem imagem|conteúdo textual)$/.test(intent)
+    const textOnly = textLayout(intent)
     const explicit = preferred ?? (intent !== 'editorial' && Object.hasOwn(templates, intent) ? intent as Template : undefined)
-    const query = !textOnly && s.role !== 'cta' && visualQueries(s)
+    const query = !textOnly && needsImage(s)
     let layout = explicit ?? (query ? s.role === 'cover' ? 'photo' : 'split' : s.role === 'cover' ? 'editorial' : s.role === 'cta' ? 'cta' : 'text')
     const content = { title: s.title, subtitle: s.subtitle, body: s.body,
       cta: s.role === 'cta' || draft.content!.slides.length === 1 ? draft.content!.campaign.cta : '',
@@ -80,7 +80,7 @@ export function fromCampaign(draft: Draft, brand: Brand, preferred?: Template, f
     }
     const title = scene.objects.find(object => object.semantic === 'title')
     if (title && s.headlines) title.headlines = structuredClone(s.headlines)
-    return { id: crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, visualSubtitle: s.subtitle, scene,
+    return { id: crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, visualSubtitle: s.subtitle, visualContext: s.visualContext, scene,
       ...((layout === 'photo' || layout === 'split') && query ? { visualChoice: { mode: 'automatic' as const } } : {}) }
   })
   return project

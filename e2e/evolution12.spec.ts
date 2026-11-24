@@ -65,7 +65,7 @@ test('cola, busca em paralelo, usa apoio editorial e retoma escolhas e créditos
   await button(page, 'Escolher imagem · 1').click()
   await expect(page.getByLabel('Buscar pelo conteúdo do slide').locator('option:checked')).toContainText('Cidade abstrata')
   await page.screenshot({ path: info.outputPath('apoio-editorial.png'), fullPage: true })
-  expect(queries.some(query => query.endsWith('photograph'))).toBe(true)
+  expect(queries.filter(query => /cafe|coffee/.test(query))).toHaveLength(1)
   expect(queries.every(query => !query.includes('conceitual') && !query.includes('abstrata'))).toBe(true)
   const images = page.locator('.express-image-row')
   await images.nth(0).getByRole('button', { name: 'Travar imagem', exact: true }).click()
@@ -139,7 +139,7 @@ test('aplica uma foto de arquivo como apoio quando o assunto exato não tem imag
     const query = url.searchParams.get('q')!
     searches.push(query)
     if (searches.length === 1) return route.fulfill({ status: 504 })
-    return route.fulfill({ json: { page_count: 1, results: query === 'macys thanksgiving day parade'
+    return route.fulfill({ json: { page_count: 1, results: query === 'macy thanksgiving day parade'
       ? [photo('Macy’s Thanksgiving Day Parade 2022', 1, true)] : [] } })
   })
   await page.goto('/#/radar')
@@ -150,14 +150,14 @@ test('aplica uma foto de arquivo como apoio quando o assunto exato não tem imag
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
     schemaVersion: 1, campaign: { title: 'Um filme de Natal', objective: 'Informar', audience: 'Leitores', tone: 'Profissional', format: 'post', caption: '', cta: '' },
     sources: [], slides: [{ order: 1, role: 'cover', title: 'A marca fez um filme de Natal',
-      body: 'A produção será exibida durante o desfile da Macy’s.', imageBrief: '', layoutType: 'editorial' }],
+      body: 'A produção será exibida durante o desfile da Macy’s.', imageBrief: '', layoutType: 'editorial',
+      visualContext: { searchQueries: ['Filme de Natal', 'Macy’s Thanksgiving Day Parade'] } }],
   }))
   await button(page, 'Importar conteúdo').click()
   imported = true
   await button(page, 'Salvar e abrir no Studio').click()
   await expect(button(page, 'Slide 1')).toHaveAttribute('aria-description', /Imagem encontrada/)
-  expect(searches).toHaveLength(3)
-  expect(searches.at(-1)).toBe('macys thanksgiving day parade')
+  expect(searches).toEqual(['filme natal', 'macy thanksgiving day parade'])
   await button(page, 'Imagens').click()
   const imageStatus = page.getByRole('status').filter({ hasText: 'Imagem encontrada' })
   await imageStatus.getByText('Sobre a imagem').click()

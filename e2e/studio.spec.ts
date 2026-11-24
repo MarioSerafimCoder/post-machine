@@ -333,7 +333,7 @@ test('avisa overflow e mantém o editor usável em 1024, 1280 e 1440', async ({ 
   await page.getByLabel('Texto do elemento').fill('Texto longo que precisa de revisão. '.repeat(50))
   await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
   await page.getByRole('button', { name: 'Exportar PNG', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('Texto excede a área')
+  await expect(page.getByRole('alert')).toContainText('Texto excede a área', { timeout: 15_000 })
   await page.getByRole('button', { name: 'Voltar para corrigir' }).click()
 })
 

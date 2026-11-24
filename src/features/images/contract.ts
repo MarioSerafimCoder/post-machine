@@ -18,11 +18,18 @@ const metadataFields = {
   license: z.string().max(80).optional(), licenseVersion: z.string().max(50).optional(), licenseUrl: link.optional(),
   attribution: z.string().max(4000).optional(),
 }
-export const imageCreditSchema = z.strictObject({
+const openverseCredit = z.strictObject({
   schemaVersion: z.literal(1), provider: z.literal('openverse'), sourceId: z.uuid(),
   retrievedAt: z.iso.datetime(), ...metadataFields,
 })
+export const imageCreditSchema = z.discriminatedUnion('provider', [openverseCredit, openverseCredit.extend({
+  provider: z.enum(['original', 'official', 'brave', 'audiovisual', 'imported', 'manual']),
+  sourceId: z.string().regex(/^[\w:.-]{1,160}$/),
+  evidence: z.string().max(500).optional(),
+})])
 export type ImageCredit = z.infer<typeof imageCreditSchema>
+export const creditProvider = { openverse: 'Openverse', original: 'Fonte original', official: 'Fonte oficial',
+  brave: 'Busca de imagens', audiovisual: 'Material audiovisual', imported: 'Link externo', manual: 'Arquivo local' }
 
 const field = (max: number) => z.unknown().optional().transform(value => typeof value === 'string' ? value.trim().slice(0, max) || undefined : undefined)
 const urlField = field(3000).transform(value => value && safeWebUrl(value) ? value : undefined)

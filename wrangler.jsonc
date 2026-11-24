@@ -1,9 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "post-machine",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-11-13",
   "workers_dev": false,
   "preview_urls": false,
   "routes": [{ "pattern": "posts.marioserafim.com.br", "custom_domain": true }],
-  "assets": { "directory": "./dist", "not_found_handling": "single-page-application" }
+  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/api/visual/*"] },
+  "ratelimits": [
+    { "name": "VISUAL_LIMIT", "namespace_id": "74121", "simple": { "limit": 45, "period": 60 } },
+    { "name": "BRAVE_LIMIT", "namespace_id": "74122", "simple": { "limit": 8, "period": 60 } }
+  ]
 }

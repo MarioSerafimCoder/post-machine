@@ -1,5 +1,5 @@
 import type { Project } from '../studio/model'
-import { imageCreditSchema, licenseName, licenseTerms, type ImageCredit } from './contract'
+import { creditProvider, imageCreditSchema, licenseName, licenseTerms, type ImageCredit } from './contract'
 
 export function* imageObjects(objects: Record<string, unknown>[]): Generator<Record<string, unknown>> {
   for (const object of objects) {
@@ -14,10 +14,11 @@ export function creditText(credit: ImageCredit) {
     credit.title || 'Imagem sem título',
     `Autor: ${credit.creator || 'Não informado'}`,
     credit.creatorUrl,
-    `Fonte: ${credit.source || credit.catalogProvider || 'Openverse'}`,
+    `Fonte: ${credit.source || credit.catalogProvider || creditProvider[credit.provider]}`,
     credit.sourcePage || credit.originalUrl,
     `Licença: ${[licenseName(credit.license), credit.licenseVersion].filter(Boolean).join(' ')}`,
     credit.licenseUrl,
+    'evidence' in credit && credit.evidence,
     credit.attribution,
     terms.commercial === false && 'Uso comercial restrito pela licença indicada.',
     terms.shareAlike && 'Confira as condições de compartilhamento pela mesma licença.',
@@ -35,7 +36,7 @@ export function projectCredits(project: Project, current?: number) {
       const parsed = imageCreditSchema.safeParse(object.imageCredit)
       if (!parsed.success) continue
       const credit = parsed.data
-      const key = JSON.stringify([credit.sourceId, credit.license, credit.licenseVersion, credit.licenseUrl, credit.creator, credit.attribution])
+      const key = JSON.stringify([credit.provider, credit.sourceId, credit.license, credit.licenseVersion, credit.licenseUrl, credit.creator, credit.attribution])
       const entry = entries.get(key) ?? { credit, slides: [] }
       if (!entry.slides.includes(index + 1)) entry.slides.push(index + 1)
       entries.set(key, entry)

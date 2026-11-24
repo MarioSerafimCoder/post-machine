@@ -95,6 +95,7 @@ export type CollectionSlide = {
   intent?: 'highlight' | 'comparison'; framing?: 'cover' | 'contain'
   focalPoint?: import('./vision/signals').FocalPoint
   headlines?: import('../headlines/contract').HeadlineSession
+  visualContext?: import('../images/visualContext').SlideVisual
 }
 const samples: CollectionSlide[] = [
   { title: 'Ideias em forma', emphasis:'em forma', subtitle: 'Caderno de criação', body: 'Um estudo sobre escolhas visuais e o que elas comunicam.' },

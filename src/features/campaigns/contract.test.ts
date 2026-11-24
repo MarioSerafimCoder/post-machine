@@ -11,6 +11,20 @@ const draft = newDraft(article, defaultPreferences)
 const post = { ...draft, briefing: { ...draft.briefing, format: 'post' as const } }
 
 describe('contrato editorial', () => {
+  it('preserva os campos visuais opcionais do JSON v1 e valida as entradas', () => {
+    const legacy = importContent(markdownExample, post)
+    const visual = { subject: 'How 15% Saved Christmas', campaignName: 'How 15% Saved Christmas', entities: ['GEICO'],
+      year: 2026, mediaType: 'Filme', searchQueries: ['GEICO How 15% Saved Christmas'], preferredSources: ['https://www.geico.com/about/'],
+      excludedSubjects: ['Natal genérico'] }
+    const slideVisual = { visualIntent: 'Still da campanha', searchQueries: ['How 15% Saved Christmas still'],
+      preferredSourceUrls: ['https://www.geico.com/about/'], imageType: 'Still' }
+    const extended = { ...legacy, campaign: { ...legacy.campaign, visualContext: visual },
+      slides: [{ ...legacy.slides[0], visualContext: slideVisual }] }
+    expect(importContent(JSON.stringify(extended))).toEqual(extended)
+    expect(() => importContent(JSON.stringify({ ...extended, campaign: { ...extended.campaign,
+      visualContext: { ...visual, preferredSources: ['https://192.168.1.1/'] } } }))).toThrow()
+  })
+
   it('inclui o briefing, a fonte, regras factuais e a sequência no prompt', () => {
     const prompt = createPrompt({ ...draft, briefing: { ...draft.briefing, slideCount: 3, audience: 'Designers' } })
     expect(prompt).toContain(article.url)

@@ -5,7 +5,7 @@ import type { Format } from './model'
 import type { VisualMatch } from '../images/automaticSearch'
 import type { FocalPoint } from './vision/signals'
 
-export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean; imageLocked?: boolean; searchRevision?: number }
+export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean; imageLocked?: boolean; searchRevision?: number; discardedVisuals?: string[] }
 export type ExpressPhoto = { id: string; name: string; bytes: number; object: Record<string, unknown>; file: Blob
   automatic?: { slideKey: string; signature: string; match: VisualMatch; focalPoint?: FocalPoint }
 }
@@ -124,7 +124,7 @@ export function reconcileExpressSlides(values: CollectionSlide[], previous: Expr
     const match = candidates?.length === 1 && counts.get(id) === 1 ? candidates[0] : undefined
     return { ...slide, key: match?.key ?? newKey(), imageId: match?.imageId, framing: match?.framing ?? slide.framing,
       ...(match?.focalPoint ? { focalPoint: match.focalPoint } : {}), ...(match?.ignoreVisual ? { ignoreVisual: true } : {}),
-      imageLocked: match?.imageLocked, searchRevision: match?.searchRevision,
+      imageLocked: match?.imageLocked, searchRevision: match?.searchRevision, discardedVisuals: match?.discardedVisuals,
     }
   })
 }

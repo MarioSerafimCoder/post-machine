@@ -4,6 +4,7 @@ import { headlineSessionSchema } from '../headlines/contract'
 import { creativeOriginSchema, type CreativeOrigin, type Reference } from '../virals/contract'
 import { editorialFormat } from '../virals/catalog'
 import { accessStates, channels } from '../intelligence/types'
+import { campaignVisualSchema, slideVisualSchema } from '../images/visualContext'
 
 export const objectives = ['Informar', 'Educar', 'Gerar engajamento', 'Provocar reflexão', 'Apresentar uma opinião', 'Converter'] as const
 export const tones = ['Profissional', 'Criativo', 'Provocativo', 'Reflexivo', 'Informal', 'Institucional'] as const
@@ -36,10 +37,12 @@ const sourceSchema = z.object({ title: short.trim().min(1), url: webUrl, publish
 const slideSchema = z.object({
   order: z.number().int().min(1).max(maxSlides), role: z.enum(['cover', 'content', 'cta']),
   title: short, subtitle: short.optional(), body: prose, imageBrief: prose, layoutType: short, headlines: headlineSessionSchema.optional(),
+  visualContext: slideVisualSchema.optional(),
 })
 export const contentSchema = z.object({
   schemaVersion: z.literal(1),
-  campaign: z.object({ title: short, objective: short, audience: short, tone: short, format, caption: prose, cta: prose }),
+  campaign: z.object({ title: short, objective: short, audience: short, tone: short, format, caption: prose, cta: prose,
+    visualContext: campaignVisualSchema.optional() }),
   sources: z.array(sourceSchema).max(50),
   slides: z.array(slideSchema).min(1).max(maxSlides),
 }).refine(({ slides }) => slides.every((slide, index) => slide.order === index + 1), { path: ['slides'], message: 'Use posições consecutivas a partir de 1.' })
@@ -144,6 +147,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     'Separe fatos verificáveis, interpretações e opiniões na redação. Preserve o contexto e não invente números, estudos, citações, datas, atribuições ou referências.',
     'Escreva headlines específicas e interessantes, sem clichês, linguagem artificial ou clickbait enganoso. Organize a narrativa com progressão clara e textos curtos para caber na peça.',
     'Sugira uma imagem pertinente e indique a direção de arte de cada peça em imageBrief e layoutType. Escreva uma legenda contextualizada e um CTA coerente com o objetivo.',
+    'Quando houver evidência, inclua campaign.visualContext com subject, entities (lista de nomes completos), campaignName, year (número), mediaType, searchQueries, preferredSources (lista de URLs HTTPS) e excludedSubjects. Cada slide pode ter visualContext com visualIntent, searchQueries, preferredSourceUrls e imageType. Inclua apenas campos úteis. Escreva consultas específicas em português ou no idioma original das fontes, preservando nomes de campanhas e produtos. Use URLs verificáveis e deixe em branco o que não estiver documentado.',
     ...editorialInstructions,
     'Retorne somente JSON válido. Mantenha os campos, a ordem e a quantidade de peças do modelo. Preencha os textos e liste apenas referências verificáveis. Para sources[].publishedAt, use AAAA-MM-DD quando apenas a data for conhecida (não invente horário), ISO 8601 com fuso quando a hora estiver confirmada, ou null se desconhecida. Preserve o link original.',
     '',

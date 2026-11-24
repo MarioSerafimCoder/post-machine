@@ -40,6 +40,7 @@ function makeCandidate(input: FactoryInput, brand: Brand, slide: PlannedSlide, i
   const assessment = evaluateScene(scene,measurements,slide,input.format,brand,missing)
   const preference = compositionPreference(slide,index,composition)
   let score = preference - assessment.penalty
+  if (slide.visualPlaceholder && !slide.picture && scene.objects.some(object => object.semantic === 'imageFrame')) score += 28
   const title = measurements.find(metric => metric.field === 'title')
   const body = measurements.find(metric => metric.field === 'body')
   const cta = measurements.find(metric => metric.field === 'cta')
@@ -88,7 +89,7 @@ export async function fabricate(input: FactoryInput, signal: AbortSignal, progre
       proposal.details.push({ composition:selected.composition,issues:selected.issues })
       proposal.project.slides.push({
         id:crypto.randomUUID(), role:slide.role, layout:definition(input.style,selected.composition),
-        imageBrief:slide.content.imageBrief ?? '', scene:selected.scene,
+        imageBrief:slide.content.imageBrief ?? '', visualContext:slide.content.visualContext, scene:selected.scene,
       })
     }
     progress(index+1,slides.length)

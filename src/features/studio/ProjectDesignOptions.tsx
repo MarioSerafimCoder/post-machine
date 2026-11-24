@@ -47,10 +47,11 @@ export default function ProjectDesignOptions({ source, close, save }: {
             setError('')
             const slides = project.slides.map((slide, index) => {
               const original = source.slides[index]
-              if (original.visualChoice?.mode === 'none') return rewriteVisualFrame(slide, { mode: 'none' })
-              return { ...slide, visualSubtitle: original.visualSubtitle, visualChoice: frameImage(slide.scene)
-                ? { mode: original.visualChoice?.mode === 'locked' ? 'locked' as const : 'manual' as const }
-                : original.visualChoice?.mode === 'automatic' ? { mode: 'automatic' as const } : undefined }
+              const fields = { ...slide, visualContext: original.visualContext, visualSubtitle: original.visualSubtitle }
+              if (original.visualChoice?.mode === 'none') return rewriteVisualFrame(fields, original.visualChoice)
+              return { ...fields, visualChoice: frameImage(slide.scene)
+                ? { ...original.visualChoice, mode: original.visualChoice?.mode === 'locked' ? 'locked' as const : 'manual' as const }
+                : original.visualChoice?.mode === 'automatic' ? original.visualChoice : undefined }
             })
             const copy = { ...source, id: project.id, createdAt: project.createdAt, updatedAt: project.updatedAt,
               name: source.name.slice(0, 86) + ' · ' + name, brand: project.brand, slides }

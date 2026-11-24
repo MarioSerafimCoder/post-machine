@@ -16,11 +16,12 @@ type Props = {
   caption: string; changeCaption: (value: string) => void
   locate: (finding: Finding) => void
   backup: () => Promise<void>; backupPending: boolean
+  imagesPending?: boolean
   recordDelivery: (source: Project, delivery: NonNullable<Project['delivery']>) => Promise<void>
   close: () => void
 }
 
-export function ExportPanel({ project, current, active, getCurrent, flush, review, onReport, caption, changeCaption, locate, close, backup, backupPending, recordDelivery }: Props) {
+export function ExportPanel({ project, current, active, getCurrent, flush, review, onReport, caption, changeCaption, locate, close, backup, backupPending, recordDelivery, imagesPending }: Props) {
   const deliveryStatus = useDeliveryStatus(project)
   const exportMode = useRef({ all: false, separate: false })
   const controller = useRef<AbortController | null>(null)
@@ -132,6 +133,7 @@ export function ExportPanel({ project, current, active, getCurrent, flush, revie
   const creditFile = (value: string) => download(new Blob([value], { type:'text/plain;charset=utf-8' }), 'creditos.txt')
 
   return <StudioDialog title="Finalizar projeto" closeLabel="Fechar exportação" close={close}><section className="studio-export" id="studio-export" aria-label="Central de exportação">
+    {imagesPending && <p className="muted">Há buscas de imagens em andamento. A exportação usa os slides como estão agora.</p>}
     <header><div><h3>{project.name}</h3><p className="muted">{formatNames[project.format]} · {dimensions[project.format].join(' × ')} px por arte</p></div>
       </header>
     <div className="export-filmstrip" aria-label="Prévia do carrossel">{project.slides.map((slide, index) => <figure key={slide.id}><Thumbnail scene={slide.scene} format={project.format} /><figcaption>Slide {String(index + 1).padStart(2, '0')}</figcaption></figure>)}</div>

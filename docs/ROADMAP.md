@@ -1,5 +1,10 @@
 # Roteiro por fases
 
+## Visual Intelligence Engine
+
+- Fase A introduz contexto opcional no JSON v1, extração direta, adaptadores Brave e Openverse, acervo de campanha compartilhado, alocação em segundo plano e continuidade entre Expressa e Studio. A publicação segue o workflow protegido após a configuração do Worker.
+- Fase B mede alternativas de semântica visual e OCR e calibra a classificação por amostra. Fase C investiga YouTube Data API e Browser Run com cotas verificadas.
+
 ## Evolução 12 — Busca fotográfica automática
 
 - Preparações organizadas pesquisam fotografias documentais em segundo plano. A busca expandida precede o apoio editorial e o slide fica vazio quando a evidência é insuficiente.

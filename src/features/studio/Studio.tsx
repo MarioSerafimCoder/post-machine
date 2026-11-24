@@ -3,6 +3,7 @@ import { ImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
 import { editorialImageQuery } from '../images/editorialQuery'
 import type { ImageCredit } from '../images/contract'
+import { creditKeys } from '../images/automaticSearch'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { readCampaign } from '../campaigns/storage'
@@ -44,7 +45,7 @@ import { applyCollectionBrand, buildCollectionProject, demoSlides, type Collecti
 import { AuthorTemplates, SaveTemplate } from './AuthorTemplates'
 import { copyTemplateDesign, templateRole, type AuthorTemplate, type TemplateSummary } from './authorTemplate'
 import { AdaptLayoutDialog } from './AdaptLayoutDialog'
-import { frameImage, frameRequest, imageWasEdited, rewriteVisualFrame } from './visualFrames'
+import { frameImage, frameRequest, imageWasEdited, projectVisualContext, rewriteVisualFrame, updateCanvasVisual } from './visualFrames'
 import { useAutomaticImages } from '../images/useAutomaticImages'
 import { VisualSearchStatus } from '../images/VisualSearchStatus'
 import { prepareArticleContent, preparePastedContent } from './editorialContent'
@@ -145,6 +146,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [panel, setPanel] = useState<string | null>('Texto')
   const [, refresh] = useState(0)
   const canvas = useRef<Canvas | null>(null)
+  const canvasSlide = useRef<string | undefined>(undefined)
   const [readyCanvas, setReadyCanvas] = useState<Canvas | null>(null)
   const snapshotCanvas = useCallback((record: boolean, textTarget?: Textbox) => {
     if (!canvas.current) return
@@ -153,57 +155,64 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       if (i !== currentRef.current) return s
       const edited = imageWasEdited(s.scene, scene)
       const visualChoice = s.visualChoice && edited
-        ? { mode: frameImage(scene) ? s.visualChoice.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const }
+        ? { ...s.visualChoice, match: undefined, signature: undefined,
+          mode: frameImage(scene) ? s.visualChoice.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const }
         : s.visualChoice
       return { ...s, visualChoice, scene: { ...scene, ...(!edited && s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } }
     }) }), record, false, textTarget && { target: textTarget, slide: currentRef.current })
     refresh(n => n + 1)
   }, [setProject, refresh])
   const changed = useCallback(() => snapshotCanvas(true), [snapshotCanvas])
-  const frameTargets = useMemo(() => project?.slides.flatMap(slide => {
-    if (slide.visualChoice?.mode !== 'automatic') return []
-    const request = frameRequest(project, slide)
-    return request && request.signature !== slide.visualChoice.signature ? [request] : []
-  }) ?? [], [project])
+  const frameTargets = useMemo(() => {
+    if (!project) return []
+    const research = projectVisualContext(project)
+    return project.slides.flatMap(slide => {
+      if (slide.visualChoice?.mode !== 'automatic' || semantics(slide.scene).image) return []
+      const request = frameRequest(project, slide, research)
+      return request ? [request] : []
+    })
+  }, [project])
   const projectImageSources = useMemo(() => new Set(project?.slides.flatMap(slide => {
-    const credit = frameImage(slide.scene)?.imageCredit as ImageCredit | undefined
-    return [credit?.sourceId, credit?.originalUrl, slide.visualChoice?.match?.fingerprint && 'foto:' + slide.visualChoice.match.fingerprint,
-      credit?.creator && 'autor:' + credit.creator.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()]
-      .filter((value): value is string => !!value)
+    return creditKeys(semantics(slide.scene).image?.imageCredit as ImageCredit | undefined, slide.visualChoice?.match)
   })), [project])
   const hasSelection = !!readyCanvas?.getActiveObject()
   const currentFrameKey = project && project.id + '/' + project.slides[current]?.id
-  const availableFrameTargets = useMemo(() => hasSelection ? frameTargets.filter(item => item.key !== currentFrameKey) : frameTargets,
-    [hasSelection, frameTargets, currentFrameKey])
-  const autoSearch = useAutomaticImages(active && !!project && !exportOpen, availableFrameTargets, projectImageSources, (request, image) => {
+  const autoSearch = useAutomaticImages(active && !!project, frameTargets, projectImageSources, (request, image) => {
     const latest = getCurrent()
-    if (!latest) return false
+    if (!latest || exportOpen) return false
     const index = latest.slides.findIndex(slide => latest.id + '/' + slide.id === request.key)
     const slide = latest.slides[index]
-    if (slide?.visualChoice?.mode !== 'automatic' || frameRequest(latest, slide)?.signature !== request.signature) return false
-    if (index === currentRef.current && canvas.current?.getActiveObjects().length) return false
+    if (slide?.visualChoice?.mode !== 'automatic' || semantics(slide.scene).image ||
+      frameRequest(latest, slide)?.signature !== request.signature) return false
+    const currentCanvas = index === currentRef.current ? canvas.current : null
+    if (index === currentRef.current && (!currentCanvas || canvasSlide.current !== request.key || currentCanvas.getActiveObjects().length)) return false
     const next = rewriteVisualFrame(slide, { ...slide.visualChoice, signature: request.signature, match: image.match }, image)
-    setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
-    if (index === currentRef.current) setRevision(value => value + 1)
+    if (next.scene === slide.scene || currentCanvas && !updateCanvasVisual(currentCanvas, next.scene, image)) return false
+    setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) }, false)
     return true
   }, request => {
     const latest = getCurrent()
-    if (!latest) return
+    if (!latest || exportOpen) return
     const index = latest.slides.findIndex(slide => latest.id + '/' + slide.id === request.key)
     const slide = latest.slides[index]
     if (slide?.visualChoice?.mode !== 'automatic' || frameImage(slide.scene) ||
       frameRequest(latest, slide)?.signature !== request.signature ||
       !slide.scene.objects.some(object => object.semantic === 'imageFrame' && object.visible !== false) ||
-      (index === currentRef.current && canvas.current?.getActiveObjects().length)) return
+      (index === currentRef.current && (!canvas.current || canvasSlide.current !== request.key || canvas.current.getActiveObjects().length))) return
     const next = rewriteVisualFrame(slide, slide.visualChoice, undefined, true)
-    setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
-    if (index === currentRef.current) setRevision(value => value + 1)
-  })
+    if (index === currentRef.current && canvas.current && !updateCanvasVisual(canvas.current, next.scene)) return
+    setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) }, false)
+  }, exportOpen || (!readyCanvas ? true : hasSelection ? currentFrameKey : undefined))
   function changeVisualFrame(mode: 'automatic' | 'manual' | 'locked' | 'none') {
     const latest = getCurrent()
     const slide = latest?.slides[currentRef.current]
     if (!latest || !slide) return
-    const next = mode === 'none' || mode === 'automatic' ? rewriteVisualFrame(slide, { mode, revision: (slide.visualChoice?.revision ?? 0) + 1 })
+    const excluded = creditKeys(frameImage(slide.scene)?.imageCredit as ImageCredit | undefined, slide.visualChoice?.match)
+    const next = mode === 'none' || mode === 'automatic' ? rewriteVisualFrame(slide, {
+      mode, revision: (slide.visualChoice?.revision ?? 0) + 1,
+      discarded: mode === 'automatic' && slide.visualChoice?.mode === 'none' ? undefined
+        : [...new Set([...slide.visualChoice?.discarded ?? [], ...excluded])].slice(-24),
+    })
       : { ...slide, visualChoice: { ...slide.visualChoice, mode } }
     setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
     if (next.scene !== slide.scene) setRevision(value => value + 1)
@@ -758,6 +767,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       })()}
     </div>}
     {exportOpen && <ExportPanel key={project.id} project={project} current={current} active={active} getCurrent={getCurrent} flush={flush} review={fullReview} onReport={receiveReview}
+      imagesPending={searchesPending}
       backup={downloadBackup} backupPending={backupPending}
       recordDelivery={async (source, delivery) => { if (getCurrent() !== source) return; setProject({ ...source, delivery }, false); await flush() }}
       caption={project.caption ?? campaign?.content?.campaign.caption ?? ''}
@@ -839,7 +849,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
     </Properties></div>
       <div className="studio-canvas-workspace" ref={assistantAnchor}>
-        <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={(_, target) => snapshotCanvas(true, target)} onTextEnd={endTextSession} onSelection={() => refresh(n => n + 1)} onError={setError} />
+        <CanvasView key={`${project.id}:${project.slides[current].id}:${revision}`} brand={project.brand} format={project.format} initial={project.slides[current].scene} zoom={zoom} onFit={setFitZoom} guides={guides} onReady={value => { canvas.current = value; canvasSlide.current = value ? currentFrameKey : undefined; setReadyCanvas(value);if(value&&focusPath.current){selectPath(focusPath.current);focusPath.current=null} }} onChange={(_, target) => snapshotCanvas(true, target)} onTextEnd={endTextSession} onSelection={() => refresh(n => n + 1)} onError={setError} />
       </div>
       <Slides locatePhoto={(index, operation) => {
         chooseSlide(index)

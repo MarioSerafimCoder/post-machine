@@ -114,7 +114,8 @@ async function fillSlide(template: AuthorTemplate, project: Proposal['project'],
       if (finding.severity === 'info' || finding.ruleId === 'TEXT_OVERFLOW') continue
       issues.push({ kind: finding.category === 'image' ? 'image' : finding.category === 'typography' ? 'text' : 'layout', message: finding.message })
     }
-    return { visual: { id, layout, role: slide.role, imageBrief: slide.content.imageBrief ?? '', scene: canvas.toObject() as Scene }, issues }
+    return { visual: { id, layout, role: slide.role, imageBrief: slide.content.imageBrief ?? '', visualContext: slide.content.visualContext,
+      scene: canvas.toObject() as Scene }, issues }
   } finally { await canvas.dispose() }
 }
 

@@ -6,7 +6,7 @@ import type { VisualAnalysis } from '../vision/signals'
 export type Treatment = 'balanced' | 'photo' | 'expressive'
 type ImageObject = NonNullable<CollectionSlide['image']>
 export type Asset = { id: string; name: string; object: ImageObject }
-export type Input = CollectionSlide & { imageId?: string | null; ignoreVisual?: boolean }
+export type Input = CollectionSlide & { imageId?: string | null; ignoreVisual?: boolean; visualPlaceholder?: boolean }
 export type PlannedSlide = {
   content: CollectionSlide
   role: NonNullable<CollectionSlide['role']>
@@ -14,6 +14,7 @@ export type PlannedSlide = {
   orientation: 'horizontal' | 'vertical' | 'square' | 'none'
   characters: number
   focus?: 'highlight' | 'comparison'
+  visualPlaceholder?: boolean
 }
 
 const word = (value: string) => normalize(value).match(/[\p{L}\p{N}]{4,}/gu) ?? []
@@ -90,7 +91,7 @@ export function planSlides(inputs: Input[], assets: Asset[], geometry?: { width:
     return {
       content:{ ...slide, image, focalPoint: slide.focalPoint ?? (picture?.id && !slide.ignoreVisual ? visual?.get(picture.id)?.focalPoint : undefined) }, role, picture, orientation,
       characters:slide.title.length + slide.body.length + (slide.subtitle?.length ?? 0) + (slide.cta?.length ?? 0),
-      focus:slide.intent,
+      focus:slide.intent, visualPlaceholder: slide.visualPlaceholder,
     }
   })
 }

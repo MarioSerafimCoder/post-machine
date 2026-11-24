@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listUsedImages, readImageAsset, type UsedImage } from '../studio/storage'
 import { creditText } from './credits'
-import { licenseName } from './contract'
+import { creditProvider, licenseName } from './contract'
 import type { InsertImage } from './ImageSearch'
 
 function LocalPreview({ asset }: { asset: string }) {
@@ -47,7 +47,7 @@ export function ImageLibrary({ flush, insert, success = 'Imagem reutilizada no S
     <div className="image-gallery">{items?.slice(0, limit).map(item => <article className="image-card" key={item.id}>
       <LocalPreview asset={item.asset} />
       <strong>{item.credit?.title || 'Imagem sem título'}</strong>
-      <small>{item.credit?.source || item.credit?.catalogProvider || (item.credit ? 'Openverse' : 'Arquivo local')}</small>
+      <small>{item.credit?.source || item.credit?.catalogProvider || (item.credit ? creditProvider[item.credit.provider] : 'Arquivo local')}</small>
       <small>{licenseName(item.credit?.license)}</small>
       <button disabled={pending} onClick={() => void reuse(item)}>Reutilizar imagem</button>
       {item.credit && <button onClick={() => {

@@ -332,7 +332,7 @@ export function listUsedImages() {
           const asset = image.src.slice(6)
           const parsed = imageCreditSchema.safeParse(image.imageCredit)
           const credit = parsed.success ? parsed.data : undefined
-          const id = `${asset}:${credit?.sourceId ?? ''}`
+          const id = `${asset}:${credit?.provider ?? ''}:${credit?.sourceId ?? ''}`
           if (!history.has(id)) history.set(id, { id, asset, credit })
         }
       }

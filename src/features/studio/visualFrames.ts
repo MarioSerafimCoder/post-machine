@@ -1,6 +1,6 @@
-import { Rect } from 'fabric'
-import { requestFor } from '../images/useAutomaticImages'
-import { visualQueries, type AutomaticImage, type VisualChoice } from '../images/automaticSearch'
+import { FabricImage, Rect, type Canvas } from 'fabric'
+import { requestFor, type AutomaticImage, type VisualChoice } from '../images/automaticSearch'
+import { campaignContext } from '../images/visualContext'
 import { imageForFrame } from './collections'
 import type { Project, Scene, VisualSlide } from './model'
 import { semantics } from './templates'
@@ -13,18 +13,33 @@ function frame(scene: Scene) {
   return scene.objects.find(object => object.semantic === 'imageFrame' || object.semantic === 'visualSearchFrame') ?? frameImage(scene)
 }
 
-export function frameRequest(project: Project, slide: VisualSlide) {
+export function projectVisualContext(project: Project) {
+  const slides = project.slides.map(slideCopy)
+  const context = campaignContext({
+    title: project.importedContent?.campaign.title ?? project.editorialSource?.title ?? '',
+    caption: project.caption, article: project.editorialSource,
+    sources: project.editorialReferences ?? project.importedContent?.sources,
+    visual: project.importedContent?.campaign.visualContext, slides,
+  })
+  return { slides, context }
+}
+
+function slideCopy(slide: VisualSlide) {
+  const copy = semantics(slide.scene)
+  return { ...copy, imageBrief: slide.imageBrief, role: slide.role, subtitle: copy.subtitle || slide.visualSubtitle,
+    visualContext: slide.visualContext }
+}
+
+export function frameRequest(project: Project, slide: VisualSlide, research = projectVisualContext(project)) {
   const reserved = frame(slide.scene)
   if (!reserved) return
   const ratio = (Number(reserved.width) * Number(reserved.scaleX ?? 1)) / (Number(reserved.height) * Number(reserved.scaleY ?? 1))
   if (!Number.isFinite(ratio) || ratio <= 0) return
-  const query = visualQueries({ ...semantics(slide.scene), imageBrief: slide.imageBrief, role: slide.role, campaign: project.name,
-    subtitle: slide.scene.objects.filter(object => object.semantic === 'subtitle').map(object => String(object.text ?? '')).join(' ') || slide.visualSubtitle,
-    sourcePage: slide.role === 'cover' ? project.editorialSource?.url : undefined,
-    sourceImage: slide.role === 'cover' ? project.editorialSource?.imageUrl : undefined,
-    allowIllustration: !!project.editorialSource,
-    ratio })
-  return query ? requestFor(project.id + '/' + slide.id, query, slide.visualChoice?.revision) : undefined
+  const index = project.slides.findIndex(item => item.id === slide.id)
+  const copy = research.slides[index]
+  if (!copy) return
+  const neighbors = research.slides.slice(Math.max(0, index - 1), index + 2).filter(item => item !== copy)
+  return requestFor(project.id + '/' + slide.id, copy, research.context, ratio, slide.visualChoice?.revision, neighbors, slide.visualChoice?.discarded)
 }
 
 export function rewriteVisualFrame(slide: VisualSlide, choice: VisualChoice, suggestion?: AutomaticImage, hidePlaceholder = choice.mode === 'none'): VisualSlide {
@@ -54,4 +69,24 @@ export function imageWasEdited(previous: Scene, next: Scene) {
   const after = frameImage(next)
   return ['src', 'left', 'top', 'scaleX', 'scaleY', 'cropX', 'cropY', 'width', 'height', 'angle', 'visible']
     .some(key => before?.[key] !== after?.[key])
+}
+
+export function updateCanvasVisual(canvas: Canvas, next: Scene, suggestion?: AutomaticImage) {
+  const objects = canvas.getObjects()
+  const current = objects.find(object => object.semantic === 'imageFrame' || object.semantic === 'visualSearchFrame')
+  if (!current) return false
+  const frame = next.objects.find(object => object.semantic === 'imageFrame' || object.semantic === 'visualSearchFrame')
+  const picture = frameImage(next)
+  if (!frame || (suggestion && !picture)) return false
+  current.set({ semantic: frame.semantic as string, visible: frame.visible !== false })
+  canvas.remove(...objects.filter(object => ['imageHint', 'imageDecoration'].includes(object.semantic ?? '')))
+  if (suggestion && picture) {
+    const properties = { ...picture }
+    delete properties.type
+    const rendered = new FabricImage(suggestion.element, properties)
+    canvas.insertAt(canvas.getObjects().indexOf(current) + 1, rendered)
+    rendered.setCoords()
+  }
+  canvas.requestRenderAll()
+  return true
 }

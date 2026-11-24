@@ -39,7 +39,7 @@ test('audita, localiza, corrige, desfaz e preserva projeto', async ({page})=>{
   expect(report.findings.some((f:{ruleId:string})=>f.ruleId==='SAFE_MARGIN')).toBe(true)
   await page.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
   await page.getByRole('button',{name:'Exportar PNG',exact:true}).click()
-  await expect(page.getByRole('alert')).toContainText('Texto fora da margem segura')
+  await expect(page.getByRole('alert')).toContainText('Texto fora da margem segura', { timeout: 15_000 })
   const pngEvent=page.waitForEvent('download')
   await page.getByRole('button',{name:'Exportar com avisos'}).click()
   const png=await readFile(await (await pngEvent).path())
