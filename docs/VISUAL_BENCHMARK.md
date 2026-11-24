@@ -8,12 +8,34 @@ O replayer executa o motor de `4721bb2`, a Fase A de `3884ebc` e a implementaç�
 
 Precisão é a proporção de imagens atribuídas que a rubrica aceita. Relevância por slide inclui todo o denominador de capas e detalhes, inclusive frames vazios. Revisão manual potencial conta frames vazios ou em desacordo com a rubrica. O teste de intervenção efetiva no Studio verifica a aprovação, preservação no backup e reabertura. As medidas de heap são do JavaScript no navegador. Memória nativa do WASM, GPU e uso de outras abas ficam fora dessa leitura.
 
+## Resultado em 31 notícias
+
+| Medida | Motor anterior | Fase A | Atual |
+| --- | ---: | ---: | ---: |
+| Precisão documental das imagens aplicadas | 0/2 | 23/27 (85,2%) | 31/32 (96,9%) |
+| Capas relevantes | 0/31 | 15/31 | 22/31 |
+| Detalhes relevantes | 0/13 | 8/13 | 9/13 |
+| Frames para revisão manual potencial | 44/44 | 21/44 | 13/44 |
+| Duplicidades aplicadas no mesmo carrossel | 0 | 0 | 0 |
+| Chamadas à extração direta | 0 | 31 | 31 |
+| Consultas ao Openverse | 132 | 17 | 12 |
+| Tentativas de download pelo Worker | — | 28 | 34 |
+| Primeira imagem, mediana quando houve imagem | 2,34 s | 50 ms | 49 ms |
+| Tempo total, mediana do replay | 7 ms | 31 ms | 47 ms |
+| Heap JavaScript, mediana | 16,0 MiB | 44,4 MiB | 37,0 MiB |
+
+As 146 consultas distintas capturadas do Openverse retornaram HTTP 200. A mediana das chamadas reais ao catálogo foi 1,61 s. Os downloads públicos dos candidatos documentais tiveram mediana de 0,41 s. Na reprodução, as respostas de catálogo e os rasters da fonte vieram do cache. As duas fotos escolhidas pelo motor anterior vieram do Flickr pela rede e seus tempos até primeira imagem incluem essa latência. Os números de tempo de replay servem para comparar o processamento da Fase A com o atual.
+
+O motor antigo sugeriu um desfile de 2021 para a pauta de 2026 sobre o filme do GEICO e uma fotografia de exposição para a pauta sobre a ilustradora Carolina Soares. A Fase A e a versão atual atribuíram o material do comunicado do GEICO. O único erro da versão atual foi uma foto da série correta usada para um detalhe visual diferente. O ganho observado é deste corpus, que também orientou a calibração. [Pauta de Carolina Soares](https://www.creativebloq.com/features/this-artist-specialises-in-emotional-characters-and-ethereal-scenes) e [comunicado do GEICO](https://www.geico.com/about/pressreleases/2026/20261123/).
+
+No build servido pelo Wrangler em 1280 e 1440 px, oito carrosséis de 3 a 10 slides abriram em 0,14–0,33 s. A primeira imagem chegou em 0,48–1,28 s e a pesquisa estabilizou em 0,49–1,29 s. A reabertura com os arquivos locais levou 0,50–0,66 s. Os testes usaram respostas controladas, incluindo um erro transitório de download, investigação complementar e exportação durante a busca.
+
 ## Comparação de modelos e OCR
 
 | Modelo | Pesos | Capas corretas | Detalhes corretos | Carga inicial | Mediana de inferência por pauta |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| CLIP ViT-B/32, texto INT8 e visão 4 bits | 128,1 MB | 24/27 | 11/13 | 2,37 s | 1,59 s |
-| SigLIP 2 ViT-B/32, INT8 | 379,4 MB | 23/27 | 13/13 | 4,73 s | 0,86 s |
+| CLIP ViT-B/32, texto INT8 e visão 4 bits | 128,1 MB | 24/27 | 11/13 | 1,16–2,37 s | 1,59–1,63 s |
+| SigLIP 2 ViT-B/32, INT8 | 379,4 MB | 23/27 | 13/13 | 3,89–4,73 s | 0,86–1,00 s |
 
 Os modelos receberam as mesmas imagens de 27 notícias com material disponível e as mesmas descrições. O corpus inclui casos sem imagem aceitável. A semântica isolada ainda escolhe uma imagem nesses casos, o que reforça a necessidade de confirmar a procedência antes de sugerir. O CLIP é a opção do piloto pelo menor conjunto de pesos e pela carga inicial menor. Nenhum modelo semântico foi habilitado por padrão.
 
