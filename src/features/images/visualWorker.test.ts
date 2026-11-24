@@ -77,6 +77,57 @@ describe('Worker de pesquisa visual', () => {
     const response = await worker.fetch(request('download', { ticket: 'incorrect' }, await token()), env)
     expect(response.status).toBe(403)
   })
+  it('usa o navegador complementar somente para o propósito assinado e fecha a sessão', async () => {
+    const jwt = await token()
+    vi.stubGlobal('fetch', vi.fn(async () => jwks()))
+    const url = 'https://www.b9.com.br/pauta-dinamica/'
+    const downloadTicket = await issueTicket(url, 'editor', key)
+    const renderTicket = await issueTicket(url, 'editor', key, 'render')
+    expect(await verifyTicket(renderTicket, 'editor', key)).toBeUndefined()
+    const browser = {
+      script: vi.fn(async () => Response.json({ success: true, result: '' }, { headers: { 'cf-browser-session-id': 'render-session' } })),
+      closeSession: vi.fn(async () => undefined),
+    }
+    const configured = { ...env, VISUAL_EXTRA_LIMIT: allowed, BROWSER: browser, VISUAL_BROWSER_FREE: 'confirmed', VISUAL_BROWSER_HOSTS: 'www.b9.com.br' }
+    expect((await worker.fetch(request('complement', { renderTicket }, undefined), configured)).status).toBe(401)
+    expect((await (await worker.fetch(request('complement', { renderTicket: downloadTicket }, jwt), configured)).json()).state).toBe('disabled')
+    expect((await (await worker.fetch(request('complement', { renderTicket }, jwt), { ...configured, VISUAL_BROWSER_FREE: '' })).json()).state).toBe('disabled')
+    expect(browser.script).not.toHaveBeenCalled()
+    expect((await worker.fetch(request('complement', { renderTicket }, jwt), configured)).status).toBe(200)
+    expect(browser.script).toHaveBeenCalledWith(expect.stringContaining('maxRedirects: 0'), {
+      library: 'playwright', timeout: 6500, keepAlive: 10_000,
+    })
+    expect(browser.closeSession).toHaveBeenCalledWith('render-session')
+  })
+  it('aceita trailers e bastidores do canal cadastrado e elimina vídeos de outras campanhas', async () => {
+    const jwt = await token()
+    const channelId = 'UC' + 'g'.repeat(22)
+    const ids = ['a', 'b', 'c'].map(letter => letter.repeat(11))
+    const outbound = vi.fn(async (raw: URL, init: RequestInit) => {
+      const url = new URL(raw)
+      if (url.href.startsWith(issuer)) return jwks()
+      expect(init.headers).toEqual({ 'x-goog-api-key': 'unit-test' })
+      expect(url.searchParams.has('key')).toBe(false)
+      if (url.pathname.endsWith('/search')) {
+        expect(url.searchParams.get('channelId')).toBe(channelId)
+        return Response.json({ items: ids.map(videoId => ({ id: { videoId } })) })
+      }
+      return Response.json({ items: ids.map((id, index) => ({ id, snippet: {
+        channelId: index === 2 ? 'UC' + 'h'.repeat(22) : channelId,
+        title: index === 1 ? 'Other Campaign — official trailer' : 'Nocturnal Garden — behind the scenes',
+        thumbnails: { maxres: { url: 'https://i.ytimg.com/vi/' + id + '/maxresdefault.jpg', width: 1280, height: 720 } },
+      } })) })
+    })
+    vi.stubGlobal('fetch', outbound)
+    const configuration = { ...env, VISUAL_EXTRA_LIMIT: allowed, YOUTUBE_API_KEY: 'unit-test',
+      VISUAL_YOUTUBE_QUOTA: 'confirmed', VISUAL_YOUTUBE_CHANNELS: 'Studio Film=' + channelId }
+    const input = { query: 'Studio Film Nocturnal Garden official film', campaign: 'Nocturnal Garden', anchors: ['Studio Film'] }
+    const response = await worker.fetch(request('complement', input, jwt), configuration)
+    expect(await response.json()).toMatchObject({ state: 'ready', candidates: [
+      { page: 'https://www.youtube.com/watch?v=' + ids[0], provider: 'official', evidence: 'poster' },
+    ] })
+    expect(outbound.mock.calls.filter(([url]) => new URL(url).hostname === 'www.googleapis.com')).toHaveLength(2)
+  })
   it('mantém Brave opcional e abre o circuito ao receber 429', async () => {
     const jwt = await token()
     const outbound = vi.fn(async (input: URL | string, init: RequestInit) => {

@@ -3,7 +3,8 @@
 ## Visual Intelligence Engine
 
 - Fase A introduz contexto opcional no JSON v1, extração direta, adaptadores Brave e Openverse, acervo de campanha compartilhado, alocação em segundo plano e continuidade entre Expressa e Studio. A publicação segue o workflow protegido após a configuração do Worker.
-- Fase B mede alternativas de semântica visual e OCR e calibra a classificação por amostra. Fase C investiga YouTube Data API e Browser Run com cotas verificadas.
+- Fase B melhora a seleção pela narrativa, a deduplicação e a memória de decisões manuais. As alternativas de semântica e OCR ficam em piloto local, com critérios de ativação registrados no benchmark.
+- Fase C disponibiliza descoberta contextual do YouTube e renderização de páginas dinâmicas como complementos opcionais. A ativação depende de ensaio real com as contas existentes, cotas verificadas e ganho editorial.
 
 ## Evolução 12 — Busca fotográfica automática
 

@@ -6,11 +6,13 @@ const defaultHosts = [
   'storage.ghost.io', 'cdn.mos.cms.futurecdn.net', 'i.guim.co.uk', 'images.adsttc.com',
   'media.creativeboom.com', 'static-www.adweek.com',
   'upload.wikimedia.org', 'live.staticflickr.com', 'www.businesswire.com', 'mms.businesswire.com',
+  'i.ytimg.com',
 ]
 export function externalUrl(value: string, configured = '', base?: string) {
   const url = researchUrl(value, base)
   const hosts = [...defaultHosts, ...configured.split(',').map(host => host.trim().toLowerCase())]
   return url && hosts.includes(url.hostname) && !/^\/_next\/image(?:\/|$)/i.test(url.pathname) &&
+    (url.hostname !== 'i.ytimg.com' || !url.search && /^\/vi\/[\w-]{11}\/(?:sd|maxres)default\.jpg$/.test(url.pathname)) &&
     ![...url.searchParams.keys()].some(key => /^(?:url|uri|redirect|redirect_uri|target|destination|callback|proxy)$/i.test(key)) ? url : undefined
 }
 
@@ -138,19 +140,19 @@ export async function accessRequestSubject(request: Request, issuer?: string, au
 }
 
 const hmac = (secret: string) => crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
-export async function issueTicket(url: string, person: string, secret: string) {
-  const payload = encode(encoder.encode(JSON.stringify([url, person, Date.now() + 15 * 60_000])))
+export async function issueTicket(url: string, person: string, secret: string, purpose?: 'render') {
+  const payload = encode(encoder.encode(JSON.stringify([url, person, Date.now() + 15 * 60_000, ...purpose ? [purpose] : []])))
   const signature = await crypto.subtle.sign('HMAC', await hmac(secret), encoder.encode(payload))
   return payload + '.' + encode(new Uint8Array(signature))
 }
-export async function verifyTicket(ticket: string, person: string, secret: string) {
+export async function verifyTicket(ticket: string, person: string, secret: string, purpose?: 'render') {
   try {
     const parts = ticket.split('.')
     if (parts.length !== 2 || parts.some(part => !/^[\w-]+$/.test(part))) return
     const [payload, signature] = parts
     if (!await crypto.subtle.verify('HMAC', await hmac(secret), decode(signature), encoder.encode(payload))) return
-    const [url, owner, expiry] = decodeJson(payload)
-    if (owner === person && expiry > Date.now() && typeof url === 'string') return url
+    const [url, owner, expiry, intended] = decodeJson(payload)
+    if (owner === person && intended === purpose && expiry > Date.now() && typeof url === 'string') return url
   } catch { return }
 }
 

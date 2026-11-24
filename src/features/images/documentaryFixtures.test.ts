@@ -52,7 +52,7 @@ describe('extração documental em HTMLRewriter', () => {
       '{"@type":"NewsArticle","headline":"Artigo","isAccessibleForFree":false,"image":"/cover.png"}</script>'
     const result = await runtime.dispatchFetch('http://test/', { method: 'POST',
       body: JSON.stringify({ url: 'https://www.adweek.com/article/', html }) })
-    expect(await result.json()).toEqual({ images: [], links: [] })
+    expect(await result.json()).toEqual({ images: [], links: [], blocked: true })
   })
 })
 

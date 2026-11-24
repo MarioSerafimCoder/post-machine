@@ -156,7 +156,7 @@ export async function extractArticle(html: string, page: URL, provider: 'origina
   const transformed = intercept.transform(new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }))
   await transformed.arrayBuffer()
   descriptors.forEach(value => descriptor(value))
-  if (unavailable) return { images: [], links: [] }
+  if (unavailable) return { images: [], links: [], blocked: true }
   const title = text(metadata.get('og:title') ?? metadata.get('article:title') ?? metadata.get('twitter:title'), 500)
   const description = text(metadata.get('og:description') ?? metadata.get('description'), 1000)
   const publishedAt = text(metadata.get('article:published_time'), 50)
@@ -167,5 +167,5 @@ export async function extractArticle(html: string, page: URL, provider: 'origina
     width: image.width ?? (image.evidence === 'social' ? ogWidth : undefined),
     height: image.height ?? (image.evidence === 'social' ? ogHeight : undefined),
     caption: text(figure ? captions.get(figure) : undefined, 600) ?? image.caption }]),
-    links: [...links] }
+    links: [...links], title, requiresRendering: /<(?:script|noscript)\b/i.test(html) }
 }

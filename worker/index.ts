@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { documentaryAssetSchema, documentaryPrefix } from '../src/features/images/documentaryContract'
 import { researchUrl, phraseKey } from '../src/features/images/visualContext'
 import { braveSearch } from './brave'
+import { discoverVideos, officialChannel } from './audiovisual'
+import { renderVisualPage, type BrowserBinding } from './browser'
 import { extractArticle, type Extracted } from './extract'
 import { accessRequestSubject, externalFetch, externalUrl, issueTicket, rasterSignature, readLimited, readJson, verifyTicket } from './security'
 
@@ -10,6 +12,8 @@ type Env = {
   ASSETS: { fetch(request: Request): Promise<Response> }
   VISUAL_LIMIT: Limiter
   BRAVE_LIMIT: Limiter
+  VISUAL_EXTRA_LIMIT?: Limiter
+  BROWSER?: BrowserBinding
   CLOUDFLARE_ACCESS_ISSUER?: string
   CLOUDFLARE_ACCESS_AUD?: string
   VISUAL_DOWNLOAD_KEY?: string
@@ -17,6 +21,11 @@ type Env = {
   VISUAL_OFFICIAL_HOSTS?: string
   BRAVE_SEARCH_API_KEY?: string
   BRAVE_VISUAL_ZERO_SPEND?: string
+  VISUAL_BROWSER_FREE?: string
+  VISUAL_BROWSER_HOSTS?: string
+  VISUAL_YOUTUBE_QUOTA?: string
+  VISUAL_YOUTUBE_CHANNELS?: string
+  YOUTUBE_API_KEY?: string
 }
 const commonHeaders = { 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' }
 const json = (data: unknown, status = 200, headers?: HeadersInit) => Response.json(data, { status, headers: { ...commonHeaders, ...headers } })
@@ -25,18 +34,27 @@ const pageInput = z.object({ url: z.string().max(2048), image: z.string().max(20
 const queryInput = z.object({ kind: z.enum(['web', 'images']), query: z.string().trim().min(2).max(240),
   language: z.enum(['en', 'pt']).optional(), anchors: z.array(z.string().max(160)).max(8).optional() }).strict()
 const ticketInput = z.object({ ticket: z.string().max(4200) }).strict()
+const extraInput = z.object({
+  renderTicket: z.string().max(4200).optional(), query: z.string().trim().min(2).max(240).optional(), campaign: z.string().max(240).optional(),
+  anchors: z.array(z.string().max(160)).max(8).optional(), excluded: z.array(z.string().max(160)).max(16).optional(),
+  year: z.string().regex(/^\d{4}$/).optional(),
+}).strict()
 const urlInput = z.object({ url: z.string().max(2048) }).strict()
-const routes = new Set(['page', 'brave', 'download', 'import'])
+const routes = new Set(['page', 'brave', 'download', 'import', 'complement'])
 const rasterAccept = 'image/png,image/jpeg,image/webp'
 
 const hostsFor = (env: Env) => [env.VISUAL_EXTERNAL_HOSTS, env.VISUAL_OFFICIAL_HOSTS].filter(Boolean).join(',')
 const official = (host: string, env: Env) => (env.VISUAL_OFFICIAL_HOSTS ?? '').split(',').some(item => item.trim().toLowerCase() === host)
-async function pageImages(url: URL, provider: 'original' | 'official', hosts: string, signal: AbortSignal) {
+const browserEnabled = (host: string, env: Env) => env.VISUAL_BROWSER_FREE === 'confirmed' && !!env.BROWSER &&
+  (env.VISUAL_BROWSER_HOSTS ?? '').split(',').some(item => item.trim().toLowerCase() === host)
+const audiovisualEnabled = (env: Env) => env.VISUAL_YOUTUBE_QUOTA === 'confirmed' && !!env.YOUTUBE_API_KEY && !!env.VISUAL_YOUTUBE_CHANNELS
+type Extraction = { images: Extracted[]; links: string[]; blocked?: boolean; requiresRendering?: boolean }
+async function pageImages(url: URL, provider: 'original' | 'official', hosts: string, signal: AbortSignal): Promise<Extraction> {
   const { response, url: final } = await externalFetch(url, hosts, 'text/html,application/xhtml+xml', signal)
   if (!response.ok || !/^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(response.headers.get('content-type') ?? '') ||
       response.headers.get('x-robots-tag')?.match(/\b(?:noindex|noimageindex|none)\b/i)) {
     await response.body?.cancel()
-    return { images: [], links: [] }
+    return { images: [], links: [], blocked: true }
   }
   const html = new TextDecoder().decode(await readLimited(response, 1_800_000))
   return extractArticle(html, final, provider)
@@ -69,7 +87,7 @@ async function candidates(images: Extracted[], person: string, env: Env, key: st
 }
 
 export default {
-  async fetch(request: Request, env: Env) {
+  async fetch(request: Request, env: Env, context?: { waitUntil(promise: Promise<unknown>): void }) {
     const incoming = new URL(request.url)
     if (!incoming.pathname.startsWith(documentaryPrefix + '/')) return env.ASSETS.fetch(request)
     const route = incoming.pathname.slice(documentaryPrefix.length + 1)
@@ -84,13 +102,34 @@ export default {
     const rate = await env.VISUAL_LIMIT.limit({ key: person })
     if (!rate.success) return json({ error: 'limited' }, 429, { 'retry-after': '60' })
     const hosts = hostsFor(env)
-    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(route === 'download' || route === 'import' ? 5500 : 4200)])
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(route === 'complement' ? 8200 : route === 'download' || route === 'import' ? 5500 : 4200)])
     try {
       const payload = await readJson(request, 8192)
       if (route === 'download' || route === 'import') {
         const raw = route === 'import' ? urlInput.parse(payload).url : await verifyTicket(ticketInput.parse(payload).ticket, person, key)
         const url = raw && externalUrl(raw, hosts)
         return url ? await download(url, hosts, signal) : json({ error: 'invalid_destination' }, 403)
+      }
+      if (route === 'complement') {
+        const input = extraInput.parse(payload)
+        const raw = input.renderTicket && await verifyTicket(input.renderTicket, person, key, 'render')
+        const page = raw && externalUrl(raw, hosts)
+        const render = page && browserEnabled(page.hostname, env)
+        const channelId = audiovisualEnabled(env) && input.query && officialChannel(env.VISUAL_YOUTUBE_CHANNELS, input.anchors ?? [])
+        if ((!render && !channelId) || !env.VISUAL_EXTRA_LIMIT) return json({ state: 'disabled', candidates: [] })
+        if (!(await env.VISUAL_EXTRA_LIMIT.limit({ key: 'visual-complement' })).success) return json({ state: 'limited', candidates: [] }, 429)
+        const rendering = render && env.BROWSER
+          ? renderVisualPage(env.BROWSER, page, official(page.hostname, env) ? 'official' : 'original', signal) : undefined
+        if (rendering) context?.waitUntil(rendering.catch(() => undefined))
+        const results = await Promise.allSettled([
+          rendering ?? [],
+          channelId && input.query && env.YOUTUBE_API_KEY
+            ? discoverVideos({ ...input, query: input.query, channelId }, env.YOUTUBE_API_KEY, signal) : { images: [], limited: false },
+        ])
+        const rendered = results[0].status === 'fulfilled' ? results[0].value : []
+        const video = results[1].status === 'fulfilled' ? results[1].value : { images: [], limited: false }
+        const found = await candidates([...rendered, ...video.images], person, env, key)
+        return json({ state: video.limited ? 'limited' : 'ready', candidates: found }, video.limited && !found.length ? 429 : 200)
       }
       if (route === 'page') {
         const input = pageInput.parse(payload)
@@ -104,9 +143,15 @@ export default {
         catch { return json({ candidates: await candidates(feed, person, env, key), partial: true }) }
         const link = extraction.links.map(url => externalUrl(url, hosts)).find(url => url &&
           (url.hostname === page.hostname || official(url.hostname, env)))
-        const related = link && !signal.aborted && await pageImages(link, official(link.hostname, env) ? 'official' : provider, hosts, signal)
-          .catch(() => undefined)
-        return json({ candidates: await candidates([...extraction.images, ...related ? related.images : [], ...feed], person, env, key) })
+        const related = link && !signal.aborted ? await pageImages(link, official(link.hostname, env) ? 'official' : provider, hosts, signal)
+          .catch(() => undefined) : undefined
+        const images = [...extraction.images, ...related?.images ?? [], ...feed]
+        const ready = images.some(image => !['social', 'feed'].includes(image.evidence) &&
+          externalUrl(image.url, hosts) && (image.width ?? 480) >= 480 && (image.height ?? 480) >= 480)
+        const renderTicket = input.primary && !ready && !extraction.blocked && extraction.requiresRendering && browserEnabled(page.hostname, env)
+          ? await issueTicket(page.href, person, key, 'render') : undefined
+        return json({ candidates: await candidates(images, person, env, key), renderTicket,
+          audiovisualAvailable: input.primary && !extraction.blocked && audiovisualEnabled(env) ? true : undefined })
       }
       if (env.BRAVE_VISUAL_ZERO_SPEND !== 'confirmed' || !env.BRAVE_SEARCH_API_KEY) return json({ state: 'disabled', candidates: [] })
       const input = queryInput.parse(payload)

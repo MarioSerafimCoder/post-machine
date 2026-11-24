@@ -18,5 +18,9 @@ export const documentaryAssetSchema = z.object({
   ticket: z.string().max(4200),
 })
 export type DocumentaryAsset = z.infer<typeof documentaryAssetSchema>
-export const documentaryResponse = z.object({ candidates: z.array(documentaryAssetSchema).max(32) })
+export const documentaryResponse = z.object({
+  candidates: z.array(documentaryAssetSchema).max(32),
+  renderTicket: z.string().max(4200).optional(),
+  audiovisualAvailable: z.boolean().optional(),
+})
 export const documentaryPrefix = '/api/visual'

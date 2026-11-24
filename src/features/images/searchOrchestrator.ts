@@ -12,7 +12,7 @@ type Candidate = {
   credit: ImageCredit; document?: DocumentaryAsset; metadata?: string; illustrated?: boolean
   download: (signal: AbortSignal) => Promise<File>; remembered?: boolean
 }
-type Discovery = { candidates: DocumentaryAsset[]; state?: string }
+type Discovery = { candidates: DocumentaryAsset[]; state?: string; renderTicket?: string; audiovisualAvailable?: boolean }
 const empty: Discovery = { candidates: [] }
 const poolSize = 8
 const maxPreparedBytes = 22_000_000
@@ -22,7 +22,7 @@ const transferGrace = 850
 const pools = new Map<string, Pool>()
 type Job = { controller: AbortController; users: number; task: Promise<unknown>; expires: number; abortTimer?: ReturnType<typeof setTimeout> }
 type Pool = { jobs: Map<string, Job>; usedUntil: number; candidates: Map<string, Candidate>; prepared: Map<string, AutomaticImage>;
-  bytes: number; options: Map<string, string[]>; braveQueries: Set<string> }
+  bytes: number; options: Map<string, string[]>; braveQueries: Set<string>; complement?: Discovery }
 
 function poolFor(key: string) {
   const now = Date.now()
@@ -121,11 +121,11 @@ const originalPage: SearchProvider<PageQuery> = { name: 'source', discover: (inp
 const brave: SearchProvider<BraveQuery> = { name: 'brave', discover: (input, signal) => lookup('brave', input, signal) }
 let workerBlockedUntil = 0
 let braveBlockedUntil = 0
-async function lookup(route: 'page' | 'brave', input: object, signal: AbortSignal): Promise<Discovery> {
+async function lookup(route: 'page' | 'brave' | 'complement', input: object, signal: AbortSignal): Promise<Discovery> {
   if (workerBlockedUntil > Date.now() || (route === 'brave' && braveBlockedUntil > Date.now())) return empty
-  const response = await post(route, input, signal)
+  const response = await post(route, input, signal, route === 'complement' ? 9000 : undefined)
   if (response.status === 401 || response.status === 404 || response.status === 503 || !response.headers.get('content-type')?.includes('application/json')) {
-    if (response.status === 503 || response.status === 401 || response.status === 404 || response.ok) {
+    if (route !== 'complement' && (response.status === 503 || response.status === 401 || response.status === 404 || response.ok)) {
       workerBlockedUntil = Date.now() + negativeLifetime
     }
     await response.body?.cancel()
@@ -134,7 +134,7 @@ async function lookup(route: 'page' | 'brave', input: object, signal: AbortSigna
   if (!response.ok) {
     if (response.status === 429) {
       if (route === 'brave') braveBlockedUntil = Date.now() + 60_000
-      else workerBlockedUntil = Date.now() + 60_000
+      else if (route === 'page') workerBlockedUntil = Date.now() + 60_000
     }
     await response.body?.cancel()
     return empty
@@ -188,6 +188,7 @@ async function discover<T>(pool: Pool, provider: SearchProvider<T>, key: string,
   const response = await pooled(pool, provider.name + ':' + key, signal, inner => provider.discover(input, inner),
     result => result.candidates.length ? resultsLifetime : negativeLifetime)
   collect(pool, response.candidates.map(asset => fromDocument(asset)))
+  return response
 }
 
 function catalog(request: VisualRequest, pool: Pool, signal: AbortSignal, query: string) {
@@ -269,6 +270,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
   let sourceChecks = 0
   let braveChecks = 0
   let catalogChecks = 0
+  let extraChecks = 0
   let examinedPixels = false
   const examined = new Map<string, AutomaticImage>()
   const refinements = new Map<string, number | null>()
@@ -357,8 +359,9 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     try {
       const first = index === 0
       sourceChecks++
-      await discover(pool, originalPage, source.url, { url: source.url, title: source.title || undefined,
+      const discovery = await discover(pool, originalPage, source.url, { url: source.url, title: source.title || undefined,
         image: first ? campaign.sourceImage : undefined, primary: first }, fast)
+      if (first) pool.complement = discovery
       await allocate(false, fast)
     } catch { if (!fast.aborted) failed = true }
   }
@@ -418,11 +421,26 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
         }
       }))
     }
+    const extra = pool.complement
+    if (remaining.size && !deadline.aborted && performance.now() - initial < 24_000 &&
+        (extra?.renderTicket || extra?.audiovisualAvailable && campaign.query)) {
+      try {
+        const provider: SearchProvider<object> = { name: 'complement', discover: (input, phase) => lookup('complement', input, phase) }
+        const anchors = campaign.names.filter(name => name.length <= 160).slice(0, 8)
+        extraChecks++
+        await discover(pool, provider, campaign.scope, {
+          renderTicket: extra.renderTicket, query: extra.audiovisualAvailable ? campaign.query : undefined,
+          campaign: campaign.campaignName, anchors, excluded: campaign.excluded.filter(name => name.length <= 160).slice(0, 16),
+          year: /^\d{4}$/.test(String(campaign.year)) ? String(campaign.year) : undefined,
+        }, deadline)
+        await allocate(true, deadline)
+      } catch { if (!deadline.aborted) failed = true }
+    }
   } catch { if (!signal.aborted) failed = true }
   if (!signal.aborted) {
     performance.clearMeasures('post-machine:visual:settled')
     performance.measure('post-machine:visual:settled', { start: initial, end: performance.now(),
-      detail: { slides: requests.length, pending: remaining.size, sourceChecks, braveChecks, catalogChecks, downloadAttempts: downloads } })
+      detail: { slides: requests.length, pending: remaining.size, sourceChecks, braveChecks, catalogChecks, extraChecks, downloadAttempts: downloads } })
     for (const request of remaining) config.finish(request, failed && !discovered ? 'error' : 'empty')
   }
 }

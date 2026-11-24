@@ -30,18 +30,23 @@ const documentary = [
     ticket: 'excluded-parade', title: campaignName, caption: 'Road Trip to Parade — float de GEICO' },
 ]
 
-for (const count of [3, 6, 10]) {
+for (const count of [3, 4, 6, 10]) {
   test(`continua a busca e mede a abertura de ${count} slides da Expressa no Studio`, async ({ page }, info) => {
     test.setTimeout(50_000)
     let release!: () => void
     const pending = new Promise<void>(resolve => { release = resolve })
     let sourceRequests = 0
+    let modelRequests = 0
     const downloads: string[] = []
     const calls: string[] = []
+    await page.route(/\/(?:visual-models|visual-ocr)\//, route => {
+      modelRequests++
+      return route.abort()
+    })
     await page.route('**/api/visual/page', async route => {
       sourceRequests++
       await pending
-      await route.fulfill({ json: { candidates: documentary } }).catch(() => undefined)
+      await route.fulfill({ json: { candidates: count === 4 ? [] : documentary, audiovisualAvailable: true } }).catch(() => undefined)
     })
     await page.route('**/api/visual/brave', route => {
       calls.push('brave')
@@ -50,6 +55,11 @@ for (const count of [3, 6, 10]) {
     await page.route('https://api.openverse.org/**', route => {
       calls.push('openverse')
       return route.fulfill({ json: { page_count: 0, results: [] } })
+    })
+    await page.route('**/api/visual/complement', route => {
+      calls.push('complement')
+      expect(route.request().postDataJSON().campaign).toBe(campaignName)
+      return route.fulfill({ json: { candidates: documentary } })
     })
     await page.route('**/api/visual/download', route => {
       const { ticket } = route.request().postDataJSON()
@@ -109,7 +119,10 @@ for (const count of [3, 6, 10]) {
     expect(downloads).toHaveLength(count === 3 ? 3 : 2)
     expect(downloads).not.toContain('excluded-parade')
     expect(sourceRequests).toBe(1)
-    expect(calls).toHaveLength(0)
+    if (count === 4) {
+      expect(calls.filter(call => call === 'complement')).toHaveLength(1)
+      expect(calls.at(-1)).toBe('complement')
+    } else expect(calls).toHaveLength(0)
     const textual = studio.getByRole('button', { name: count === 10 ? 'Slide 2' : 'Slide 3', exact: true })
     await expect(textual).not.toHaveAttribute('aria-description', /Buscando|Imagem encontrada/)
     if (count === 3) {
@@ -133,6 +146,7 @@ for (const count of [3, 6, 10]) {
     const warm = performance.now()
     expect(sourceRequests).toBe(1)
     expect(downloads).toHaveLength(count === 3 ? 3 : 2)
+    expect(modelRequests).toBe(0)
     await info.attach('tempos-visuais', { contentType: 'application/json', body: JSON.stringify({
       count, viewport: page.viewportSize(), openedMs: Math.round(opened - started), firstMs: Math.round(firstAt - started),
       stableMs: Math.round(stabilizedAt - started), warmMs: Math.round(warm - warmStart), sourceRequests, downloads: downloads.length,
