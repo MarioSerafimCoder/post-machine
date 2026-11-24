@@ -60,7 +60,7 @@ export function ProposalReview({ result, selected, slideIndex, show, open, repla
   const details = proposal.details[slideIndex]
   const author = !replace
   const previewTitle = author ? result.collection : labels[proposal.treatment][0]
-  return <section className="factory-review" aria-label="Propostas de fabricação">
+  return <section className="factory-review" aria-label="Opções de design">
     {!author && <div className="factory-options">{result.proposals.map((version,index) => {
       const [name,description] = labels[version.treatment]
       const isTypographic = version.treatment === 'photo' && !result.slides.some(item => item.picture)

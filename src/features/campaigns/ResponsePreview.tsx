@@ -16,10 +16,10 @@ export function ResponsePreview({ raw, draft, express, hideError = false }: { ra
     <summary>Prévia · {content.slides.length} peça(s) · {content.campaign.title}</summary>
     <ol tabIndex={0} aria-label="Peças da resposta">{content.slides.map(slide => <li key={slide.order}>
       <strong>{roles[slide.role]} · {slide.title}</strong>
-      {slide.body && <p>{slide.body}</p>}
+      {slide.subtitle && <p>{slide.subtitle}</p>}
+      {slide.body && <p>{slide.body.length > 160 ? slide.body.slice(0, 157) + '…' : slide.body}</p>}
       {slide.imageBrief && <p>Imagem sugerida · {slide.imageBrief}</p>}
     </li>)}</ol>
     {ignored.length > 0 && <p>Campos fora do modelo ignorados · {ignored.slice(0, 20).join(', ')}{ignored.length > 20 ? ' e outros.' : '.'}</p>}
-    {express && <p>A produção distribui título, texto e direção de imagem nos slides. Objetivo, público, tom e fontes ficam disponíveis na importação por Campanhas.</p>}
   </details>
 }

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 
-test('mantém assistente fora da arte e devolve o foco da revisão nas quatro larguras', async ({ page }, info) => {
+test('abre o balão junto ao mascote e devolve o foco da revisão nas quatro larguras', async ({ page }, info) => {
   test.skip(info.project.name === 'laptop', 'A matriz usa as quatro resoluções desktop.')
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
@@ -10,17 +10,30 @@ test('mantém assistente fora da arte e devolve o foco da revisão nas quatro la
   await button('Criar projeto vazio').click()
   await button('Adicionar título').click()
   await page.getByLabel('Texto do elemento').fill('Uma coisa incrível')
+  const mascot = button('Assistente Editorial')
+  const workspace = page.locator('.studio-canvas-workspace')
+  const art = page.locator('.canvas-paper')
   for (const [width, height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]) {
     await page.setViewportSize({ width, height })
-    await button('Assistente Editorial').click()
+    await mascot.hover()
+    await expect(mascot).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    await expect(mascot).toHaveCSS('border-top-width', '0px')
+    const artWidth = (await art.boundingBox())!.width
+    await mascot.click()
     const popup = page.getByRole('region', { name: 'Assistente Editorial' })
     await expect(popup).toBeVisible()
-    const panel = await popup.boundingBox()
-    const art = await page.locator('.canvas-paper').boundingBox()
-    expect(panel!.x + panel!.width).toBeLessThanOrEqual(art!.x)
+    await expect(page.getByLabel('Texto do elemento')).toBeVisible()
+    const [panel, robot, stage] = await Promise.all([popup.boundingBox(), mascot.boundingBox(), workspace.boundingBox()])
+    expect(panel!.x).toBeGreaterThan(stage!.x)
+    expect(panel!.y).toBeGreaterThan(stage!.y)
+    expect(panel!.x + panel!.width).toBeCloseTo(robot!.x + robot!.width - 1)
+    expect(robot!.y - panel!.y - panel!.height).toBeGreaterThan(0)
+    expect(robot!.y - panel!.y - panel!.height).toBeLessThan(16)
+    expect((await art.boundingBox())!.width).toBe(artWidth)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
     await page.screenshot({ path: info.outputPath(`studio-assistente-${width}.png`) })
     await page.keyboard.press('Escape')
+    await expect(mascot).toBeFocused()
     await page.getByText('Revisar', { exact: true }).click()
     await button('Texto e sequência').click()
     await expect(page.getByRole('heading', { name: 'Revisão editorial do projeto' })).toBeFocused()
@@ -38,8 +51,8 @@ test('mantém assistente fora da arte e devolve o foco da revisão nas quatro la
       await button('Baixar relatório JSON').waitFor()
     }
     if (route === 'studio') {
-      await button('Criar conteúdo').click()
-      await button('Colar ou importar conteúdo pronto').click()
+      await button('Criar carrossel').click()
+      await button('Importar conteúdo').click()
       await page.getByRole('textbox', { name: /Cole aqui/ }).waitFor()
     }
     for (const [width, height] of [[1024,768],[1280,800],[1440,900],[1920,1080]]) {
@@ -57,13 +70,13 @@ for (const count of [1, 6, 20]) test(`fabrica e exporta ${count} slide(s) com PN
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
   await page.getByText('＋ Novo projeto', { exact: true }).click()
-  await button('Produção Expressa').click()
+  await button('Preparar carrossel').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill(Array.from({ length: count }, (_, index) =>
     `Slide ${index + 1} — Recorte ${index + 1}\nA arte organiza a leitura e preserva o texto original.`).join('\n\n'))
   await button('Organizar slides').click()
   await button('Prévia').click()
-  await button(count === 1 ? 'Fabricar meu post' : 'Fabricar meu carrossel').click()
-  await expect(page.getByRole('region', { name: 'Propostas de fabricação' }).getByRole('article')).toHaveCount(3, {timeout: 25_000})
+  await button(count === 1 ? 'Montar meu post' : 'Montar meu carrossel').click()
+  await expect(page.getByRole('region', { name: 'Opções de design' }).getByRole('article')).toHaveCount(3, {timeout: 25_000})
   await button('Usar esta versão').click()
   await button('Finalizar e exportar').click()
   const download = page.waitForEvent('download', { timeout: 38_000 })
@@ -105,18 +118,37 @@ test('confirma e desfaz em uma ação dois ajustes de margem verificados', async
 })
 
 test('cria conteúdo pela entrada unificada e organiza o JSON na colagem', async ({ page }) => {
+  await page.route('https://api.openverse.org/**', route => route.fulfill({ json: { results: [], result_count: 0, page_count: 0 } }))
   await page.goto('/#/inicio')
-  await page.getByRole('button', { name: 'Criar conteúdo', exact: true }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Colar ou importar conteúdo pronto' }).click()
+  await page.getByRole('button', { name: 'Criar carrossel', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Importar conteúdo' }).click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill(JSON.stringify({
     schemaVersion: 1,
     campaign: { title: 'Um novo recorte', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'post', caption: '', cta: '' },
-    sources: [],
-    slides: [{ order: 1, role: 'content', title: 'A luz organiza a leitura', body: 'Uma pauta sobre arquitetura.', imageBrief: '', layoutType: 'editorial' }],
+    sources: [{ title: 'Fonte editorial', url: 'https://example.org/fonte', publishedAt: null }],
+    slides: [{ order: 1, role: 'content', title: 'A luz organiza a leitura', subtitle: 'Arquitetura editorial', body: 'Uma pauta sobre arquitetura.', imageBrief: '', layoutType: 'editorial' }],
   }))
   await expect(page.getByLabel('Nome do projeto')).toHaveValue('Um novo recorte')
   await expect(page.getByLabel('Título', { exact: true })).toHaveValue('A luz organiza a leitura')
   await expect(page.getByRole('status').filter({ hasText: '1 slide organizado' })).toBeVisible()
+  await page.getByRole('button', { name: 'Montar e abrir no Studio' }).click()
+  await expect(page.getByRole('region', { name: 'Editor Studio' })).toBeVisible()
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Um novo recorte')
+  await page.getByText('Conteúdo editorial de origem', { exact: true }).click()
+  await expect(page.getByText('Educar · Designers · Profissional')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Fonte editorial' })).toHaveAttribute('href', 'https://example.org/fonte')
+  await page.reload()
+  await page.getByRole('link', { name: 'Início', exact: true }).click()
+  await page.getByRole('button', { name: 'Continuar editando' }).click()
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Um novo recorte')
+  await page.getByText('Mais ações', { exact: true }).click()
+  await page.getByRole('button', { name: 'Explorar outros designs' }).click()
+  const designs = page.getByRole('dialog', { name: 'Explorar outros designs' })
+  await expect(designs.getByRole('button', { name: /^Criar cópia/ })).toHaveCount(3)
+  await designs.getByRole('button', { name: 'Criar cópia · Expressivo' }).click()
+  await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Um novo recorte · Expressivo')
+  await page.getByRole('button', { name: 'Projetos', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Abrir Um novo recorte', exact: true })).toBeVisible()
 })
 
 test('desfaz uma sequência de digitação e alinha pela margem da marca', async ({ page }) => {
@@ -150,11 +182,11 @@ test('retoma a preparação com imagem e vínculo após voltar aos projetos e re
   await page.goto('/#/studio')
   const button = (name: string) => page.getByRole('button', { name, exact: true })
   await page.getByText('＋ Novo projeto', { exact: true }).click()
-  await button('Produção Expressa').click()
+  await button('Preparar carrossel').click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill('Slide 1 — Pátios de arquitetura\nA luz orienta os percursos.')
   await button('Organizar slides').click()
   await page.getByLabel('Nome do projeto').fill('Preparação recuperada')
-  const tools = page.getByRole('navigation', { name: 'Etapas da Produção Expressa' })
+  const tools = page.getByRole('navigation', { name: 'Etapas da criação' })
   await tools.getByRole('button', { name: 'Imagens' }).click()
   const encoded = await page.evaluate(() => {
     const canvas = document.createElement('canvas')
@@ -173,7 +205,7 @@ test('retoma a preparação com imagem e vínculo após voltar aos projetos e re
   await page.getByText('＋ Novo projeto', { exact: true }).waitFor()
   await page.reload()
   await page.getByText('＋ Novo projeto', { exact: true }).click()
-  await button('Produção Expressa').click()
+  await button('Preparar carrossel').click()
   await button('Retomar preparação').click()
   await expect(association.locator('option:checked')).toHaveText('1 · patio.png')
   await expect(page.getByLabel('Enquadramento do slide 1')).toHaveValue('contain')

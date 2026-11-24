@@ -3,7 +3,7 @@
 .studio { margin-top: 18px; font-size: var(--ui-label); }
 .studio button, .studio select, .studio input, .studio textarea { font: inherit; }
 .studio button:where(:not(.button)) { cursor: pointer; padding: 8px 10px; border: 1px solid #d7d7d7; border-radius: 6px; background: white; text-align: left; }
-.studio button:where(:not(.button)):enabled:hover { background: var(--ui-hover); border-color: var(--ui-control-line); }
+.studio button:where(:not(.button, .editorial-launcher)):enabled:hover { background: var(--ui-hover); border-color: var(--ui-control-line); }
 .studio button:where(:not(.button))[aria-pressed=true] { background: var(--ui-selected); border-color: var(--accent); }
 .studio button:disabled { opacity: .45; cursor: default; }
 .studio input, .studio select, .studio textarea, .studio-welcome select { width: 100%; padding: 7px; background: white; border: 1px solid #cdcdcd; border-radius: 5px; min-width: 0; }
@@ -121,7 +121,7 @@
   align-items: stretch;
   background: var(--surface-muted);
 }
-.studio .studio-layout[data-collapsed=true][data-selection=false]:not(:has(.editorial-popover)) { --studio-visible-inspector: 0px; }
+.studio .studio-layout[data-collapsed=true][data-selection=false] { --studio-visible-inspector: 0px; }
 .studio .studio-layout[data-frames=false] { --studio-visible-frames: 104px; }
 .studio-left { display: flex; flex-direction: column; min-height: 0; min-width: 0; border-right: 1px solid var(--line); background: #fff; }
 .studio-left .studio-tools { flex: 0 1 auto; min-width: 0; }
@@ -144,7 +144,6 @@
   .studio .studio-layout.context-workspace { --studio-inspector: 248px; --studio-frames: 222px; }
   .studio-slides .slide-list { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
-.studio-layout:has(.editorial-popover) .studio-left { visibility: hidden; }
 .studio :is(input, textarea, select):not(:disabled) { border-color: var(--ui-control-line); }
 .studio :is(button, select, input):not([type=checkbox], [type=radio], [type=file]) { min-height: var(--ui-compact-height); }
 .studio .studio-slides :is(header button, .slide-caption, .slide-actions button) { font-size: 12px; }

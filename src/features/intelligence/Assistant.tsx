@@ -65,7 +65,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
   const workspace = page === 'studio' ? anchor : null
   const memory = useEditorialMemory()
   const items = visibleSignals(signals, page, memory.history).slice(0, 4)
-  const candidate = items.find(item => item.insight.actions?.length)
+  const candidate = items.find(item => item.proactive !== false && item.insight.actions?.length)
   const [previousPage, setPreviousPage] = useState(page)
   const [open, setOpen] = useState(false)
   const [shown, setShown] = useState<string>()
@@ -112,7 +112,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
   const assistant = <aside ref={dock} className="editorial-dock" data-workspace={workspace ? 'studio' : undefined} aria-label="Assistente Editorial" onKeyDown={event => {
     if (event.key === 'Escape' && (open || showBalloon)) { event.stopPropagation(); close() }
   }}>
-    {open && <section className="editorial-popover" id="editorial-assistant-panel" aria-labelledby="editorial-assistant-heading">
+    {open && <div className="editorial-popover-anchor"><section className="editorial-popover" id="editorial-assistant-panel" aria-labelledby="editorial-assistant-heading">
       <header><h2 id="editorial-assistant-heading" ref={heading} tabIndex={-1}>Assistente Editorial</h2>
         <button onClick={close}>Fechar</button></header>
       {items.length === 0 && <p>Abra uma pauta, uma análise de título ou uma revisão para receber orientações.</p>}
@@ -122,7 +122,7 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
         <RuleDetails insight={item.insight} />
         <div className="editorial-buttons">
           {item.insight.actions?.map((action, index) => <button className={index === 0 ? 'editorial-main-action' : undefined} key={action.label} onClick={() => { setOpen(false); setShown(undefined); action.run() }}>{action.label}</button>)}
-          <button onClick={() => dismiss(item)}>Dispensar insight</button>
+          <button onClick={() => dismiss(item)}>Ignorar sugestão</button>
         </div>
       </article>)}
       {items.length > 1 && <details><summary>Outras recomendações</summary>
@@ -131,11 +131,11 @@ export default function Assistant({ page }: { page: Page | 'not-found' }) {
           {item.insight.assessment !== 'insufficient_data' && <small>{assessments[item.insight.assessment]}</small>}
           <RuleDetails insight={item.insight} />
           <div className="editorial-buttons">{item.insight.actions?.map(action => <button key={action.label} onClick={() => { setOpen(false); setShown(undefined); action.run() }}>{action.label}</button>)}
-            <button onClick={() => dismiss(item)}>Dispensar insight</button></div>
+            <button onClick={() => dismiss(item)}>Ignorar sugestão</button></div>
         </article>)}
       </details>}
       <AssistantPreferences />
-    </section>}
+    </section></div>}
     {showBalloon && candidate && <section className="editorial-balloon" aria-label="Insight editorial">
       <button aria-label={`Ocultar mensagem: ${candidate.insight.title}`} onClick={() => { hideBalloon(); launcher.current?.focus({ preventScroll: true }) }}>
         <span role="status">{candidate.insight.title}</span>

@@ -4,7 +4,7 @@ import { Icon } from './Icon'
 const phases = [
   ['Radar','Notícias, oportunidades e criação de pautas'],
   ['Campanhas','Briefing, prompt para ChatGPT e importação de conteúdo'],
-  ['Produção Expressa','Três propostas editáveis com 11 coleções'],
+  ['Criar carrossel','Três propostas editáveis com 11 coleções'],
   ['Studio','Edição contextual, frames, imagens e marca'],
   ['Finalização','Auditoria, PNG, ZIP, legendas e créditos'],
 ]

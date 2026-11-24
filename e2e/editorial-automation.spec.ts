@@ -40,11 +40,11 @@ test('Radar abre um único projeto editável e aplica foto licenciada da fonte e
   await expect(project).toHaveValue(article.title)
   await expect(other.getByLabel('Projeto', { exact: true })).toHaveValue(article.title)
   await other.close()
-  await expect(page.getByRole('status').filter({ hasText: 'Frames editáveis · Buscando imagens' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Slides editáveis · Buscando imagens' })).toBeVisible()
   await project.fill('Projeto editado')
   await page.getByRole('button', { name: 'Salvar', exact: true }).click()
   release()
-  await expect(page.getByRole('button', { name: 'Slide 1', exact: true })).toHaveAttribute('aria-description', /Foto documental/)
+  await expect(page.getByRole('button', { name: 'Slide 1', exact: true })).toHaveAttribute('aria-description', /Imagem encontrada/)
   await expect(project).toHaveValue('Projeto editado')
   await page.getByRole('region', { name: 'Editor Studio' }).getByText('Notícia de origem', { exact: true }).click()
   await expect(page.getByRole('link', { name: article.title, exact: true })).toHaveAttribute('href', article.url)
@@ -64,6 +64,7 @@ test('Studio distribui texto e JSON em versões editáveis com fonte e aviso de 
   const importText = async (text: string) => {
     await studio.getByRole('button', { name: 'Colar conteúdo' }).click()
     await studio.getByLabel('Texto, JSON ou Markdown').fill(text)
+    await studio.getByText('Escolher template manualmente', { exact: true }).click()
     await studio.getByLabel('Template da nova versão').selectOption('text')
     await studio.getByRole('button', { name: 'Criar nova versão' }).click()
   }

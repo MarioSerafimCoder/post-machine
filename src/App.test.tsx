@@ -7,10 +7,10 @@ beforeEach(() => { window.location.hash = '' })
 describe('fundação', () => {
   it('apresenta os três espaços e identifica o Radar disponível', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: 'Ideias boas merecem espaço.' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'O que vamos criar hoje?' })).toBeVisible()
     const navigation = screen.getByRole('navigation', { name: 'Navegação principal' })
     expect(within(navigation).getAllByRole('link')).toHaveLength(4)
-    expect(screen.getByText(/11 coleções · 66 composições editáveis/)).toBeVisible()
+    expect(within(screen.getByRole('group', { name: 'Origens do carrossel' })).getAllByRole('button')).toHaveLength(3)
   })
   it('atualiza página, título e foco; alterna seções do Radar', async () => {
     render(<App />); navigate('#/radar')

@@ -319,7 +319,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
           {draft.content && responsePendingId !== draft.id && <button className="button button-outline" disabled={saving > 0}
             onClick={() => void saveAndContinue(draft, 'save')}>Salvar sem abrir</button>}
           {draft.content && <button className="button button-outline" disabled={saving > 0}
-            onClick={() => void saveAndContinue(draft, 'express')}>Fabricar na Produção Expressa</button>}
+            onClick={() => void saveAndContinue(draft, 'express')}>Explorar designs da campanha</button>}
           <button className="button button-outline" onClick={() => duplicate(draft)}>Duplicar campanha</button>
           <button className="button button-outline" onClick={() => setDeleteId(draft.id)}>Excluir campanha</button>
         </div>

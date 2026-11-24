@@ -33,19 +33,18 @@ export function Slides({ project, current, select, action, issues, reorder, open
     else if (!state && slide.visualChoice?.match) photos.applied.push(index)
   })
   return <section className="studio-slides" aria-label="Slides">
-    <header><strong>Frames</strong><button aria-expanded={open} onClick={toggle}>{open ? 'Recolher frames' : 'Mostrar frames'}</button></header>
+    <header><strong>Slides</strong><button aria-expanded={open} onClick={toggle}>{open ? 'Recolher slides' : 'Mostrar slides'}</button></header>
     {open && Object.values(photos).some(indices => indices.length) && <div className="photo-summary" role="group" aria-label="Fotografias do projeto">
       {([{ group: 'applied', label: 'Fotos aplicadas' }, { group: 'empty', label: 'Escolher imagem' }, { group: 'error', label: 'Tentar novamente' }] as const).map(({ group, label }) =>
         photos[group].length > 0 && <button key={group} onClick={() => locatePhoto(photos[group][0], group)}>{label} · {photos[group].length}</button>)}
     </div>}
-    {open && <><div className="slide-list" ref={list} role="group" aria-label="Setas navegam. Alt e setas movem o frame ativo.">{project.slides.map((slide, index) => {
+    {open && <><div className="slide-list" ref={list} role="group" aria-label="Setas navegam. Alt e setas movem o slide ativo.">{project.slides.map((slide, index) => {
       const review = issues.get(slide.id)
       const status = imageStatus?.(slide.id)
       const match = slide.visualChoice?.match
-      const photoStatus = status === 'documental' ? 'Busca documental' : status === 'editorial' ? 'Busca editorial' :
-        status === 'illustration' ? 'Busca de ilustração' :
-        status === 'empty' ? 'Sem sugestão' : status === 'error' ? 'Busca indisponível' :
-          match ? match.strategy === 'illustration' ? 'Ilustração de apoio' : match.strategy === 'editorial' ? 'Foto editorial' : 'Foto documental' : ''
+      const photoStatus = status === 'empty' ? 'Nenhuma imagem adequada encontrada' :
+        status === 'error' ? 'Busca indisponível' : status ? 'Buscando imagem' :
+          match ? 'Imagem encontrada' : slide.visualChoice?.mode === 'none' ? 'Slide sem imagem' : ''
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]
       const label = composition === undefined ? templates[slide.layout as keyof typeof templates] ?? 'Livre' : compositionNames[Number(composition)] ?? 'Livre'
       const stale = review && (review.scene !== slide.scene || !sameReviewSettings(review.project,project))

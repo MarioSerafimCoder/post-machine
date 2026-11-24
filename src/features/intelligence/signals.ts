@@ -5,7 +5,7 @@ import type { Insight, Preference } from './types'
 export type Signal = {
   area: Page; priority: number; scope: string; insight: Insight; preference?: Preference
   category?: 'audit' | 'editing' | 'production' | 'research'
-  subject?: string; version?: string; severity?: 'blocking' | 'warning'
+  subject?: string; version?: string; severity?: 'blocking' | 'warning'; proactive?: boolean
 }
 type QueuedSignal = Signal & { createdAt: number }
 export const signalVersion = (item: Signal) => JSON.stringify([item.area, item.scope, item.insight.id, item.version ?? [item.insight.title, item.insight.detail]])

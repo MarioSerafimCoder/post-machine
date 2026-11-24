@@ -1,42 +1,42 @@
-import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
-import type { Project } from '../features/studio/model'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import type { recentProjects } from '../features/studio/database'
 import { Icon } from './Icon'
 
 const ProjectPreview = lazy(() => import('../features/studio/ProjectPreview'))
-const projectDate = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-type Summary = Pick<Project, 'id' | 'name' | 'updatedAt'>
+type Summary = Awaited<ReturnType<typeof recentProjects>>[number]
 
-export function ResumeProject({ open, introduction }: { introduction: ReactNode; open: (id?: string) => void }) {
-  const [result, setResult] = useState<{ project?: Summary; error?: boolean }>()
+export function ResumeProject({ open, resume }: { open: (id: string) => void; resume: () => void }) {
+  const [result, setResult] = useState<{ projects: Summary[]; preparation: boolean } | null>()
   useEffect(() => {
     let active = true
     let unsubscribe: (() => void) | undefined
-    void import('../features/studio/database').then(({ latestProject, projectsChangedEvent }) => {
+    void import('../features/studio/database').then(({ recentProjects, hasIndependentPreparation, projectsChangedEvent }) => {
       if (!active) return
       let generation = 0
       const refresh = () => {
         const request = ++generation
-        void latestProject().then(project => {
-          if (active && request === generation) setResult({ project })
-        }, () => { if (active && request === generation) setResult({ error: true }) })
+        void Promise.all([recentProjects(), hasIndependentPreparation()]).then(([projects, preparation]) => {
+          if (active && request === generation) setResult({ projects, preparation })
+        }, () => { if (active && request === generation) setResult(null) })
       }
       window.addEventListener(projectsChangedEvent, refresh)
       unsubscribe = () => window.removeEventListener(projectsChangedEvent, refresh)
       refresh()
-    }, () => { if (active) setResult({ error: true }) })
+    }, () => { if (active) setResult(null) })
     return () => { active = false; unsubscribe?.() }
   }, [])
-  const project = result?.project
-  const card = <section className="resume-project" aria-labelledby="resume-heading">
-    <div className="resume-project-copy">{project ? <Suspense fallback={<Icon name="folder" />}><ProjectPreview key={project.id + project.updatedAt} item={{ id: project.id, revision: project.updatedAt }} /></Suspense> : <Icon name="folder" />}<div>
-      <h2 id="resume-heading">{project ? 'Continue de onde parou' : 'Comece seu primeiro projeto'}</h2>
-      {project ? <p><strong>{project.name || 'Projeto sem nome'}</strong> <time dateTime={project.updatedAt}>{projectDate.format(new Date(project.updatedAt))}</time></p>
-        : <p role="status">{!result ? 'Buscando projetos locais…' : result.error ? 'Não foi possível consultar os projetos deste navegador.' : 'Crie um projeto vazio ou encontre uma pauta para começar.'}</p>}
-    </div></div>
-    {project ? <button className="button button-dark" onClick={() => open(project.id)}>Continuar editando</button>
-      : result && <div className="resume-actions"><a className="button button-outline" href="#/radar">Explorar pautas</a>
-        {result.error ? <a className="button button-dark" href="#/studio">Abrir Studio</a>
-          : <button className="button button-dark" onClick={() => open()}>Criar projeto</button>}</div>}
+  return <section className="production-section" aria-labelledby="resume-heading">
+    <header><h2 id="resume-heading">Continue produzindo</h2><a className="text-button" href="#/studio">Ver projetos</a></header>
+    {result === undefined && <p role="status">Buscando projetos locais…</p>}
+    {result === null && <p role="status">Não foi possível consultar os projetos deste navegador.</p>}
+    {result && !result.projects.length && !result.preparation && <p>Seus projetos e preparações locais aparecem aqui depois que você começa.</p>}
+    {result?.preparation && <button className="button button-outline" onClick={resume}>Retomar preparação</button>}
+    <div className="production-grid">{result?.projects.map(project => <article className="resume-project" key={project.id}>
+      <div className="resume-project-copy">
+        <Suspense fallback={<Icon name="folder" />}><ProjectPreview key={project.updatedAt} item={{ id: project.id, revision: project.updatedAt }} /></Suspense>
+        <div><h3>{project.name || 'Projeto sem nome'}</h3><p>Revisão e edição · {project.slideCount} {project.slideCount === 1 ? 'slide' : 'slides'}</p></div>
+      </div>
+      <button className="button button-outline" onClick={() => open(project.id)}>Continuar editando</button>
+    </article>)}</div>
   </section>
-  return project ? <>{card}{introduction}</> : <>{introduction}{card}</>
 }

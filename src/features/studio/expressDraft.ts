@@ -1,4 +1,4 @@
-import type { Draft } from '../campaigns/contract'
+import type { Content, Draft } from '../campaigns/contract'
 import { abortTransaction, transaction } from './database'
 import type { CollectionSlide } from './collections'
 import type { Format } from './model'
@@ -13,6 +13,9 @@ type DraftFields = {
   text: string; slides: ExpressSlide[]; linked?: Draft; name: string; caption?: string
   styleId: string; format: Format; step: string; origin: 'local' | 'openverse' | 'library' | 'url'
   authorTemplateId?: string
+  importedContent?: Content
+  lastOrganized?: string
+  projectId?: string
 }
 export type ExpressDraft = DraftFields & { photos: ExpressPhoto[] }
 type StoredDraft = DraftFields & { revision: string; photoIds: string[] }

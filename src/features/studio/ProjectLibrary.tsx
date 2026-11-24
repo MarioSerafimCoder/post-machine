@@ -87,7 +87,7 @@ export function ProjectLibrary({ result, refresh, error, flush, open, imported, 
       <details ref={createMenu} className="library-menu library-create">
         <summary className="button">＋ Novo projeto</summary>
         <div className="library-popover">
-          <button disabled={busy} onClick={express}>Produção Expressa</button>
+          <button disabled={busy} onClick={express}>Preparar carrossel</button>
           <button disabled={busy} onClick={templates}>Usar template</button>
           <button disabled={busy} onClick={create}>Criar projeto vazio</button>
           <label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>

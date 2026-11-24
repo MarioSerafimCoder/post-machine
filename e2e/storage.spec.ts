@@ -27,7 +27,7 @@ test('migra o acervo, isola registro inválido e retoma a edição mais recente 
     } finally { db.close() }
   }, { projects: [original, recent, damaged], asset, bytes: [...png] })
   await page.getByRole('link', { name: 'Início', exact: true }).click()
-  const resume = page.getByRole('region', { name: 'Continue de onde parou' })
+  const resume = page.getByRole('region', { name: 'Continue produzindo' })
   await expect(resume).toContainText(recent.name)
   await page.getByRole('link', { name: 'Auditoria', exact: true }).click()
   await expect(page.getByRole('list', { name: 'Projetos com dados inválidos' })).toContainText(damaged.name)

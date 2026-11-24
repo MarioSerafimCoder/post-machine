@@ -13,7 +13,7 @@ const linearGradient = z.object({
   coords:z.object({ x1:z.number().min(-4000).max(4000),x2:z.number().min(-4000).max(4000),y1:z.number().min(-4000).max(4000),y2:z.number().min(-4000).max(4000) }),
   colorStops:z.array(z.object({ offset:z.number().min(0).max(1),color:z.string().regex(/^rgba\(\d{1,3},\d{1,3},\d{1,3},(?:0|1|0\.\d+)\)$/) })).min(2).max(8),
 })
-const projectWithSources = projectSchema.extend({ editorialSource: articleSchema.optional(), editorialReferences: contentSchema.shape.sources.optional() })
+const projectWithSources = projectSchema.extend({ editorialSource: articleSchema.optional(), editorialReferences: contentSchema.shape.sources.optional(), importedContent: contentSchema.optional() })
 export function validateProject(input: unknown): Project & { assetEncoding?: 'media-v1' } {
   const project = projectWithSources.parse(input)
   if (new Set(project.slides.map(s => s.id)).size !== project.slides.length) throw Error('Slides com identificadores duplicados.')

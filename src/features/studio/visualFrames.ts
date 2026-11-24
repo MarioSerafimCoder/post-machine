@@ -27,7 +27,7 @@ export function frameRequest(project: Project, slide: VisualSlide) {
   return query ? requestFor(project.id + '/' + slide.id, query, slide.visualChoice?.revision) : undefined
 }
 
-export function rewriteVisualFrame(slide: VisualSlide, choice: VisualChoice, suggestion?: AutomaticImage): VisualSlide {
+export function rewriteVisualFrame(slide: VisualSlide, choice: VisualChoice, suggestion?: AutomaticImage, hidePlaceholder = choice.mode === 'none'): VisualSlide {
   const reserved = frame(slide.scene)
   if (!reserved || (choice.mode !== 'automatic' && choice.mode !== 'none')) return { ...slide, visualChoice: choice }
   const remove = choice.mode === 'none' || !suggestion
@@ -37,7 +37,7 @@ export function rewriteVisualFrame(slide: VisualSlide, choice: VisualChoice, sug
     ? new Rect({ left: box[0], top: box[1], width: box[2], height: box[3], strokeWidth: 0, fill: '#efefef',
       originX: 'left', originY: 'top', semantic: 'imageFrame' }).toObject() as unknown as Record<string, unknown> : reserved
   const objects = slide.scene.objects.flatMap(object => {
-    if (object === reserved) return remove ? [{ ...placeholder, semantic: 'imageFrame', visible: true }] : [
+    if (object === reserved) return remove ? [{ ...placeholder, semantic: 'imageFrame', visible: !hidePlaceholder }] : [
       { ...placeholder, semantic: 'visualSearchFrame', visible: false },
       imageForFrame(suggestion.object, [...box], 'cover', .5, suggestion.focalPoint),
     ]

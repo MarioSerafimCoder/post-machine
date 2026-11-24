@@ -6,13 +6,14 @@ type Job = { request: VisualRequest; controller: AbortController; running: boole
 type Status = { signature: string; status: VisualStatus }
 
 export function useAutomaticImages(active: boolean, requests: VisualRequest[], occupied: ReadonlySet<string>,
-  apply: (request: VisualRequest, image: AutomaticImage) => boolean) {
+  apply: (request: VisualRequest, image: AutomaticImage) => boolean, onEmpty?: (request: VisualRequest) => void) {
   const jobs = useRef(new Map<string, Job>())
   const finished = useRef(new Map<string, string>())
   const used = useRef(new Set<string>())
   const [statuses, setStatuses] = useState<Record<string, Status>>({})
   const getInputs = useEffectEvent(() => ({ active, requests, occupied }))
   const accept = useEffectEvent(apply)
+  const noMatch = useEffectEvent((request: VisualRequest) => onEmpty?.(request))
 
   useEffect(() => {
     const queue = jobs.current
@@ -58,7 +59,7 @@ export function useAutomaticImages(active: boolean, requests: VisualRequest[], o
             if (image && accept(request, image)) {
               image.keys.forEach(key => reserved.add(key))
               if (image.creator) reserved.add('autor:' + image.creator.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase())
-            } else report('empty')
+            } else { report('empty'); if (!image) noMatch(request) }
           }, () => report('error')).finally(() => {
             if (jobs.current.get(request.key) !== job) return
             jobs.current.delete(request.key)

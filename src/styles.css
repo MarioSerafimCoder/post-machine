@@ -238,6 +238,24 @@ dialog:is(.roadmap-dialog, .collection-dialog, .studio-dialog)[open] { opacity: 
 .news-filter-panel [hidden] { display: none; }
 .resume-project .library-preview { display: grid; place-items: center; width: 64px; height: 72px; overflow: hidden; border-radius: 6px; background: #f2f1ee; }
 .resume-project .library-preview img { width: 100%; height: 100%; object-fit: contain; }
+.production-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.production-grid:empty { display: none; }
+.production-origin, .production-opportunity {
+  display: grid; align-content: start; gap: 9px; padding: 18px; text-align: left;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+}
+.production-origin strong { font-size: 17px; }
+.production-origin span, .production-opportunity small { color: var(--muted); }
+.production-origin:hover { border-color: var(--accent); background: var(--ui-hover); }
+.production-section { display: grid; gap: 12px; margin: 26px 0; }
+.production-section > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.production-section h2 { font-size: var(--ui-title); font-weight: 700; }
+.production-grid .resume-project { display: grid; justify-content: stretch; gap: 12px; margin: 0; padding: 14px; }
+.production-grid .library-preview { flex: 0 0 64px; }
+.production-grid h3 { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.production-opportunity img { width: 100%; height: 112px; object-fit: cover; border-radius: 6px; }
+.production-opportunity p { color: var(--muted); }
+.production-opportunity .button { justify-self: start; }
 .app-shell :is(.express, .campaign-panel, .news-filters) :is(input:not([type=checkbox]), textarea, select) {
   border-radius: 7px; padding: 9px 11px; border: 1px solid #969b9c; background-color: #fff;
   transition: border-color 140ms ease, box-shadow 140ms ease;

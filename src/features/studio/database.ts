@@ -44,21 +44,27 @@ export async function transaction<T>(stores: string[], mode: IDBTransactionMode,
   } finally { db.close() }
 }
 
-export function latestProject() {
+export function recentProjects() {
   return transaction(['projects'], 'readonly', tx => {
-    let latest: { id: string; name: string; updatedAt: string } | undefined
+    const latest: { id: string; name: string; updatedAt: string; slideCount: number }[] = []
     const request = tx.objectStore('projects').index('updatedAt').openCursor(null, 'prev')
     request.onsuccess = () => {
       const cursor = request.result
       if (!cursor) return
-      const { id, name, updatedAt } = (cursor.value ?? {}) as Record<string, unknown>
+      const { id, name, updatedAt, slides } = (cursor.value ?? {}) as Record<string, unknown>
       if (id === cursor.primaryKey && typeof id === 'string' && typeof name === 'string' &&
           typeof updatedAt === 'string' && Number.isFinite(Date.parse(updatedAt))) {
-        latest = { id, name, updatedAt }
-        return
+        latest.push({ id, name, updatedAt, slideCount: Array.isArray(slides) ? slides.length : 0 })
       }
-      cursor.continue()
+      if (latest.length < 3) cursor.continue()
     }
     return () => latest
+  })
+}
+
+export function hasIndependentPreparation() {
+  return transaction(['expressDrafts'], 'readonly', tx => {
+    const request = tx.objectStore('expressDrafts').getKey('independent')
+    return () => request.result !== undefined
   })
 }

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
-import { maxImport, maxSlides, type Draft } from '../campaigns/contract'
+import { maxImport, maxSlides, type Content, type Draft } from '../campaigns/contract'
 import { readCampaigns } from '../campaigns/storage'
 import { ResponsePreview } from '../campaigns/ResponsePreview'
 import { ImageSearch } from '../images/ImageSearch'
@@ -44,12 +44,12 @@ const maxImageBytes = 80_000_000
 const key = () => crypto.randomUUID()
 const entry = (data: CollectionSlide = { title:'', body:'' }): Entry => ({ ...data, key:key() })
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : String(cause)
-export function Express({ active, brand, campaign, format: initialFormat, cancel, open, editTemplate }: {
-  active: boolean; brand: Brand; campaign?: Draft; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
+export function Express({ active, brand, campaign, originMode, format: initialFormat, cancel, open, editTemplate }: {
+  active: boolean; brand: Brand; campaign?: Draft; originMode?: 'import' | 'blank'; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
   editTemplate: (template: AuthorTemplate) => Promise<void>
 }) {
   const [step, setStep] = useState<Step>('Conteúdo')
-  const [editingSlides, setEditingSlides] = useState(Boolean(campaign?.content))
+  const [editingSlides, setEditingSlides] = useState(Boolean(campaign?.content) || originMode === 'blank')
   const contentFile = useRef<HTMLInputElement>(null)
   const firstTitle = useRef<HTMLInputElement>(null)
   const [focusRequest, setFocusRequest] = useState(0)
@@ -91,6 +91,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
   const live = useRef(true)
   const externalRequest = useRef<AbortController | null>(null)
   const [lastOrganized, setLastOrganized] = useState<string>()
+  const [importedContent, setImportedContent] = useState<Content>()
+  const [projectId, setProjectId] = useState<string>(key)
   const [slot] = useState(() => campaign?.id ?? 'independent')
   const [draftGate, setDraftGate] = useState<'loading' | 'ready' | 'recover' | 'error'>('loading')
   const [candidate, setCandidate] = useState<ExpressDraft>()
@@ -106,10 +108,11 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       : slot ? slot[2] * width / (slot[3] * height) : width / height
     return slides.flatMap(slide => {
       if (slide.imageId !== undefined || slide.image || slide.imageLocked || slide.focalPoint || (!slide.title.trim() && !slide.body.trim())) return []
-      const query = visualQueries({ ...slide, role: slide.intent ?? slide.role, ratio, campaign: linked?.content?.campaign.title })
+      const query = visualQueries({ ...slide, role: slide.intent ?? slide.role, ratio, campaign: linked?.content?.campaign.title ?? importedContent?.campaign.title,
+        sourcePage: slide.role === 'cover' ? linked?.article?.url : undefined, sourceImage: slide.role === 'cover' ? linked?.article?.imageUrl : undefined })
       return query ? [requestFor(slide.key, query, slide.searchRevision)] : []
     })
-  }, [slides, author, format, style, linked])
+  }, [slides, author, format, style, linked, importedContent])
   const localInput = useMemo(() => ({ style, format, brand, slides, author, visual,
     assets: photos.filter(photo => !photo.automatic || slides.some(slide => slide.imageId === photo.id)),
   }), [style, format, brand, slides, author, visual, photos])
@@ -127,7 +130,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       photo.automatic?.match.fingerprint && 'foto:' + photo.automatic.match.fingerprint,
       credit?.creator && 'autor:' + credit.creator.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()].filter((item): item is string => !!item)
   })), [photos, automaticBySlide, slides])
-  const search = useAutomaticImages(active && draftGate === 'ready' && (step !== 'Prévia' || !prepared) && progress === undefined && !busy, requests, occupied, (request, image) => {
+  const search = useAutomaticImages(active && draftGate === 'ready' && (step !== 'Prévia' || !prepared) &&
+    (progress === undefined || !!originMode) && !busy, requests, occupied, (request, image) => {
     const retained = photos.filter(photo => photo.automatic?.slideKey !== request.key || slides.some(slide => slide.imageId === photo.id))
     if (retained.length >= maxImages || retained.reduce((total, photo) => total + photo.bytes, image.file.size) > maxImageBytes) return false
     if (retained.some(photo => (photo.object.imageCredit as ImageCredit | undefined)?.sourceId === image.id)) return false
@@ -154,8 +158,9 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     if (state === 'error') setDraftError(`Falha ao salvar a preparação. ${errorText(failure)}`)
     else if (state === 'saved') setDraftError('')
   }, 250))
-  const snapshot = useMemo<ExpressDraft>(() => ({ text, slides, linked, name, caption, styleId: style.id, format, step, origin, photos, authorTemplateId: author?.id }),
-    [text, slides, linked, name, caption, style, format, step, origin, photos, author])
+  const snapshot = useMemo<ExpressDraft>(() => ({ text, slides, linked, name, caption, styleId: style.id, format, step, origin, photos,
+    authorTemplateId: author?.id, importedContent, lastOrganized, projectId }),
+    [text, slides, linked, name, caption, style, format, step, origin, photos, author, importedContent, lastOrganized, projectId])
   useEffect(() => {
     let alive = true
     void storedDraft.load().then(result => {
@@ -232,13 +237,19 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       organize(result.slides)
       setLastOrganized(raw)
       setLinked(undefined)
+      setImportedContent(result.structured)
       setCaption(result.structured?.campaign.caption)
       if (result.structured) {
         setName(result.structured.campaign.title.slice(0,100))
         if (!author) setFormat(result.structured.campaign.format === 'story' ? 'story' : initialFormat === 'story' ? 'portrait' : initialFormat)
       }
+      if (originMode && !author && style === collections[0]) {
+        const suggested = result.slides.some(slide => slide.intent === 'comparison') ? 'swiss' :
+          result.slides.some(slide => slide.imageBrief?.trim()) ? 'photo' : 'minimal'
+        setStyle(collections.find(collection => collection.id === suggested) ?? style)
+      }
       setError('')
-      setStatus(`${result.slides.length} ${result.slides.length === 1 ? 'slide organizado' : 'slides organizados'}. Confira o conteúdo e avance para Imagens ou Templates.`)
+      setStatus(`${result.slides.length} ${result.slides.length === 1 ? 'slide organizado' : 'slides organizados'}.`)
     } catch (cause) { setError(errorText(cause)) }
   }
 
@@ -258,6 +269,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     if (linked?.id !== id && slides.some(slide => slide.title.trim() || slide.body.trim()) &&
         !window.confirm('Substituir o conteúdo dos slides pela campanha selecionada? As imagens continuam disponíveis.')) return
     organize(fromStructured(item.content, item.briefing)); setLinked(item); setCaption(item.content.campaign.caption); setName(item.content.campaign.title.slice(0,100))
+    setImportedContent(undefined); setText(''); setLastOrganized(undefined)
     if (!author && item.content.campaign.format === 'story') setFormat('story')
     setError('')
   }
@@ -351,7 +363,23 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
       slide.body.length > bodyLimit || (slide.cta?.length ?? 0) > bodyLimit) return `Slide ${index+1}: revise os limites de caracteres.`
     return ''
   }).filter(Boolean)
-  async function startFabrication() {
+  const canMount = !invalid.length && (!text.trim() || lastOrganized === text)
+  useAssistantSignal(active && originMode && draftGate === 'ready' && !busy && progress === undefined && !downloading ? {
+    area: 'studio', scope: slot, category: 'production', priority: 1, proactive: false,
+    insight: canMount ? {
+      id: 'production:mount', title: `${slides.length} ${slides.length === 1 ? 'slide organizado' : 'slides organizados'}`,
+      detail: 'A montagem prepara os slides editáveis para você revisar no Studio.', assessment: 'verified',
+      actions: [{ label: 'Montar e abrir no Studio', run: () => void startFabrication(true) }],
+    } : {
+      id: 'production:content', title: 'Prepare o conteúdo para montar os slides',
+      detail: 'Cole um conteúdo pronto ou escreva os slides diretamente.', assessment: 'heuristic',
+      actions: [{ label: 'Abrir conteúdo', run: () => {
+        selectStep('Conteúdo')
+        requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('.express textarea')?.focus())
+      } }],
+    },
+  } : undefined)
+  async function startFabrication(openRecommended = false) {
     if (invalid.length || generation.current || busy || downloading || vision.progress) return
     const controller = new AbortController()
     generation.current = controller
@@ -363,6 +391,12 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
         ? await fabricateAuthorTemplate(author, factoryInput, controller.signal, setProgress)
         : await fabricate(factoryInput, controller.signal, complete => setProgress(complete))
       if (live.current && !controller.signal.aborted) {
+        if (openRecommended) {
+          const warnings = (proposal: Proposal) => proposal.details.reduce((sum, detail) => sum + detail.issues.filter(requiresReview).length, 0)
+          const recommended = output.proposals.reduce((best, proposal) => warnings(proposal) < warnings(best) ? proposal : best)
+          await create(recommended)
+          return
+        }
         setPrepared({ input:factoryInput,result:output })
         setSelected(0)
         setPreviewIndex(0)
@@ -378,25 +412,28 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     }
   }
   async function create(proposal: Proposal) {
-    if (operation.current || invalid.length || !result) return
+    if (operation.current || invalid.length) return
     setBusy(true); setError(''); operation.current = true
     try {
       if (draftGate === 'ready') await draftQueue.flush(slot)
+      const sourceContent = linked?.content ?? importedContent
       const project = {
-        ...proposal.project, name:(name.trim() || slides[0]?.title.trim() || 'Produção Expressa').slice(0,100),
+        ...proposal.project, id: projectId, name:(name.trim() || slides[0]?.title.trim() || 'Novo carrossel').slice(0,100),
         caption, campaignId:linked?.id ?? null, campaignUpdatedAt:linked?.updatedAt ?? null,
+        importedContent: sourceContent, editorialSource: linked?.article ?? undefined, editorialReferences: sourceContent?.sources,
       }
       project.slides = project.slides.map((slide, index) => {
         const entry = slides[index]
         const image = frameImage(slide.scene)
         const request = frameRequest(project, slide)
-        if (!request) return slide
+        const withSubtitle = { ...slide, visualSubtitle: entry.subtitle }
+        if (!request) return withSubtitle
         const auto = automaticBySlide.get(entry.key)?.automatic
-        if (entry.imageId === null) return { ...slide, visualChoice: { mode: 'none' } }
+        if (entry.imageId === null) return { ...withSubtitle, visualChoice: { mode: 'none' } }
         if (image && (entry.imageId || localPlan[index]?.picture)) {
-          return { ...slide, visualChoice: { mode: entry.imageLocked ? 'locked' : 'manual' } }
+          return { ...withSubtitle, visualChoice: { mode: entry.imageLocked ? 'locked' : 'manual' } }
         }
-        return { ...slide, visualChoice: { mode: 'automatic', ...(image && auto ? { signature: request.signature, match: auto.match } : {}) } }
+        return { ...withSubtitle, visualChoice: { mode: 'automatic', ...(image && auto ? { signature: request.signature, match: auto.match } : {}) } }
       })
       await open(project)
       completed.current = true
@@ -678,7 +715,7 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     {!!invalid.length && <ul className="express-warnings">{invalid.map(message => <li key={message}>{message}</li>)}</ul>}
     <div className="factory-action">
       {!result && <button className="button button-dark" disabled={!!invalid.length || progress !== undefined || busy || !!vision.progress}
-        onClick={() => void startFabrication()}>{slides.length === 1 ? 'Fabricar meu post' : 'Fabricar meu carrossel'}</button>}
+        onClick={() => void startFabrication()}>{slides.length === 1 ? 'Montar meu post' : 'Montar meu carrossel'}</button>}
       {progress !== undefined && <>
         <progress aria-label="Progresso da fabricação" value={progress} max={slides.length} />
         <button className="button button-outline" onClick={() => {
@@ -714,6 +751,8 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     }
     setEditingSlides(true)
     setText(data.text); setSlides(data.slides); setLinked(data.linked); setName(data.name)
+    setImportedContent(data.importedContent); setLastOrganized(data.lastOrganized)
+    if (data.projectId) setProjectId(data.projectId)
     setCaption(data.caption); setPhotos(data.photos); setPhotoId(data.photos[0]?.id ?? '')
     setFormat(data.format); setStyle(collections.find(item => item.id === data.styleId) ?? collections[0])
     setStep(tools.some(tool => tool.label === data.step) ? data.step : 'Conteúdo')
@@ -732,21 +771,21 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
     finally { operation.current = false; setBusy(false) }
   }
 
-  return <section className="express" aria-label="Produção Expressa">
-    <header><h2>Produção Expressa</h2><button className="button button-outline" disabled={busy || downloading} onClick={() => void leave()}>Voltar aos projetos</button></header>
+  return <section className="express" aria-label="Criar carrossel">
+    <header><h2>Criar carrossel</h2><button className="button button-outline" disabled={busy || downloading} onClick={() => void leave()}>Voltar aos projetos</button></header>
     {draftError && <p className="express-warning" role="alert">{draftError}</p>}
     {draftGate === 'loading' && <p role="status">Verificando preparação local…</p>}
     {draftGate === 'error' && <button className="button button-outline" onClick={() => setDraftGate('ready')}>Continuar com a preparação atual</button>}
     {draftGate === 'recover' && candidate && <div className="express-panel">
       <h3>Preparação anterior disponível</h3>
-      <p>{candidate.name || 'Produção Expressa'} · {candidate.slides.length} {candidate.slides.length === 1 ? 'slide' : 'slides'} · {candidate.photos.length} {candidate.photos.length === 1 ? 'imagem' : 'imagens'}</p>
+      <p>{candidate.name || 'Criar carrossel'} · {candidate.slides.length} {candidate.slides.length === 1 ? 'slide' : 'slides'} · {candidate.photos.length} {candidate.photos.length === 1 ? 'imagem' : 'imagens'}</p>
       <div className="collection-actions">
         <button className="button button-dark" disabled={busy} onClick={() => void recover(candidate)}>Retomar preparação</button>
         <button className="button button-outline" disabled={busy} onClick={() => void discard()}>Descartar rascunho</button>
       </div>
     </div>}
     {draftGate === 'ready' && <>
-    <ContextWorkspace rail={<ContextRail label="Etapas da Produção Expressa" tools={tools} selected={step} choose={selectStep}
+    <ContextWorkspace rail={<ContextRail label="Etapas da criação" tools={tools} selected={step} choose={selectStep}
       disabled={busy || downloading} completed={[
         ...(!invalid.length ? ['Conteúdo'] : []), ...(photos.length || slides.every(item => item.imageId === null) ? ['Imagens'] : []),
         ...(step === 'Prévia' || author || style !== collections[0] ? ['Templates'] : []), ...(result ? ['Prévia'] : []),
@@ -756,14 +795,11 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
           <h3>{step}</h3>
           {(editingSlides || step !== 'Conteúdo') && <span className="muted">{slides.length - invalid.length} de {slides.length} {slides.length === 1 ? 'slide' : 'slides'} com conteúdo · {photos.length} {photos.length === 1 ? 'imagem' : 'imagens'} · {author?.name ?? style.name}</span>}
         </header>
-        {(busy || downloading) && <p role="status">{downloading ? 'Baixando imagem…' : 'Preparando…'}</p>}
+        {(busy || downloading || (originMode && progress !== undefined)) && <p role="status">{downloading ? 'Baixando imagem…' : 'Montando slides…'}</p>}
+        {originMode && step === 'Conteúdo' && progress !== undefined && !busy &&
+          <button className="button button-outline" onClick={() => generation.current?.abort()}>Cancelar montagem</button>}
         {error && <p className="express-warning" role="alert">{error}</p>}
         {status && <p className="express-feedback" key={status} role="status">{status}</p>}
-        {(targets.length > 0 || matchedPhotos.length > 0) && <p className="muted">
-          Modo visual Documental · Openverse · {matchedPhotos.length} de {slides.length} slides com sugestão do acervo
-          {' · '}{matchedPhotos.filter(match => match.strategy === 'editorial').length} em apoio editorial
-          {' · '}{requests.filter(item => search.status(item) === 'empty').length} sem resultado confiável
-        </p>}
         {(missing.length > 0 || interrupted.length > 0 || matchedPhotos.length > 0) && <div className="collection-actions" role="group" aria-label="Fotografias da preparação">
           {matchedPhotos.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
             const index = slides.findIndex(slide => automaticBySlide.has(slide.key) || photos.some(photo => photo.id === slide.imageId && photo.automatic))
@@ -780,12 +816,13 @@ export function Express({ active, brand, campaign, format: initialFormat, cancel
             setSlides(items => items.map(slide => keys.has(slide.key) ? { ...slide, searchRevision: (slide.searchRevision ?? 0) + 1 } : slide))
           }}>Tentar novamente · {interrupted.length}</button>}
         </div>}
-        <div className="express-stage" key={step}>{panel}</div>
+        <div className="express-stage" key={step} inert={step === 'Conteúdo' && progress !== undefined}>{panel}</div>
         {step !== 'Prévia' && (step !== 'Conteúdo' || editingSlides) && <div className="collection-actions express-next">
-          <button className="button button-dark" disabled={busy || downloading || (step === 'Conteúdo' && !!invalid.length)}
-            onClick={() => selectStep(step === 'Conteúdo' ? 'Imagens' : step === 'Imagens' ? 'Templates' : 'Prévia')}>
-            {step === 'Conteúdo' ? 'Avançar para imagens' : step === 'Imagens' ? 'Avançar para templates' : 'Avançar para prévia'}
+          <button className="button button-dark" disabled={busy || downloading || progress !== undefined || (step === 'Conteúdo' && (originMode ? !canMount : !!invalid.length))}
+            onClick={() => originMode && step === 'Conteúdo' ? void startFabrication(true) : selectStep(step === 'Conteúdo' ? 'Imagens' : step === 'Imagens' ? 'Templates' : 'Prévia')}>
+            {step === 'Conteúdo' ? originMode ? 'Montar e abrir no Studio' : 'Avançar para imagens' : step === 'Imagens' ? 'Avançar para templates' : 'Avançar para prévia'}
           </button>
+          {originMode && step === 'Conteúdo' && <button className="button button-outline" onClick={() => selectStep('Templates')}>Explorar outros designs</button>}
         </div>}
       </div>
     </ContextWorkspace></>}

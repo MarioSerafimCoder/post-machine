@@ -7,7 +7,7 @@ const cat = { name: 'arquivo-b.png', mimeType: 'image/png', path: 'e2e/fixtures/
 async function imagePreparation(page: Page) {
   await page.goto('/#/studio')
   await page.getByText('＋ Novo projeto', { exact: true }).click()
-  await button(page, 'Produção Expressa').click()
+  await button(page, 'Preparar carrossel').click()
   await page.getByRole('textbox', { name: /Cole aqui/ }).fill('Slide 1 — Retrato de gato\nUma composição com luz lateral.')
   await button(page, 'Organizar slides').click()
   await button(page, 'Imagens').click()
@@ -69,6 +69,6 @@ test('continua sugerindo por metadados quando o carregamento do modelo falha', a
   await expect(page.getByText(/Sugestões por metadados disponíveis/)).toBeVisible({ timeout: 25_000 })
   await expect(page.locator('.express-image-match strong')).toHaveText(coffee.name)
   await button(page, 'Prévia').click()
-  await button(page, 'Fabricar meu post').click()
-  await expect(page.getByRole('region', { name: 'Propostas de fabricação' }).getByRole('article')).toHaveCount(3)
+  await button(page, 'Montar meu post').click()
+  await expect(page.getByRole('region', { name: 'Opções de design' }).getByRole('article')).toHaveCount(3)
 })

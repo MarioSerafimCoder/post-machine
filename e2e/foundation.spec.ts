@@ -24,7 +24,7 @@ test('roteiro acessível fecha com Escape e devolve foco', async ({ page }) => {
   await trigger.click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  await expect(dialog.getByText('Produção Expressa', { exact:true })).toBeVisible()
+  await expect(dialog.getByText('Criar carrossel', { exact:true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(dialog).not.toBeVisible()
   await expect(trigger).toBeFocused()
@@ -37,7 +37,7 @@ test('link direto e recuperação de rota desconhecida', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Studio')
   await page.goto('/#/inexistente')
   await page.getByRole('link', { name: 'Voltar ao início' }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Ideias boas')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('O que vamos criar hoje?')
 })
 
 test('telas pequenas recebem somente orientação para desktop', async ({ page }) => {

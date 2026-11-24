@@ -15,7 +15,7 @@ import { listProjects, loadProject, loadRecovery, readBrand, backupProject, save
 import { ProjectLibrary } from './ProjectLibrary'
 import { download } from './export'
 import { ExportPanel } from './ExportPanel'
-import { defaultPreferences, newDraft, type DesignMode, type Draft } from '../campaigns/contract'
+import { defaultPreferences, maxImport, maxSlides, newDraft, type DesignMode, type Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, textExceedsLayout, type Template } from './templates'
 import { BrandPanel } from './BrandPanel'
 import { Slides, type SlideReview } from './Slides'
@@ -31,7 +31,7 @@ import { cropImage, readImage } from './images'
 import './studio.css'
 import { AuditPanel } from '../audit/AuditPanel'
 import { useAuditAssistant } from '../intelligence/auditSignal'
-import { useAssistantAnchor } from '../intelligence/signals'
+import { useAssistantAnchor, useAssistantSignal } from '../intelligence/signals'
 import { campaignScope } from '../intelligence/feedback'
 import type { AuditReport, Finding } from '../audit/contract'
 import { sameReviewSettings, sameReviewVersion, type Review } from '../audit/review'
@@ -44,10 +44,13 @@ import { frameImage, frameRequest, imageWasEdited, rewriteVisualFrame } from './
 import { useAutomaticImages } from '../images/useAutomaticImages'
 import { VisualSearchStatus } from '../images/VisualSearchStatus'
 import { prepareArticleContent, preparePastedContent } from './editorialContent'
+import { divideBody } from './factory/planning'
+import { ResponsePreview } from '../campaigns/ResponsePreview'
 import './collections.css'
 
 const Express = lazy(() => import('./Express').then(module => ({ default: module.Express })))
 const CollectionGallery = lazy(() => import('./CollectionGallery').then(module => ({ default: module.CollectionGallery })))
+const ProjectDesignOptions = lazy(() => import('./ProjectDesignOptions'))
 
 const studioTools: ContextTool[] = [
   { label: 'Templates', icon: 'studio' }, { label: 'Texto', icon: 'text' },
@@ -65,8 +68,9 @@ function readBackupDate(id: string) {
   } catch { return undefined }
 }
 
-export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: DesignMode } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'express' }; onStartCampaign: (mode: CampaignStartMode, campaignId?: string) => void }) {
+export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: DesignMode } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'import' | 'blank' }; onStartCampaign: (mode: CampaignStartMode, campaignId?: string) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
+  const [expressOrigin, setExpressOrigin] = useState<'import' | 'blank'>()
   const [error, setError] = useState('')
   const [slideFeedback, setSlideFeedback] = useState<{ text: string; id: string }>()
   useEffect(() => {
@@ -77,6 +81,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [templateDraft, setTemplateDraft] = useState<{ design: Project; previous?: TemplateSummary }>()
   const [templateEdit, setTemplateEdit] = useState<{ projectId: string; template: TemplateSummary }>()
   const [adaptSource, setAdaptSource] = useState<Project>()
+  const [designSource, setDesignSource] = useState<Project>()
   const { project, setProject, undo, redo, history, status, saveFailed, flush, getCurrent, endTextSession } = useDocument()
   const [backupTimes, setBackupTimes] = useState<Record<string, number>>({})
   const [backupPending, setBackupPending] = useState(false)
@@ -176,6 +181,18 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
     if (index === currentRef.current) setRevision(value => value + 1)
     return true
+  }, request => {
+    const latest = getCurrent()
+    if (!latest) return
+    const index = latest.slides.findIndex(slide => latest.id + '/' + slide.id === request.key)
+    const slide = latest.slides[index]
+    if (slide?.visualChoice?.mode !== 'automatic' || frameImage(slide.scene) ||
+      frameRequest(latest, slide)?.signature !== request.signature ||
+      !slide.scene.objects.some(object => object.semantic === 'imageFrame' && object.visible !== false) ||
+      (index === currentRef.current && canvas.current?.getActiveObjects().length)) return
+    const next = rewriteVisualFrame(slide, slide.visualChoice, undefined, true)
+    setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
+    if (index === currentRef.current) setRevision(value => value + 1)
   })
   function changeVisualFrame(mode: 'automatic' | 'manual' | 'locked' | 'none') {
     const latest = getCurrent()
@@ -226,7 +243,14 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key)
   }, [active, changed])
   function replace(value: Project, fromStorage = false) { setProject(value, !fromStorage, fromStorage); setRevision(n => n + 1) }
-  function chooseSlide(index: number) { currentRef.current = index; setCurrent(index) }
+  function chooseSlide(index: number, projectId = project?.id) {
+    currentRef.current = index
+    setCurrent(index)
+    if (projectId) {
+      try { localStorage.setItem('post-machine:slide:' + projectId, String(index)) }
+      catch { /* A navegação continua disponível sem a preferência local. */ }
+    }
+  }
   function selectPath(path:string|null){if(!path||!canvas.current)return;const object=canvas.current.getObjects()[Number(path.split('.')[0])];if(object){canvas.current.setActiveObject(object);canvas.current.requestRenderAll();refresh(n=>n+1)}}
   function focusFinding(finding: Finding) {
     if (!project) return
@@ -265,7 +289,17 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   }
   const receiveAuditFocus=useEffectEvent(async(raw:string)=>{try{const target=JSON.parse(raw) as {projectId:string;slideId:string;objectId:string|null};await flush();const value=await loadProject(target.projectId);const index=value.slides.findIndex(slide=>slide.id===target.slideId);focusPath.current=target.objectId;chooseSlide(Math.max(0,index));replace(value, true);setAuditOpen(true)}catch(cause){setError(String(cause))}})
   useEffect(()=>{const receive=()=>{if(window.location.hash!=='#/studio')return;const raw=sessionStorage.getItem('post-machine:audit-focus')??sessionStorage.getItem('direto:audit-focus');if(!raw)return;sessionStorage.removeItem('post-machine:audit-focus');sessionStorage.removeItem('direto:audit-focus');queueMicrotask(()=>void receiveAuditFocus(raw))};receive();window.addEventListener('hashchange',receive);return()=>window.removeEventListener('hashchange',receive)},[])
-  async function openProject(id: string) { try { await flush(); const value = await loadProject(id); chooseSlide(0); replace(value, true); setError('') } catch (e) { setError(String(e)) } }
+  async function openProject(id: string) {
+    try {
+      await flush()
+      const value = await loadProject(id)
+      let position = 0
+      try { position = Number(localStorage.getItem('post-machine:slide:' + id)) } catch { /* Começa no primeiro slide. */ }
+      chooseSlide(Number.isInteger(position) && position >= 0 && position < value.slides.length ? position : 0, id)
+      replace(value, true)
+      setError('')
+    } catch (e) { setError(String(e)) }
+  }
   function createEmptyProject(projectBrand = brand) {
     chooseSlide(0)
     setEntry(undefined)
@@ -278,9 +312,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     }
     try {
       await flush()
-      if (mode === 'express') {
+      if (mode) {
         if (getCurrent()) setProject(undefined)
         setExpressDraft(undefined)
+        setExpressOrigin(mode)
         setEntry('express')
         return
       }
@@ -318,6 +353,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       await flush()
       if (mode === 'express' && draft.content) {
         setExpressDraft(draft)
+        setExpressOrigin(undefined)
         setProject(undefined)
         setEntry('express')
       } else if (mode === 'radar') {
@@ -437,15 +473,32 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   async function upload(file?: File) {
     if (file) try { await insertImage(file) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Falha ao abrir imagem.') }
   }
-  async function openCreated(value: Project) {
+  async function openCreated(value: Project, reuse = false) {
     await flush()
-    await saveProject(value)
-    chooseSlide(0)
+    if (reuse) value = await openOrCreateStudioProject(value.id, async () => value)
+    else await saveProject(value)
+    chooseSlide(0, value.id)
     setAuditOpen(false)
     setExportProjectId(undefined)
     replace(value, true)
     setEntry(undefined)
     setError('')
+  }
+  function splitCurrentBody() {
+    if (!project || project.slides.length >= maxSlides) return
+    const slide = project.slides[current]
+    const bodies = slide.scene.objects.filter(object => object.semantic === 'body')
+    const body = bodies[0]
+    if (bodies.length !== 1 || typeof body.text !== 'string' || (body.styles && Object.keys(body.styles).length)) return
+    const split = divideBody(body.text)
+    if (!split) return
+    const continued = emptySlide(project.brand.background)
+    const first = { ...slide, scene: { ...slide.scene, objects: slide.scene.objects.map(object => object === body ? { ...body, text: split[0] } : object) } }
+    const second = { ...continued, layout: 'text', scene: compose('text', { title: '', body: split[1], cta: '' }, project.brand, project.format) }
+    const slides = [...project.slides]
+    slides.splice(current, 1, first, second)
+    replace({ ...project, slides })
+    setSlideFeedback({ text: 'Texto dividido em dois slides.', id: crypto.randomUUID() })
   }
   async function importPasted() {
     const original = getCurrent()
@@ -504,6 +557,20 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   })
   const assistantAnchor = useAssistantAnchor(active && !!project)
   const editorialOpen = !!project && editorialProject === project.id
+  const missingPhoto = frameTargets.find(item => autoSearch.status(item) === 'empty')
+  const missingIndex = project?.slides.findIndex(slide => missingPhoto?.key === project.id + '/' + slide.id) ?? -1
+  useAssistantSignal(active && project && !auditOpen && !exportOpen && project.slides.some(slide => slide.scene.objects.length) ? {
+    area: 'studio', scope: project.id, category: 'production', priority: 1, proactive: false,
+    insight: missingIndex >= 0 ? {
+      id: 'studio:photo', title: `Escolha uma imagem para o slide ${missingIndex + 1}`, assessment: 'verified',
+      detail: 'A busca terminou sem uma imagem adequada. Você pode escolher uma foto ou manter o slide sem imagem.',
+      actions: [{ label: 'Escolher imagem', run: () => { chooseSlide(missingIndex); openImages('search', true, missingIndex) } }],
+    } : {
+      id: 'studio:review', title: 'Revise o carrossel antes de exportar', assessment: 'heuristic',
+      detail: `${project.slides.length} ${project.slides.length === 1 ? 'slide disponível' : 'slides disponíveis'} no editor.`,
+      actions: [{ label: 'Revisar carrossel', run: () => { setAuditOpen(true); requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio .audit-panel')?.focus()) } }],
+    },
+  } : undefined)
   useEditingReview(active && !auditOpen && !exportOpen && !editorialOpen, readyCanvas, project, current, focusFinding, () => {
     const title = readyCanvas?.getObjects().find(object => object instanceof Textbox && object.semantic === 'title')
     if (!(title instanceof Textbox)) return
@@ -511,12 +578,12 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setHeadlineTarget(title)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio-headlines .headline-diagnosis')?.focus())
   })
-  const articleFeedback = openingArticle ? <p role="status">Organizando frames da notícia…</p> :
+  const articleFeedback = openingArticle ? <p role="status">Montando slides da notícia…</p> :
     articleOpenFailed ? <button className="button button-outline" onClick={() => setRetryArticle(value => value + 1)}>Tentar abrir notícia novamente</button> : null
   if (!project && openingArticle) return <section className="studio-welcome">{articleFeedback}</section>
-  if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Produção Expressa…</p>}>
-    <Express key={expressDraft?.id} campaign={expressDraft} active={active} brand={brand} format={format}
-      cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={openCreated} editTemplate={editTemplate} />
+  if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Criar carrossel…</p>}>
+    <Express key={expressDraft?.id ?? expressOrigin} campaign={expressDraft} originMode={expressOrigin} active={active} brand={brand} format={format}
+      cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={value => openCreated(value, true)} editTemplate={editTemplate} />
   </Suspense>
   if (!project && entry === 'collections') return <section className="studio-welcome">
     <div className="studio-entry"><h2>Biblioteca de templates</h2><button className="button button-outline" disabled={starting} onClick={() => setEntry(undefined)}>Voltar aos projetos</button></div>
@@ -529,7 +596,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   </section>
   if (!project) return <>{articleFeedback}<ProjectLibrary result={libraryResult} refresh={async () => setLibrary(await listProjects())}
     error={error} flush={flush} open={openProject} create={() => createEmptyProject()}
-    express={() => { setExpressDraft(undefined); setEntry('express') }} templates={() => setEntry('collections')}
+    express={() => { setExpressDraft(undefined); setExpressOrigin(undefined); setEntry('express') }} templates={() => setEntry('collections')}
     format={format} setFormat={setFormat} campaign={onStartCampaign} imported={value => {
       chooseSlide(0); replace(value, true); setError('')
       setSlideFeedback({ text: 'Projeto importado.', id: crypto.randomUUID() })
@@ -541,6 +608,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     return value === 'documental' || value === 'editorial' || value === 'illustration'
   })
   return <section className="studio" aria-label="Editor Studio">
+    {designSource && <Suspense fallback={<p role="status">Carregando opções de design…</p>}>
+      <ProjectDesignOptions source={designSource} close={() => setDesignSource(undefined)}
+        save={async copy => { await openCreated(copy); setDesignSource(undefined) }} />
+    </Suspense>}
     {adaptSource && <AdaptLayoutDialog source={adaptSource} firstSlide={current} close={() => setAdaptSource(undefined)}
       confirm={async copy => { await openCreated(copy); setAdaptSource(undefined) }} />}
     {templateDraft && <SaveTemplate project={templateDraft.design} previous={templateDraft.previous}
@@ -557,8 +628,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
         {campaign && <button onClick={() => void flush().then(() => onStartCampaign('blank', campaign.id),
           () => setError('Salve o projeto antes de voltar ao briefing.'))}>Editar briefing</button>}
-        {source && <button aria-expanded={pasteProject === project.id}
-          onClick={() => { setPasteProject(pasteProject === project.id ? undefined : project.id); setPastedText(''); setPastedTemplate(undefined) }}>Colar conteúdo</button>}
+        <button aria-expanded={pasteProject === project.id}
+          onClick={() => { setPasteProject(pasteProject === project.id ? undefined : project.id); setPastedText(''); setPastedTemplate(undefined) }}>Colar conteúdo</button>
         <span key={status} className={status === 'Salvo' ? 'studio-save-status studio-feedback' : 'studio-save-status'} data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
         <div className="studio-backup">
           {(backupDue || saveFailed) && <button title={lastBackup === undefined ? 'Nenhum backup ZIP registrado para este projeto.' : 'Atualize sua cópia de segurança'} disabled={backupPending} onClick={() => void downloadBackup()}>{backupPending ? 'Gerando backup…' : 'Baixar backup ZIP'}</button>}
@@ -583,6 +654,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
             menu.querySelector('summary')?.focus()
           }}>
             <button disabled={backupPending} onClick={() => void downloadBackup()}>Backup completo</button>
+            <button disabled={!project.slides.some(slide => slide.scene.objects.length)} onClick={() => setDesignSource(getCurrent())}>Explorar outros designs</button>
             <button onClick={() => prepareTemplate()}>Salvar como template</button>
             <button onClick={() => setAdaptSource(getCurrent())}>Adaptar formato</button>
             {project.id === templateEdit?.projectId && <button onClick={() => prepareTemplate(templateEdit.template)}>Atualizar template</button>}
@@ -646,20 +718,37 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       {project.editorialReferences?.filter(reference => reference.url !== source.url).map((reference, index) =>
         <p key={reference.url + index}><a href={reference.url} target="_blank" rel="noreferrer">{reference.title}</a></p>)}
     </details>}
+    {project.importedContent && <details className="studio-origin">
+      <summary>Conteúdo editorial de origem</summary>
+      <p><strong>{project.importedContent.campaign.title}</strong> · {project.importedContent.slides.length} peça(s)</p>
+      <p>{[project.importedContent.campaign.objective, project.importedContent.campaign.audience, project.importedContent.campaign.tone].filter(Boolean).join(' · ')}</p>
+      {!source && project.editorialReferences?.map((reference, index) =>
+        <p key={reference.url + index}><a href={reference.url} target="_blank" rel="noreferrer">{reference.title}</a></p>)}
+    </details>}
     {pasteProject === project.id && <section className="studio-paste context-panel" aria-label="Importar conteúdo editorial">
-      <label>Texto, JSON ou Markdown<textarea rows={5} value={pastedText} onChange={event => setPastedText(event.target.value)} /></label>
-      <label>Template da nova versão<select value={pastedTemplate ?? ''} onChange={event => setPastedTemplate((event.target.value || undefined) as Template | undefined)}>
+      <label>Texto, JSON ou Markdown<textarea rows={5} maxLength={maxImport} value={pastedText} onChange={event => setPastedText(event.target.value)} /></label>
+      <ResponsePreview raw={pastedText} express />
+      <details><summary>Escolher template manualmente</summary><label>Template da nova versão<select value={pastedTemplate ?? ''} onChange={event => setPastedTemplate((event.target.value || undefined) as Template | undefined)}>
         <option value="">Escolher pelo conteúdo</option>
         {Object.entries(templates).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-      </select></label>
+      </select></label></details>
       <div className="studio-actions">
-        <button disabled={!pastedText.trim() || starting} onClick={() => void importPasted()}>{starting ? 'Organizando frames…' : 'Criar nova versão'}</button>
+        <button disabled={!pastedText.trim() || starting} onClick={() => void importPasted()}>{starting ? 'Montando slides…' : 'Criar nova versão'}</button>
         <button onClick={() => setPasteProject(undefined)} disabled={starting}>Fechar importação</button>
       </div>
       <p className="muted">A nova versão fica na biblioteca junto com este projeto.</p>
     </section>}
-    {source && <p className="studio-editorial-status" role="status">{searchesPending ? 'Frames editáveis · Buscando imagens…' : 'Frames prontos para revisão.'}</p>}
-    {overflow && <p className="studio-guidance" role="status">Há texto além da área neste frame. Edite a caixa ou confira em Revisar → Problemas técnicos.</p>}
+    {searchesPending && <p className="studio-editorial-status" role="status">Slides editáveis · Buscando imagens…</p>}
+    {overflow && <div className="studio-guidance">
+      <p role="status">Há texto além da área neste frame. Edite a caixa ou confira em Revisar → Problemas técnicos.</p>
+      <button onClick={() => setPanel('Templates')}>Ajustar composição</button>
+      {project.slides.length < maxSlides && (() => {
+        const bodies = project.slides[current].scene.objects.filter(object => object.semantic === 'body')
+        const body = bodies[0]
+        return bodies.length === 1 && typeof body.text === 'string' && (!body.styles || !Object.keys(body.styles).length) && divideBody(body.text)
+          ? <button onClick={splitCurrentBody}>Dividir slide</button> : null
+      })()}
+    </div>}
     {exportOpen && <ExportPanel key={project.id} project={project} current={current} active={active} getCurrent={getCurrent} flush={flush} review={fullReview} onReport={receiveReview}
       caption={project.caption ?? campaign?.content?.campaign.caption ?? ''}
       changeCaption={caption => setProject(value => value && { ...value, caption, updatedAt: new Date().toISOString() })}
@@ -707,7 +796,6 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, type, project.brand.primary); changed() } }}>{name}</button>)}</>}
       {panel === 'Imagens' && <><h3>Imagens</h3>
       {project.slides[current].visualChoice && <div className="studio-visual-choice">
-        <p>Modo visual Documental</p>
         <VisualSearchStatus status={autoSearch.status(frameTargets.find(item => item.key === project.id + '/' + project.slides[current].id))}
           match={project.slides[current].visualChoice?.match} />
         <p>{({ automatic: 'Automático', manual: 'Confirmado manualmente', locked: 'Travado', none: 'Sem imagem' } as const)[project.slides[current].visualChoice!.mode]}</p>

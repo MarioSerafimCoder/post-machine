@@ -1,4 +1,18 @@
-# Estado real — 23/11/2026
+# Estado real — 24/11/2026
+
+## Central de produção e montagem recomendada
+
+- A página inicial reúne as três origens de **Criar carrossel**, os projetos recentes com prévias reais, a retomada de preparações e as oportunidades da edição do Radar. O Studio restaura o slide que estava aberto ao reabrir um projeto.
+- A importação e a escrita manual usam o rascunho local da preparação. **Montar e abrir no Studio** seleciona, entre as propostas da coleção recomendada, a versão com menos ocorrências de encaixe. Os campos do contrato importado acompanham o projeto e seu backup. O Studio salva a montagem com o identificador da preparação para evitar nova gravação após uma abertura repetida.
+- O editor continua utilizável durante a busca de imagens. Uma busca concluída sem foto adequada recolhe o espaço ilustrativo da composição e deixa a escolha manual disponível. Os detalhes de procedência ficam recolhidos. As travas e escolhas manuais têm precedência.
+- **Explorar outros designs** recompõe os campos editoriais em cópias editáveis. O projeto original permanece na biblioteca. Textos excedentes mantêm o conteúdo e podem ser divididos em parágrafos quando o corpo está em uma única camada sem estilos por caractere.
+- O Assistente mantém o balão do Studio e oferece ações conforme o conteúdo e as pendências de edição. A revisão e a exportação continuam usando os resultados reais da Auditoria.
+- Lint, typecheck, 132 testes unitários, build e dry-run passaram. O Playwright aprovou 146 cenários na primeira execução e os quatro restantes na reexecução após ajustar os seletores para os novos rótulos e controles recolhidos. Dez repetições previstas ficaram omitidas. A interface foi conferida visualmente em 1280 e 1440 px.
+
+## Balão do Assistente no Studio
+
+- O mascote permanece transparente sob o cursor. Ao clicar, o Assistente Editorial abre acima do robô, com rolagem interna para as orientações mais longas. As ferramentas de edição continuam visíveis e o zoom da arte é preservado. Esc fecha o balão e devolve o foco ao mascote.
+- Lint, build, 132 testes unitários e 150 cenários Playwright passaram localmente. Dez repetições previstas no perfil laptop foram omitidas. A primeira execução unitária atingiu o limite de tempo no teste de fabricação de 20 slides e a suíte passou com dois workers. O balão foi verificado em 1024, 1280, 1440 e 1920 px, com inspeção visual em 1280 e 1440 px. A mudança está na `main` local, com publicação pendente.
 
 ## Automação do fluxo editorial
 

@@ -37,10 +37,10 @@ test('detecta caixa vazia em edição e revisa a sequência do carrossel', async
   await expect(first).toHaveAttribute('src', source!)
 })
 
-test('prévia identifica campos extras e usa direção de imagem na Produção Expressa', async ({ page }, info) => {
+test('prévia identifica campos extras e usa a direção de imagem na preparação', async ({ page }, info) => {
   await page.goto('/#/studio')
   await page.getByText('＋ Novo projeto', { exact: true }).click()
-  await page.getByRole('button', { name: 'Produção Expressa', exact: true }).click()
+  await page.getByRole('button', { name: 'Preparar carrossel', exact: true }).click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify({
     schemaVersion: 1,
     campaign: { title: 'Pátios urbanos', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'post', caption: 'Sobre pátios.', cta: 'Salve a referência.' },
@@ -52,7 +52,7 @@ test('prévia identifica campos extras e usa direção de imagem na Produção E
   await page.screenshot({ path: info.outputPath('previa-gpt.png') })
   await expect(page.getByRole('button', { name: 'Organizar slides' })).toHaveCount(0)
   await expect(page.getByLabel('Título', { exact: true })).toHaveValue('O pátio e a luz')
-  await page.getByRole('navigation', { name: 'Etapas da Produção Expressa' }).getByRole('button', { name: 'Imagens' }).click()
+  await page.getByRole('navigation', { name: 'Etapas da criação' }).getByRole('button', { name: 'Imagens' }).click()
   await page.getByRole('button', { name: 'Openverse', exact: true }).click()
   await page.getByLabel('Buscar pelo conteúdo do slide').selectOption({ label: 'Slide 1 · O pátio e a luz' })
   await expect(page.getByLabel('Termo de pesquisa')).toHaveValue('pátio interno arquitetura')

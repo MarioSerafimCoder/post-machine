@@ -61,6 +61,7 @@ export function fromCampaign(draft: Draft, brand: Brand, preferred?: Template, f
   if (!draft.content) throw Error('Importe e revise o conteúdo antes de criar o design.')
   const project = newProject(draft.content.campaign.format === 'story' ? 'story' : format === 'square' ? 'square' : 'portrait')
   project.name = draft.content.campaign.title.slice(0, 100); project.caption = draft.content.campaign.caption; project.brand = brand; project.campaignId = draft.id; project.campaignUpdatedAt = draft.updatedAt
+  project.importedContent = draft.content
   if (draft.article) project.editorialSource = draft.article
   if (draft.content.sources.length) project.editorialReferences = draft.content.sources
   project.slides = draft.content.slides.map((s): VisualSlide => {
