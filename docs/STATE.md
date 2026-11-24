@@ -8,11 +8,13 @@
 - **Explorar outros designs** recompõe os campos editoriais em cópias editáveis. O projeto original permanece na biblioteca. Textos excedentes mantêm o conteúdo e podem ser divididos em parágrafos quando o corpo está em uma única camada sem estilos por caractere.
 - O Assistente mantém o balão do Studio e oferece ações conforme o conteúdo e as pendências de edição. A revisão e a exportação continuam usando os resultados reais da Auditoria.
 - Lint, typecheck, 132 testes unitários, build e dry-run passaram. O Playwright aprovou 146 cenários na primeira execução e os quatro restantes na reexecução após ajustar os seletores para os novos rótulos e controles recolhidos. Dez repetições previstas ficaram omitidas. A interface foi conferida visualmente em 1280 e 1440 px.
+- Sete cenários dirigidos passaram com o build servido pelo Wrangler local, com uma repetição omitida no perfil laptop. O [CI](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45385331291) aprovou o commit `e2aa012`.
+- O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45385361090) promoveu a versão `b621f891-a3d0-4d83-b970-90f298ec339a` a 100% do tráfego. A verificação após o deploy confirmou o Cloudflare Access no domínio, nos dois feeds e no favicon. A verificação desta versão em sessão autenticada fica pendente.
 
 ## Balão do Assistente no Studio
 
 - O mascote permanece transparente sob o cursor. Ao clicar, o Assistente Editorial abre acima do robô, com rolagem interna para as orientações mais longas. As ferramentas de edição continuam visíveis e o zoom da arte é preservado. Esc fecha o balão e devolve o foco ao mascote.
-- Lint, build, 132 testes unitários e 150 cenários Playwright passaram localmente. Dez repetições previstas no perfil laptop foram omitidas. A primeira execução unitária atingiu o limite de tempo no teste de fabricação de 20 slides e a suíte passou com dois workers. O balão foi verificado em 1024, 1280, 1440 e 1920 px, com inspeção visual em 1280 e 1440 px. A mudança está na `main` local, com publicação pendente.
+- Lint, build, 132 testes unitários e 150 cenários Playwright passaram localmente. Dez repetições previstas no perfil laptop foram omitidas. A primeira execução unitária atingiu o limite de tempo no teste de fabricação de 20 slides e a suíte passou com dois workers. O balão foi verificado em 1024, 1280, 1440 e 1920 px, com inspeção visual em 1280 e 1440 px. A mudança foi publicada com a Central de produção em `e2aa012`.
 
 ## Automação do fluxo editorial
 
