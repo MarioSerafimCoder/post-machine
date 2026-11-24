@@ -3,7 +3,7 @@
 ## Otimização de cobertura documental
 
 - A extração progressiva agora lê HTML em fluxo até 3 MB. A pesquisa complementar reavalia somente slides pendentes e o ranking dá mais peso ao assunto principal de slides de detalhe. No corpus de regressão, 32 das 32 atribuições foram aceitas e 12 de 44 slides continuaram vazios. O acesso público às quatro páginas antes truncadas voltou a produzir HTML utilizável e uma delas revelou candidatos elegíveis para nova seleção.
-- Em 30 notícias inéditas, a extração direta e o download pela rede produziram 24 capas, com seis lacunas em seis áreas temáticas. A mediana até o primeiro raster aceito na seleção automática foi 1,03 s. A avaliação de capa e o replay de carrosséis são ensaios distintos. [Método e resultados](VISUAL_BENCHMARK.md).
+- Em 30 notícias inéditas de seis áreas temáticas, a extração e o download pela rede produziram 24 capas. A revisão aceitou 22, com seis vazias e duas inadequadas para o assunto visual. A mediana até o primeiro raster selecionado automaticamente foi 1,03 s. Seis buscas Web da Brave não trouxeram material elegível adicional e a consulta de YouTube retornou HTTP 200. [Método e resultados](VISUAL_BENCHMARK.md).
 - A busca audiovisual agora admite canais indicados por metadados organizacionais em origens oficiais autorizadas. CLIP mantém por curto prazo a sessão do Worker e seus embeddings e encerra inferências obsoletas. Browser Run preserva o status de falha da navegação principal sem afrouxar o bloqueio de origem. As flags de YouTube, CLIP, Browser Run e OCR seguem desligadas de fábrica.
 
 ## Continuidade do motor visual

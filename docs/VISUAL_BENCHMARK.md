@@ -12,11 +12,15 @@ O replay congelado manteve o GEICO e corrigiu a atribuição do detalhe da séri
 | Atribuição a outro autor nos metadados | 1 | A candidata da matéria de Julien Gobled atribui o trabalho a outro autor. |
 | Alocação na série certa e no detalhe errado | 1 | A correção geral de ranking resolveu o caso no replay. |
 
-Os dois downloads indisponíveis do corpus anterior estão registrados abaixo. Os replays reutilizam a captura anterior, inclusive nos quatro casos de HTML truncado. Os candidatos descobertos pela nova leitura são dados de rede em um ensaio separado, sem alteração da rubrica histórica.
+Os dois downloads indisponíveis do corpus anterior estão registrados abaixo. Os replays reutilizam a captura anterior, inclusive nos quatro casos de HTML truncado. Em um ensaio separado pela rede, a capa de Gatto foi extraída e o raster confirmado foi baixado em 641 ms.
 
-A amostra inédita contém 30 notícias públicas, com cinco de cada área pedida. Em rede real, as 30 fontes responderam HTTP 200. HTMLRewriter e classificação levaram 674 ms na mediana. Houve 24 downloads elegíveis, com mediana de 415 ms e mediana de 1,03 s da fonte ao primeiro raster. Seis capas ficaram vazias. O ensaio mede uma capa por notícia na etapa documental direta. Ele não inclui a pesquisa completa do Studio, o Openverse ou o desempenho em produção.
+A amostra inédita contém 30 notícias públicas, com cinco de cada área pedida. Em rede real, as 30 fontes responderam HTTP 200. A mediana do tempo entre solicitar a fonte e concluir a extração e classificação foi 674 ms. Houve 24 downloads elegíveis, com mediana de 415 ms e mediana de 1,03 s da fonte ao primeiro raster. A revisão visual aceitou 22 de 24 atribuições (91,7% de precisão), ou 22 de 30 capas (73,3% de cobertura). Seis capas ficaram vazias. O automóvel escolhido para a pauta da McLaren ficou sem comprovação de exibir o novo wordmark, e a imagem da Riff mostrava a fachada em vez da embalagem. Houve oito intervenções manuais potenciais e nenhuma observada. O ensaio mede uma capa por notícia na etapa documental direta. Ele não inclui a pesquisa completa do Studio, o Openverse ou o desempenho em produção.
 
-No Chromium com navegador novo e pesos servidos pelo Vite local, CLIP quantizado carregou em 1,78 s, inferiu o primeiro par em mais 1,78 s e apresentou mediana de 1,69 s na sessão quente. Os pesos somam 128,1 MB. O ensaio a frio inclui a transferência local, sem medir o primeiro download pela internet. O resultado mantém CLIP opcional e OCR desligado.
+A comparação com Brave fez uma consulta Web para cada uma das seis capas vazias, com seis respostas bem-sucedidas e mediana de 552 ms. Cinco URLs adicionais autorizadas foram lidas na rede e nenhuma passou a classificação direta aplicada à pauta original. A cobertura medida permaneceu em 22/30. O diagnóstico consumiu seis consultas dentro dos créditos já concedidos. Ele cobre a descoberta Web, sem testar o catálogo de imagens Brave. A YouTube Data API aceitou uma consulta e devolveu um resultado. O saldo diário da conta não ficou visível. [Execução de provedores](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45463829661).
+
+No Chromium com navegador novo e pesos servidos pelo Vite local, CLIP quantizado carregou em 1,78 s, inferiu o primeiro par em mais 1,78 s e apresentou mediana de 1,69 s na sessão quente. Os pesos somam 128,1 MB. Em teste separado pela internet, o tokenizer e a configuração chegaram completos, enquanto os dois pesos não terminaram dentro de 55 s. O resultado mantém CLIP opcional e OCR desligado.
+
+Na Cloudflare, a retestagem do Browser Run com a página de Gatto retornou HTTP 404. A navegação restrita antes convertia esse status em `net::ERR_FAILED`. A leitura direta da mesma URL respondeu HTTP 200. Browser Run continua desativado e nenhuma política de origem foi afrouxada.
 
 Reprodução com `node benchmarks/capture-independent.mjs`, `node benchmarks/review-independent.mjs`, `node benchmarks/capture-independent.mjs --regression` e `node benchmarks/run-visual.mjs`. A checagem autenticada de provedores usa o workflow manual de diagnóstico visual. [Amostra inédita](../benchmarks/independent-sample.json).
 
@@ -30,19 +34,21 @@ Precisão é a proporção de imagens atribuídas que a rubrica aceita. Relevân
 
 ## Resultado em 31 notícias
 
-| Medida | Motor anterior | Fase A | Atual |
+| Medida | Motor anterior | Fase A | Atual após ajuste de 24/11 |
 | --- | ---: | ---: | ---: |
-| Precisão documental das imagens aplicadas | 0/2 | 23/27 (85,2%) | 31/32 (96,9%) |
+| Precisão documental das imagens aplicadas | 0/2 | 23/27 (85,2%) | 32/32 (100%) |
 | Capas relevantes | 0/31 | 15/31 | 22/31 |
-| Detalhes relevantes | 0/13 | 8/13 | 9/13 |
-| Frames para revisão manual potencial | 44/44 | 21/44 | 13/44 |
+| Detalhes relevantes | 0/13 | 8/13 | 10/13 |
+| Frames para revisão manual potencial | 44/44 | 21/44 | 12/44 |
 | Duplicidades aplicadas no mesmo carrossel | 0 | 0 | 0 |
 | Chamadas à extração direta | 0 | 31 | 31 |
 | Consultas ao Openverse | 132 | 17 | 12 |
 | Tentativas de download pelo Worker | — | 28 | 34 |
-| Primeira imagem, mediana quando houve imagem | 2,34 s | 50 ms | 49 ms |
-| Tempo total, mediana do replay | 7 ms | 31 ms | 47 ms |
-| Heap JavaScript, mediana | 16,0 MiB | 44,4 MiB | 37,0 MiB |
+| Primeira imagem, mediana quando houve imagem | 1,70 s | 76 ms | 67 ms |
+| Tempo total, mediana do replay | 8 ms | 46 ms | 59 ms |
+| Heap JavaScript, mediana | 16,0 MiB | 44,4 MiB | 33,8 MiB |
+
+Depois do ajuste de ranking, o replay de regressão atribuiu 32/44 imagens válidas, sem atribuições incorretas. O E2E dirigido mediu abertura em 197–405 ms e primeira imagem em 904–1.123 ms para carrosséis de três a dez slides. As respostas dirigidas foram controladas. O ensaio confirmou que exportar continua possível enquanto a pesquisa documental está pendente.
 
 As 146 consultas distintas capturadas do Openverse retornaram HTTP 200. A mediana das chamadas reais ao catálogo foi 1,61 s. Os downloads públicos dos candidatos documentais tiveram mediana de 0,41 s. Na reprodução, as respostas de catálogo e os rasters da fonte vieram do cache. As duas fotos escolhidas pelo motor anterior vieram do Flickr pela rede e seus tempos até primeira imagem incluem essa latência. Os números de tempo de replay servem para comparar o processamento da Fase A com o atual.
 
