@@ -128,6 +128,15 @@ export async function accessSubject(token: string | null, issuer?: string, audie
   } catch { return }
 }
 
+export async function accessRequestSubject(request: Request, issuer?: string, audience?: string) {
+  const assertion = request.headers.get('cf-access-jwt-assertion')
+  const subject = await accessSubject(assertion, issuer, audience)
+  if (subject) return subject
+  const cookie = request.headers.get('cookie')?.split(';').map(item => item.trim()).find(item => item.startsWith('CF_Authorization='))
+    ?.slice('CF_Authorization='.length)
+  if (cookie && cookie !== assertion) return accessSubject(cookie, issuer, audience)
+}
+
 const hmac = (secret: string) => crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
 export async function issueTicket(url: string, person: string, secret: string) {
   const payload = encode(encoder.encode(JSON.stringify([url, person, Date.now() + 15 * 60_000])))

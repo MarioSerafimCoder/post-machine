@@ -3,7 +3,7 @@ import { documentaryAssetSchema, documentaryPrefix } from '../src/features/image
 import { researchUrl, phraseKey } from '../src/features/images/visualContext'
 import { braveSearch } from './brave'
 import { extractArticle, type Extracted } from './extract'
-import { accessSubject, externalFetch, externalUrl, issueTicket, rasterSignature, readLimited, readJson, verifyTicket } from './security'
+import { accessRequestSubject, externalFetch, externalUrl, issueTicket, rasterSignature, readLimited, readJson, verifyTicket } from './security'
 
 type Limiter = { limit(input: { key: string }): Promise<{ success: boolean }> }
 type Env = {
@@ -73,7 +73,7 @@ export default {
     const incoming = new URL(request.url)
     if (!incoming.pathname.startsWith(documentaryPrefix + '/')) return env.ASSETS.fetch(request)
     const route = incoming.pathname.slice(documentaryPrefix.length + 1)
-    const person = await accessSubject(request.headers.get('cf-access-jwt-assertion'), env.CLOUDFLARE_ACCESS_ISSUER, env.CLOUDFLARE_ACCESS_AUD)
+    const person = await accessRequestSubject(request, env.CLOUDFLARE_ACCESS_ISSUER, env.CLOUDFLARE_ACCESS_AUD)
     if (!person) return json({ error: 'access_required' }, 401)
     if (!routes.has(route)) return json({ error: 'not_found' }, 404)
     if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405, { allow: 'POST' })

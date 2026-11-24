@@ -42,6 +42,17 @@ describe('Worker de pesquisa visual', () => {
     expect((await worker.fetch(request('brave', {}, await token(), 'https://other.example.com'), env)).status).toBe(403)
     expect(outbound).toHaveBeenCalledTimes(1)
   })
+  it('verifica o cookie assinado do Access quando a rota de arquivos estáticos não fornece a asserção', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jwks()))
+    const authorized = new Request(origin + '/api/visual/page', { headers: {
+      cookie: 'theme=dark; CF_Authorization=' + await token(),
+    } })
+    expect((await worker.fetch(authorized, env)).status).toBe(405)
+    const rejected = new Request(origin + '/api/visual/page', { headers: {
+      cookie: 'CF_Authorization=' + await token({ aud: ['outra-aplicacao'] }),
+    } })
+    expect((await worker.fetch(rejected, env)).status).toBe(401)
+  })
   it('nega destinos internos e destinos HTTPS que não constam na lista de saídas', async () => {
     const jwt = await token()
     const outbound = vi.fn(async () => jwks())
