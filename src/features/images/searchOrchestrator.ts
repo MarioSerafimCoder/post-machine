@@ -2,7 +2,9 @@ import { documentaryResponse, documentaryPrefix, type DocumentaryAsset } from '.
 import { type ImageCredit, licenseTerms, toCredit } from './contract'
 import { automaticOriginal, fetchExternalImage, fetchOriginal, searchImages } from './openverse'
 import { canonicalImage, creditKeys, documentaryId, evaluateCandidate, evaluateCatalog, prepareImage, similarImage,
-  type AutomaticImage, type VisualMatch, type VisualRequest, type VisualStatus } from './automaticSearch'
+  type AutomaticImage, type VisualRelevance, type VisualRequest, type VisualStatus } from './automaticSearch'
+import { narrativeAssignment } from './visualAllocation'
+import { refineVisualFit, useOcr, useSemantics } from './visualEnrichment'
 import { readVisualMemory, rememberVisual, type RememberedVisual } from './visualMemory'
 import { researchUrl } from './visualContext'
 
@@ -123,7 +125,9 @@ async function lookup(route: 'page' | 'brave', input: object, signal: AbortSigna
   if (workerBlockedUntil > Date.now() || (route === 'brave' && braveBlockedUntil > Date.now())) return empty
   const response = await post(route, input, signal)
   if (response.status === 401 || response.status === 404 || response.status === 503 || !response.headers.get('content-type')?.includes('application/json')) {
-    if (response.status === 503 || response.status === 401 || response.status === 404 || response.ok) workerBlockedUntil = Date.now() + negativeLifetime
+    if (response.status === 503 || response.status === 401 || response.status === 404 || response.ok) {
+      workerBlockedUntil = Date.now() + negativeLifetime
+    }
     await response.body?.cancel()
     return empty
   }
@@ -169,7 +173,13 @@ function collect(pool: Pool, found: Candidate[]) {
     const key = canonicalImage(url)
     const before = pool.candidates.get(key)
     if (before?.remembered || (before?.document && (!candidate.document || candidate.document.evidence === 'search' && before.document.evidence !== 'search'))) continue
-    pool.candidates.set(key, candidate)
+    const prior = before?.document
+    const current = candidate.document
+    // A rendition can have fewer fields than the very same asset in a figure.
+    // Keep the caption from the shared publication when it adds direct evidence.
+    const caption = prior?.page === current?.page ? prior?.caption : undefined
+    pool.candidates.set(key, current && !current.caption && caption
+      ? fromDocument({ ...current, caption }) : candidate)
   }
   while (pool.candidates.size > 90) pool.candidates.delete(pool.candidates.keys().next().value!)
 }
@@ -259,8 +269,12 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
   let sourceChecks = 0
   let braveChecks = 0
   let catalogChecks = 0
+  let examinedPixels = false
+  const examined = new Map<string, AutomaticImage>()
+  const refinements = new Map<string, number | null>()
+  const fitKey = (request: VisualRequest, candidate: Candidate) => request.key + '\0' + candidate.credit.sourceId
   let allocation = Promise.resolve()
-  const emit = (request: VisualRequest, image: AutomaticImage, match: Omit<VisualMatch, 'fileHash' | 'fingerprint'>) => {
+  const emit = (request: VisualRequest, image: AutomaticImage, match: VisualRelevance['match']) => {
     if (first) {
       performance.clearMeasures('post-machine:visual:first')
       performance.measure('post-machine:visual:first', { start: initial, end: performance.now() })
@@ -269,40 +283,65 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     image.keys.forEach(key => used.add(key))
     remaining.delete(request)
     rememberOption(pool, request.key, image.id)
-    config.image(request, { ...image, match: { ...match, fingerprint: image.fingerprint, fileHash: image.fileHash } })
+    config.image(request, { ...image, match: { ...match, fingerprint: image.fingerprint,
+      fingerprintVertical: image.fingerprintVertical, fileHash: image.fileHash } })
   }
 
   function allocate(fallback: boolean, phase: AbortSignal) {
     allocation = allocation.then(async () => {
       const tried = new Set<string>()
-      while (remaining.size && downloads < 14 && !phase.aborted) {
+      while (remaining.size && (downloads < 14 || examined.size) && !phase.aborted) {
         config.used().forEach(key => used.add(key))
-        const evaluations = [...remaining].flatMap(request => [...pool.candidates.values()].flatMap(candidate => {
+        let evaluations = [...remaining].flatMap(request => [...pool.candidates.values()].flatMap(candidate => {
           const { sourceId } = candidate.credit
           const keys = creditKeys(candidate.credit)
           if (tried.has(sourceId) || keys.some(key => used.has(key) || request.discarded.has(key))) return []
           const fit = relevance(candidate, request)
           if (!fit || (!fallback && fit.match.classification !== 'confirmed')) return []
           const order = pool.options.get(request.key)?.indexOf(sourceId) ?? -1
-          return [{ candidate, request, ...fit, score: fit.score + (request.copy.role === 'cover' ? 5 : 0) + (order === 0 ? 2 : 0) }]
+          const adjusted = fit.match.classification === 'confirmed' ? undefined : refinements.get(fitKey(request, candidate))
+          if (adjusted === null) return []
+          return [{ candidate, request, ...fit, score: fit.score + (adjusted ?? 0) +
+            (request.copy.role === 'cover' ? 5 : 0) + (order === 0 ? 2 : 0) }]
         })).sort((a, b) => b.score - a.score || a.candidate.credit.sourceId.localeCompare(b.candidate.credit.sourceId))
-        const selected = []
-        const slides = new Set<string>()
-        for (const entry of evaluations) {
-          if (slides.has(entry.request.key) || tried.has(entry.candidate.credit.sourceId)) continue
-          tried.add(entry.candidate.credit.sourceId)
-          slides.add(entry.request.key)
-          selected.push(entry)
-          if (selected.length >= Math.min(3, 14 - downloads)) break
+        if (fallback && !examinedPixels && (useSemantics || useOcr) && !fast.aborted) {
+          const confirmed = new Set(evaluations.filter(entry => entry.match.classification === 'confirmed').map(entry => entry.candidate.credit.sourceId))
+          const options = [...new Set(evaluations.flatMap(({ candidate }) => confirmed.has(candidate.credit.sourceId) ? [] : [candidate]))]
+            .slice(0, Math.min(3, 14 - downloads))
+          if (options.length >= (useOcr ? 1 : 2)) {
+            examinedPixels = true
+            const analysis = AbortSignal.any([fast, AbortSignal.timeout(3200)])
+            await Promise.allSettled(options.map(async candidate => {
+              downloads++
+              examined.set(candidate.credit.sourceId, await preparedImage(pool, candidate, analysis, false))
+            }))
+            if (!analysis.aborted) {
+              const refined = await refineVisualFit(evaluations, examined, analysis)
+              const eligible = new Map(refined.map(entry => [fitKey(entry.request, entry.candidate), entry.score]))
+              for (const entry of evaluations) {
+                const key = fitKey(entry.request, entry.candidate)
+                const score = eligible.get(key)
+                refinements.set(key, score === undefined ? null : score - entry.score)
+              }
+              evaluations = refined
+            }
+          }
         }
+        let available = 14 - downloads
+        const selected = narrativeAssignment(evaluations.filter(entry => available > 0 || examined.has(entry.candidate.credit.sourceId)))
+          .filter(entry => examined.has(entry.candidate.credit.sourceId) || available-- > 0).slice(0, 3)
+        for (const entry of selected) tried.add(entry.candidate.credit.sourceId)
         if (!selected.length) break
-        downloads += selected.length
+        downloads += selected.filter(entry => !examined.has(entry.candidate.credit.sourceId)).length
         // The cover can arrive before other downloads. Check deduplication again when each file is ready.
         await Promise.all(selected.map(async ({ request, candidate, match }) => {
           try {
-            const image = await preparedImage(pool, candidate, phase, match.classification === 'confirmed')
+            const image = examined.get(candidate.credit.sourceId) ?? await preparedImage(pool, candidate, phase, match.classification === 'confirmed')
+            examined.delete(candidate.credit.sourceId)
             phase.throwIfAborted()
-            if (image.keys.some(key => used.has(key) || request.discarded.has(key)) || image.fingerprint && similarImage(image.fingerprint, used)) return
+            if (image.keys.some(key => used.has(key) || request.discarded.has(key)) || image.fingerprint &&
+                (similarImage(image.fingerprint, used, image.fingerprintVertical) ||
+                  similarImage(image.fingerprint, request.discarded, image.fingerprintVertical))) return
             emit(request, image, match)
             if (candidate.document && !candidate.remembered && ['original', 'official'].includes(candidate.document.provider)) {
               void rememberVisual(scope, candidate.document, candidate.credit, image.file).catch(() => undefined)

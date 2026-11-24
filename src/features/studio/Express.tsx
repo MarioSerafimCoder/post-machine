@@ -25,7 +25,7 @@ import { templateRole, type AuthorTemplate } from './authorTemplate'
 import { fabricateAuthorTemplate, planAuthorImages } from './factory/authorFabrication'
 import { loadAuthorTemplate } from './storage'
 import { useLocalVision } from './vision/useLocalVision'
-import { creditKeys, requestFor } from '../images/automaticSearch'
+import { creditKeys, rememberRejectedVisual, requestFor } from '../images/automaticSearch'
 import { campaignContext } from '../images/visualContext'
 import { useAutomaticImages } from '../images/useAutomaticImages'
 import { VisualSearchStatus } from '../images/VisualSearchStatus'
@@ -222,11 +222,13 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   function assignPhoto(slide: Entry, index: number, id: string | null | undefined) {
     const photo = photos.find(item => item.id === id)
     const current = slide.imageId ? photos.find(item => item.id === slide.imageId) : automaticBySlide.get(slide.key)
-    const discardedVisuals = current && current !== photo && current.automatic
-      ? [...new Set([...slide.discardedVisuals ?? [], ...creditKeys(current.object.imageCredit as ImageCredit | undefined, current.automatic.match)])].slice(-24)
+    const discardedVisuals = current && current !== photo
+      ? rememberRejectedVisual(slide.discardedVisuals, current.object.imageCredit as ImageCredit | undefined, current.automatic?.match)
       : slide.discardedVisuals
     change(slide.key, { imageId: id, imageLocked: false,
       discardedVisuals,
+      visualDecision: current && current !== photo ? photo ? 'replaced' : 'rejected'
+        : photo?.automatic ? 'approved' : slide.visualDecision,
       ...(id === undefined ? { focalPoint: undefined, searchRevision: (slide.searchRevision ?? 0) + 1 } :
         { focalPoint: photo?.automatic?.focalPoint }),
     })
@@ -360,9 +362,11 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   function removePhoto(id: string) {
     if (slides.some(item => item.imageId === id && item.imageLocked)) return
     setPhotos(items => items.filter(item => item.id !== id))
-    const auto = photos.find(item => item.id === id)?.automatic
+    const photo = photos.find(item => item.id === id)
+    const auto = photo?.automatic
     setSlides(items => items.map(item => item.imageId === id || item.key === auto?.slideKey && item.imageId === undefined
-      ? { ...item, imageId: auto ? null : undefined, focalPoint: undefined } : item))
+      ? { ...item, imageId: auto ? null : undefined, focalPoint: undefined, visualDecision: 'rejected',
+        discardedVisuals: rememberRejectedVisual(item.discardedVisuals, photo?.object.imageCredit as ImageCredit | undefined, auto?.match) } : item))
     if (photoId === id) setPhotoId('')
     setStatus('Imagem e seus vínculos removidos da preparação.')
   }
@@ -439,11 +443,12 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
         const entry = slides[index]
         const image = frameImage(slide.scene)
         const request = frameRequest(project, slide, research)
-        const state = { revision: entry.searchRevision, discarded: entry.discardedVisuals }
+        const state = { revision: entry.searchRevision, discarded: entry.discardedVisuals, decision: entry.visualDecision }
         const auto = automaticBySlide.get(entry.key)?.automatic
         if (entry.imageId === null) return rewriteVisualFrame(slide, { ...state, mode: 'none' })
         if (image && (entry.imageId || localPlan[index]?.picture)) {
-          return { ...slide, visualChoice: { ...state, mode: entry.imageLocked ? 'locked' : 'manual' } }
+          const match = photos.find(photo => photo.id === entry.imageId)?.automatic?.match
+          return { ...slide, visualChoice: { ...state, mode: entry.imageLocked ? 'locked' : 'manual', match } }
         }
         if (!request) return slide
         return { ...slide, visualChoice: { ...state, mode: 'automatic', ...(image && auto ? { signature: request.signature, match: auto.match } : {}) } }
@@ -672,6 +677,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
           {match && auto && <button className="button button-outline" onClick={() => assignPhoto(slide, index, auto.id)}>Manter esta</button>}
           {planned?.content.image && !slide.imageLocked && <button className="button button-outline" onClick={() =>
             change(slide.key, { imageId: slide.imageId ?? auto?.id ?? planned.picture?.id, imageLocked: true,
+              visualDecision: auto ? 'approved' : slide.visualDecision,
               focalPoint: slide.focalPoint ?? planned.content.focalPoint })}>Travar imagem</button>}
           {slide.imageLocked && <button className="button button-outline" onClick={() => change(slide.key, { imageLocked: false })}>Destravar imagem</button>}
           {!slide.imageLocked && <button className="button button-outline" onClick={() => { setOrigin('openverse'); setImageBriefSlide(slide.key) }}>Trocar imagem</button>}

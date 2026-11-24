@@ -12,3 +12,5 @@ coverage/
 *.log
 .DS_Store
 public/radar.json.tmp
+benchmarks/.cache/
+benchmarks/.baseline/

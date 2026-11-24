@@ -10,17 +10,20 @@ export const matchSchema = z.object({
   classification: z.enum(['confirmed', 'related', 'support']).optional(),
   reason: z.string().max(500),
   fingerprint: z.string().regex(/^[0-9a-f]{16}$/).optional(),
+  fingerprintVertical: z.string().regex(/^[0-9a-f]{16}$/).optional(),
   fileHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
 })
 export type VisualMatch = z.infer<typeof matchSchema>
 export const visualChoiceSchema = z.object({
   mode: z.enum(['automatic', 'manual', 'locked', 'none']),
+  decision: z.enum(['approved', 'rejected', 'replaced']).optional(),
   match: matchSchema.optional(),
   signature: z.string().max(1500).optional(),
   revision: z.number().int().nonnegative().optional(),
   discarded: z.array(z.string().max(260)).max(24).optional(),
 })
 export type VisualChoice = z.infer<typeof visualChoiceSchema>
+export type VisualDecision = NonNullable<VisualChoice['decision']>
 export type VisualStatus = 'documental' | 'editorial' | 'illustration' | 'empty' | 'error'
 export type VisualRequest = {
   key: string; slideId: string; signature: string; revision: number; campaign: CampaignContext; ratio: number; copy: VisualCopy
@@ -51,10 +54,10 @@ export function requestFor(key: string, copy: VisualCopy, campaign: CampaignCont
   }
 }
 
-export function visualFingerprint(image: ImageData) {
+function visualFingerprint(image: ImageData, vertical = false) {
   const sample = (column: number, row: number) => {
-    const x = Math.round(column / 8 * (image.width - 1))
-    const y = Math.round((row + .5) / 8 * (image.height - 1))
+    const x = Math.round((vertical ? row + .5 : column) / 8 * (image.width - 1))
+    const y = Math.round((vertical ? column : row + .5) / 8 * (image.height - 1))
     const at = (y * image.width + x) * 4
     return .21 * image.data[at] + .72 * image.data[at + 1] + .07 * image.data[at + 2]
   }
@@ -67,13 +70,17 @@ export function visualFingerprint(image: ImageData) {
   }
   return visibleEdges >= 9 ? hash.toString(16).padStart(16, '0') : undefined
 }
-export function similarImage(fingerprint: string, used: ReadonlySet<string>) {
+function perceptualDistance(fingerprint: string, prior: string) {
+  let bits = BigInt('0x' + fingerprint) ^ BigInt('0x' + prior)
+  let difference = 0
+  while (bits && difference <= 4) { bits &= bits - 1n; difference++ }
+  return difference
+}
+export function similarImage(fingerprint: string, used: ReadonlySet<string>, vertical?: string) {
   for (const item of used) {
-    if (!/^foto:[0-9a-f]{16}$/.test(item)) continue
-    let bits = BigInt('0x' + fingerprint) ^ BigInt('0x' + item.slice(5))
-    let difference = 0
-    while (bits && difference <= 4) { bits &= bits - 1n; difference++ }
-    if (difference <= 4) return true
+    const match = /^foto:([0-9a-f]{16})(?::([0-9a-f]{16}))?$/.exec(item)
+    if (match && perceptualDistance(fingerprint, match[1]) <= 4 &&
+        (!vertical || !match[2] || perceptualDistance(vertical, match[2]) <= 4)) return true
   }
   return false
 }
@@ -81,6 +88,7 @@ export function similarImage(fingerprint: string, used: ReadonlySet<string>) {
 export function canonicalImage(value: string) {
   const url = researchUrl(value)
   if (!url) return value
+  url.pathname = url.pathname.replace(/(\/conversions\/[a-f0-9]{24,64})-(?:thumb|small|medium|large|xlarge)(?=\.[a-z]{3,4}$)/i, '$1')
   for (const key of [...url.searchParams.keys()]) {
     if (/^(?:utm_.+|fbclid|gclid|width|height|w|h|resize|fit|q|quality|format)$/i.test(key)) url.searchParams.delete(key)
   }
@@ -90,8 +98,12 @@ export function canonicalImage(value: string) {
 const imageKey = (value: string) => 'url:' + canonicalImage(value)
 export function creditKeys(credit: ImageCredit | undefined, match?: VisualMatch) {
   return [credit?.sourceId, credit?.originalUrl && imageKey(credit.originalUrl),
-    match?.fingerprint && 'foto:' + match.fingerprint, match?.fileHash && 'sha:' + match.fileHash]
+    match?.fingerprint && ['foto', match.fingerprint, match.fingerprintVertical].filter(Boolean).join(':'), match?.fileHash && 'sha:' + match.fileHash]
     .filter((value): value is string => !!value)
+}
+
+export function rememberRejectedVisual(previous?: string[], credit?: ImageCredit, match?: VisualMatch) {
+  return [...new Set([...previous ?? [], ...creditKeys(credit, match)])].slice(-24)
 }
 export function documentaryId(asset: Pick<DocumentaryAsset, 'url'>) { return 'image:' + visualDigest(canonicalImage(asset.url)) }
 const contains = (value: string, term: string) => !!term && (' ' + value + ' ').includes(' ' + term + ' ')
@@ -100,12 +112,13 @@ const documentaryPhrase = (value: string) => phraseKey(value).replace(/(\d) (?:p
 const generalMediaWords = /^(?:foto|photo|image|imagem|filme|film|video|campaign|campanha|ad|ads|publicidade|holiday|natal|christmas|design|novo|nova|new|first|primeiro|primeira)$/
 const documentaryOrigin = /\b(?:documentary|documental|photojournal\w*|reportagem|arquivo|archive|historical|historico|historic|press photo|fotografia de imprensa|on location)\b/
 
-type Relevance = { score: number; match: Omit<VisualMatch, 'fingerprint' | 'fileHash'> }
-type Evaluation = Relevance | { score: 0; rejected: true }
+export type VisualRelevance = { score: number; match: Omit<VisualMatch, 'fingerprint' | 'fingerprintVertical' | 'fileHash'> }
+type Evaluation = VisualRelevance | { score: 0; rejected: true }
 const rejected = { score: 0, rejected: true } as const
 export function evaluateCandidate(asset: DocumentaryAsset, request: VisualRequest): Evaluation {
   const { campaign, terms, copy } = request
-  const local = documentaryPhrase([asset.caption, asset.section, decodePath(asset.url).split('/').at(-1)].filter(Boolean).join(' '))
+  const assetLabel = documentaryPhrase([asset.caption, decodePath(asset.url).split('/').at(-1)].filter(Boolean).join(' '))
+  const local = [assetLabel, documentaryPhrase(asset.section ?? '')].filter(Boolean).join(' ')
   const text = phraseKey([asset.title, asset.description, local, decodePath(asset.page)].filter(Boolean).join(' '))
   const publication = campaign.sources[0]
   const direct = publication?.url.replace(/\/$/, '') === asset.page.replace(/\/$/, '')
@@ -113,29 +126,40 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
   if (count(campaign.excluded, local || text) || ((asset.evidence === 'search' || !direct) && generic.test(local || text)) ||
       (asset.width && asset.width < 480) || (asset.height && asset.height < 480)) return rejected
   const explicitMatch = explicitCampaign ? contains(documentaryPhrase(text), documentaryPhrase(explicitCampaign)) : false
+  // Quoted campaign titles in the asset caption take precedence over the title of the surrounding article.
+  const caption = asset.caption ?? ''
+  const otherTitle = /\b(?:campaign|campanha|film|filme|trailer|commercial|comercial)\s*[:–—-]?\s*["“«‘']([^"”»’']{4,120})["”»’']/giu
+  if (explicitCampaign && !contains(documentaryPhrase(caption), documentaryPhrase(explicitCampaign)) &&
+      [...caption.matchAll(otherTitle)].some(match => !contains(documentaryPhrase(match[1]), documentaryPhrase(explicitCampaign)))) return rejected
   const named = count(campaign.names, text)
   const subject = count(campaign.primary, text)
   const year = typeof campaign.year === 'number' ? String(campaign.year) : undefined
   const publishedYear = asset.publishedAt?.match(/^\d{4}/)?.[0]
   if (year && publishedYear && Math.abs(Number(year) - Number(publishedYear)) > 1 && !explicitMatch) return rejected
-  const overlap = count(terms, local || text)
+  const overlap = count(terms, assetLabel || text)
   const near = count(request.neighbors, local)
   const documentary = ['figure', 'structured', 'body', 'poster'].includes(asset.evidence)
   const identity = explicitCampaign ? explicitMatch : named >= 2 || subject >= Math.max(2, Math.ceil(campaign.primary.length * .53))
-  const assetMatch = explicitCampaign ? contains(local, documentaryPhrase(explicitCampaign))
-    : count(campaign.names, local) >= 1 || count(campaign.primary.filter(term => !generalMediaWords.test(term)), local) >= 2
+  const assetMatch = explicitCampaign ? contains(assetLabel, documentaryPhrase(explicitCampaign))
+    : count(campaign.names, assetLabel) >= 1 || count(campaign.primary.filter(term => !generalMediaWords.test(term)), assetLabel) >= 2
   const editorialPlacement = ['figure', 'poster'].includes(asset.evidence) && !!asset.caption &&
     count(terms.filter(term => !generalMediaWords.test(term)), phraseKey(asset.caption)) >= 2
   const identityWork = /\b(rebrand\w*|identidade visual|visual identity|brand identity|redesign)\b/.test(phraseKey(campaign.subject))
   const contextualPoster = identityWork && copy.role === 'cover' && asset.evidence === 'poster' && !assetMatch
+  const declaredCover = !explicitCampaign && direct && copy.role === 'cover' && asset.evidence === 'structured' &&
+    !!asset.width && !!asset.height && !!publication?.title && phraseKey(asset.title) === phraseKey(publication.title) &&
+    (!asset.caption || assetMatch || editorialPlacement)
   const corroborated = documentary && (direct || asset.provider === 'official') && identity &&
-    !contextualPoster && (assetMatch || !explicitCampaign && editorialPlacement)
+    !contextualPoster && (assetMatch || declaredCover || !explicitCampaign && editorialPlacement)
   const actual = corroborated && (copy.role === 'cover' || overlap > 0 && !!local)
   const related = identity && (assetMatch || asset.evidence === 'search' && named >= 1 || !explicitCampaign && editorialPlacement)
   if (!actual && (!related || (copy.role !== 'cover' && !overlap))) return rejected
   const fit = asset.width && asset.height ? Math.min(asset.width / asset.height / request.ratio, request.ratio / (asset.width / asset.height)) : .5
+  const intent = words(copy.visualContext?.visualIntent || copy.imageBrief || copy.title)
+    .filter(term => !campaign.primary.includes(term) && !request.neighbors.includes(term) && !generalMediaWords.test(term))
+  const specific = count(intent, assetLabel)
   const score = (actual ? 85 : 55) + Math.min(10, overlap * 3) + Math.min(4, near) + Math.min(8, named * 2) + fit * 3 +
-    (asset.evidence === 'figure' ? 4 : 0) + (copy.role === 'cover' && ['structured', 'social'].includes(asset.evidence) ? 4 : 0)
+    (asset.evidence === 'figure' ? 4 : 0) + (declaredCover ? 18 : 0) + Math.min(20, specific * (copy.role === 'cover' ? 3 : 8))
   return { score, match: actual ? {
     strategy: 'documental', classification: 'confirmed',
     reason: 'O material aparece no conteúdo ou nos dados estruturados de uma fonte associada à pauta.',
@@ -146,16 +170,18 @@ function decodePath(value: string) {
   try { return decodeURIComponent(new URL(value).pathname) } catch { return '' }
 }
 
-export function evaluateCatalog(credit: ImageCredit, metadata: string, request: VisualRequest, illustrated: boolean): Relevance | undefined {
+export function evaluateCatalog(credit: ImageCredit, metadata: string, request: VisualRequest, illustrated: boolean): VisualRelevance | undefined {
   const text = phraseKey(metadata)
   if (generic.test(text.replace('stock photo', '')) || count(request.campaign.excluded, text)) return
   const exact = request.campaign.sources.some(source => source.url === credit.sourcePage)
-  if (exact && !illustrated) return { score: 89, match: { strategy: 'documental', classification: 'confirmed',
+  const campaignName = request.campaign.campaignName
+  const identity = !campaignName || contains(documentaryPhrase(text), documentaryPhrase(campaignName))
+  if (exact && !illustrated && identity) return { score: 89, match: { strategy: 'documental', classification: 'confirmed',
     reason: 'O catálogo associa esta imagem à publicação original e informa a licença de uso.' } }
   const relevant = count(request.terms, text)
   const nameMatches = count(request.campaign.names, text)
   const anchored = request.campaign.names.some(name => words(name).length > 1 && contains(text, phraseKey(name)))
-  if (request.campaign.campaignName && !contains(text, phraseKey(request.campaign.campaignName)) &&
+  if (!identity &&
       !request.copy.visualContext?.searchQueries?.some(query => count(words(query), text) >= Math.max(2, Math.ceil(words(query).length * .7)))) return
   if (relevant < Math.min(2, request.terms.length) && !anchored) return
   const factual = !illustrated && documentaryOrigin.test(text) && (anchored || relevant >= 2)
@@ -180,11 +206,12 @@ export async function prepareImage(file: File, credit: ImageCredit, signal: Abor
     context?.drawImage(image.getElement(), 0, 0, canvas.width, canvas.height)
     const data = context?.getImageData(0, 0, canvas.width, canvas.height)
     const fingerprint = data && visualFingerprint(data)
+    const fingerprintVertical = data && visualFingerprint(data, true)
     const bytes = await file.arrayBuffer()
     const fileHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('')
-    const keys = creditKeys(credit, { strategy: 'editorial', reason: '', fingerprint, fileHash })
+    const keys = creditKeys(credit, { strategy: 'editorial', reason: '', fingerprint, fingerprintVertical, fileHash })
     image.set({ imageCredit: credit, semantic: 'image', originX: 'left', originY: 'top' })
-    return { file, id: credit.sourceId, name: credit.title || 'Imagem da fonte', keys, fingerprint, fileHash, element: image.getElement(),
+    return { file, id: credit.sourceId, name: credit.title || 'Imagem da fonte', keys, fingerprint, fingerprintVertical, fileHash, element: image.getElement(),
       object: image.toObject() as unknown as Record<string, unknown>,
       match: { strategy: 'editorial', reason: '', fingerprint, fileHash } as VisualMatch,
       focalPoint: data && contrastFocalPoint(data.data, canvas.width, canvas.height) }

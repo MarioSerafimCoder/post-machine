@@ -1,0 +1,22 @@
+{
+  "clip": {
+    "repository": "Xenova/clip-vit-base-patch32",
+    "revision": "6b7c523703ae26e39be4b03774966f8571c7f523",
+    "files": {
+      "tokenizer": ["tokenizer.json", 2224119],
+      "config": ["tokenizer_config.json", 775],
+      "text": ["onnx/text_model_quantized.onnx", 64504507],
+      "vision": ["onnx/vision_model_q4.onnx", 63642858]
+    }
+  },
+  "siglip2": {
+    "repository": "onnx-community/siglip2-base-patch32-256-ONNX",
+    "revision": "7efccb86b5b6601bfe9e14326e1c11b40b68d44c",
+    "files": {
+      "tokenizer": ["tokenizer.json", 34363039],
+      "config": ["tokenizer_config.json", 47240],
+      "text": ["onnx/text_model_quantized.onnx", 283438275],
+      "vision": ["onnx/vision_model_quantized.onnx", 95915855]
+    }
+  }
+}

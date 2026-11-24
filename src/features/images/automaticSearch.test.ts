@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { evaluateCandidate, evaluateCatalog, requestFor, similarImage } from './automaticSearch'
 import type { DocumentaryAsset } from './documentaryContract'
 import { campaignContext, needsImage, researchUrl } from './visualContext'
+import { narrativeAssignment } from './visualAllocation'
 import type { ImageCredit } from './contract'
 
 const page = 'https://www.geico.com/about/pressreleases/2026/20261123/'
@@ -34,6 +35,7 @@ describe('inteligência visual documental', () => {
     expect(evaluateCandidate({ ...film, page: 'https://www.flickr.com/photo', provider: 'brave', evidence: 'search',
       title: 'Christmas puppets in New York', caption: undefined }, request)).toEqual({ score: 0, rejected: true })
     expect(evaluateCandidate({ ...film, caption: 'Road Trip to Parade: GEICO float' }, request)).toEqual({ score: 0, rejected: true })
+    expect(evaluateCandidate({ ...film, caption: 'Frame do filme “Winter Adventure”' }, request)).toEqual({ score: 0, rejected: true })
     expect(evaluateCandidate({ ...film, provider: 'brave', evidence: 'search' }, request)).toMatchObject({ match: { classification: 'related' } })
   })
   it('reconhece campanhas animadas reais e reserva os bastidores para a peça que os pede', () => {
@@ -47,9 +49,19 @@ describe('inteligência visual documental', () => {
   it('usa Openverse como apoio com relevância e mantém correspondência de página original', () => {
     const credit: ImageCredit = { schemaVersion: 1, provider: 'openverse', sourceId: '762ec81b-3312-40d6-8ce2-e70aa6b43465',
       retrievedAt: '2026-11-24T10:00:00Z', sourcePage: page }
-    expect(evaluateCatalog(credit, 'Fotografia da matéria', request, false)?.match.classification).toBe('confirmed')
+    expect(evaluateCatalog(credit, 'Still de How 15 Percent Saved Christmas', request, false)?.match.classification).toBe('confirmed')
+    expect(evaluateCatalog(credit, 'Fotografia da matéria', request, false)).toBeUndefined()
     expect(evaluateCatalog({ ...credit, sourcePage: 'https://www.flickr.com/photo' }, 'Christmas puppets documentary', request, false)).toBeUndefined()
     expect(similarImage('09abcdabcd123456', new Set(['foto:09abcdabcd123457']))).toBe(true)
+    expect(similarImage('09abcdabcd123456', new Set(['foto:09abcdabcd123457:0000000000000000']), 'eeeeeeeeeeeeeeee')).toBe(false)
+  })
+  it('reserva a única imagem elegível para o slide que depende dela', () => {
+    const edge = (slide: string, asset: string, score: number) => ({
+      request: { key: slide }, candidate: { credit: { sourceId: asset } }, score,
+    })
+    const cover = edge('cover', 'generic', 88)
+    const workshop = edge('workshop', 'only-workshop', 90)
+    expect(narrativeAssignment([edge('cover', 'only-workshop', 104), cover, workshop])).toEqual([workshop, cover])
   })
   it('aceita destinos HTTPS públicos com URLs relativas resolvidas e elimina destinos privados', () => {
     expect(researchUrl('/frames/film.jpg', page)?.href).toBe('https://www.geico.com/frames/film.jpg')

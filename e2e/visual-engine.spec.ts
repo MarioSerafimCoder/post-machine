@@ -112,6 +112,10 @@ for (const count of [3, 6, 10]) {
     expect(calls).toHaveLength(0)
     const textual = studio.getByRole('button', { name: count === 10 ? 'Slide 2' : 'Slide 3', exact: true })
     await expect(textual).not.toHaveAttribute('aria-description', /Buscando|Imagem encontrada/)
+    if (count === 3) {
+      await studio.getByRole('button', { name: 'Fotos aplicadas · 2', exact: true }).click()
+      await studio.getByRole('button', { name: 'Manter esta', exact: true }).click()
+    }
     const backup = page.waitForEvent('download')
     await studio.getByRole('button', { name: 'Baixar backup ZIP', exact: true }).click()
     const zip = await JSZip.loadAsync(await readFile(await (await backup).path()))
@@ -119,6 +123,7 @@ for (const count of [3, 6, 10]) {
     expect(project.importedContent.campaign.visualContext.campaignName).toBe(campaignName)
     expect(project.slides[count === 10 ? 2 : 1].visualContext.imageType).toBe('Bastidores')
     expect(project.slides[0].scene.objects.some((item: { imageCredit?: { provider: string } }) => item.imageCredit?.provider === 'official')).toBe(true)
+    if (count === 3) expect(project.slides[0].visualChoice).toMatchObject({ mode: 'manual', decision: 'approved' })
     await studio.getByRole('button', { name: 'Salvar', exact: true }).click()
     await expect(studio.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
     const warmStart = performance.now()

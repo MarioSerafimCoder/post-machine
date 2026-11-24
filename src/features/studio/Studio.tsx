@@ -3,7 +3,7 @@ import { ImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
 import { editorialImageQuery } from '../images/editorialQuery'
 import type { ImageCredit } from '../images/contract'
-import { creditKeys } from '../images/automaticSearch'
+import { creditKeys, rememberRejectedVisual } from '../images/automaticSearch'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { readCampaign } from '../campaigns/storage'
@@ -154,10 +154,17 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => {
       if (i !== currentRef.current) return s
       const edited = imageWasEdited(s.scene, scene)
-      const visualChoice = s.visualChoice && edited
-        ? { ...s.visualChoice, match: undefined, signature: undefined,
-          mode: frameImage(scene) ? s.visualChoice.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const }
-        : s.visualChoice
+      const before = frameImage(s.scene)
+      const after = frameImage(scene)
+      const swapped = before?.src !== after?.src
+      const visualChoice = s.visualChoice && edited ? {
+        ...s.visualChoice, match: swapped ? undefined : s.visualChoice.match, signature: undefined,
+        ...(swapped && before ? {
+          decision: after ? 'replaced' as const : 'rejected' as const,
+          discarded: rememberRejectedVisual(s.visualChoice.discarded, before.imageCredit as ImageCredit | undefined, s.visualChoice.match),
+        } : {}),
+        mode: after ? s.visualChoice.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const,
+      } : s.visualChoice
       return { ...s, visualChoice, scene: { ...scene, ...(!edited && s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } }
     }) }), record, false, textTarget && { target: textTarget, slide: currentRef.current })
     refresh(n => n + 1)
@@ -207,13 +214,16 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     const latest = getCurrent()
     const slide = latest?.slides[currentRef.current]
     if (!latest || !slide) return
-    const excluded = creditKeys(frameImage(slide.scene)?.imageCredit as ImageCredit | undefined, slide.visualChoice?.match)
+    const currentImage = frameImage(slide.scene)
     const next = mode === 'none' || mode === 'automatic' ? rewriteVisualFrame(slide, {
       mode, revision: (slide.visualChoice?.revision ?? 0) + 1,
+      decision: currentImage ? 'rejected' : slide.visualChoice?.decision,
       discarded: mode === 'automatic' && slide.visualChoice?.mode === 'none' ? undefined
-        : [...new Set([...slide.visualChoice?.discarded ?? [], ...excluded])].slice(-24),
+        : currentImage ? rememberRejectedVisual(slide.visualChoice?.discarded, currentImage.imageCredit as ImageCredit | undefined, slide.visualChoice?.match)
+          : slide.visualChoice?.discarded,
     })
-      : { ...slide, visualChoice: { ...slide.visualChoice, mode } }
+      : { ...slide, visualChoice: { ...slide.visualChoice, mode,
+        decision: currentImage && slide.visualChoice?.mode === 'automatic' ? 'approved' as const : slide.visualChoice?.decision } }
     setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
     if (next.scene !== slide.scene) setRevision(value => value + 1)
   }

@@ -2,10 +2,11 @@ import type { Content, Draft } from '../campaigns/contract'
 import { abortTransaction, transaction } from './database'
 import type { CollectionSlide } from './collections'
 import type { Format } from './model'
-import type { VisualMatch } from '../images/automaticSearch'
+import type { VisualDecision, VisualMatch } from '../images/automaticSearch'
 import type { FocalPoint } from './vision/signals'
 
-export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean; imageLocked?: boolean; searchRevision?: number; discardedVisuals?: string[] }
+export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean;
+  imageLocked?: boolean; searchRevision?: number; discardedVisuals?: string[]; visualDecision?: VisualDecision }
 export type ExpressPhoto = { id: string; name: string; bytes: number; object: Record<string, unknown>; file: Blob
   automatic?: { slideKey: string; signature: string; match: VisualMatch; focalPoint?: FocalPoint }
 }
