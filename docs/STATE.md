@@ -1,5 +1,12 @@
 # Estado real — 24/11/2026
 
+## Consolidação Brave Images
+
+- A classificação de buscas Brave agora confere briefing e objeto visual contra título, descrição, legenda e arquivo. O escalonador distribui as três pesquisas de imagem disponíveis pelos primeiros slides pendentes. Apoios permanecem substituíveis por material confirmado, com estado de imagem aplicada separado da pesquisa em andamento. O Worker usa as páginas de origem Brave Images na extração HTMLRewriter somente após validação de host e redirecionamento.
+- O replay congelado mediu novamente 32/32 atribuições corretas, 0 incorretas e 12/44 vazias; a cobertura ainda é 72,7%. GEICO e a rejeição histórica de outra peça da série Ryvita permanecem na regressão.
+- Validação local: lint, build, dry-run do Wrangler, smoke local da extração HTMLRewriter, 153/153 testes unitários e 162 cenários E2E aprovados (12 omitidos pela configuração), com quatro workers. Os quatro E2E de busca progressiva também passaram em execução isolada.
+- O workflow `Diagnóstico visual com franquia gratuita` foi limitado a cinco consultas reais de Brave Images, sem YouTube; até duas imagens permitidas por consulta passam pelo download e assinatura raster. Medição de rede, execução no CI e deploy protegido precisam ser registrados após o disparo.
+
 ## Otimização de cobertura documental
 
 - A extração progressiva agora lê HTML em fluxo até 3 MB. A pesquisa complementar reavalia somente slides pendentes e o ranking dá mais peso ao assunto principal de slides de detalhe. No corpus de regressão, 32 das 32 atribuições foram aceitas e 12 de 44 slides continuaram vazios. O acesso público às quatro páginas antes truncadas voltou a produzir HTML utilizável e uma delas revelou candidatos elegíveis para nova seleção.

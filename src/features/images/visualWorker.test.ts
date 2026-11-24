@@ -128,6 +128,30 @@ describe('Worker de pesquisa visual', () => {
     ] })
     expect(outbound.mock.calls.filter(([url]) => new URL(url).hostname === 'www.googleapis.com')).toHaveLength(2)
   })
+  it('enriquece resultados de Brave Images pela página permitida e evita reler a mesma origem', async () => {
+    const jwt = await token()
+    vi.stubGlobal('HTMLRewriter', class { on() { return this } transform(response: Response) { return response } })
+    const sourcePage = 'https://www.businesswire.com/news/home/visual-campaign'
+    const outbound = vi.fn(async (raw: URL | string) => {
+      const url = new URL(raw)
+      if (url.hostname === issuer.slice('https://'.length)) return jwks()
+      if (url.hostname === 'cloudflare-dns.com') return Response.json({ Status: 0, Answer: url.searchParams.get('type') === 'A'
+        ? [{ type: 1, TTL: 30, data: '1.1.1.1' }] : [] })
+      if (url.hostname === 'api.search.brave.com') return Response.json({ results: [1, 2].map(index => ({
+        url: sourcePage, title: 'Official visual identity campaign', description: 'Brand identity artwork',
+        properties: { url: `https://media.creativeboom.com/mark-${index}.jpg`, width: 1200, height: 800 },
+      })) })
+      if (url.href === sourcePage) return new Response('<html><article></article></html>', { headers: { 'content-type': 'text/html' } })
+      throw Error('Unexpected origin')
+    })
+    vi.stubGlobal('fetch', outbound)
+    const configured = { ...env, BRAVE_SEARCH_API_KEY: 'unit-test', BRAVE_VISUAL_ZERO_SPEND: 'confirmed' }
+    const response = await worker.fetch(request('brave', { kind: 'images', query: 'visual identity campaign', anchors: ['Official visual identity'] }, jwt), configured)
+    const result = await response.json()
+    expect(response.status).toBe(200)
+    expect(result.candidates).toHaveLength(2)
+    expect(outbound.mock.calls.filter(([url]) => new URL(String(url)).href === sourcePage)).toHaveLength(1)
+  })
   it('mantém Brave opcional e abre o circuito ao receber 429', async () => {
     const jwt = await token()
     const outbound = vi.fn(async (input: URL | string, init: RequestInit) => {

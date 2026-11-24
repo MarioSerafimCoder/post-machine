@@ -174,7 +174,9 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     if (!project) return []
     const research = projectVisualContext(project)
     return project.slides.flatMap(slide => {
-      if (slide.visualChoice?.mode !== 'automatic' || semantics(slide.scene).image) return []
+      const existing = semantics(slide.scene).image
+      const provisional = ['related', 'support'].includes(slide.visualChoice?.match?.classification ?? '')
+      if (slide.visualChoice?.mode !== 'automatic' || existing && !provisional) return []
       const request = frameRequest(project, slide, research)
       return request ? [request] : []
     })
@@ -189,8 +191,11 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     if (!latest || exportOpen) return false
     const index = latest.slides.findIndex(slide => latest.id + '/' + slide.id === request.key)
     const slide = latest.slides[index]
-    if (slide?.visualChoice?.mode !== 'automatic' || semantics(slide.scene).image ||
-      frameRequest(latest, slide)?.signature !== request.signature) return false
+    const existing = slide && semantics(slide.scene).image
+    const provisional = ['related', 'support'].includes(slide?.visualChoice?.match?.classification ?? '')
+    const currentRequest = slide && frameRequest(latest, slide)
+    if (slide?.visualChoice?.mode !== 'automatic' || existing && !provisional ||
+      currentRequest?.signature !== request.signature) return false
     const currentCanvas = index === currentRef.current ? canvas.current : null
     if (index === currentRef.current && (!currentCanvas || canvasSlide.current !== request.key || currentCanvas.getActiveObjects().length)) return false
     const next = rewriteVisualFrame(slide, { ...slide.visualChoice, signature: request.signature, match: image.match }, image)
@@ -631,7 +636,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const overflow = textExceedsLayout(project.slides[current].scene)
   const searchesPending = frameTargets.some(item => {
     const value = autoSearch.status(item)
-    return value === 'documental' || value === 'editorial' || value === 'illustration'
+    return value === 'documental' || value === 'editorial' || value === 'illustration' || value === 'provisional'
   })
   return <section className="studio" aria-label="Editor Studio">
     {designSource && <Suspense fallback={<p role="status">Carregando opções de design…</p>}>

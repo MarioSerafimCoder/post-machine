@@ -1,7 +1,7 @@
 import { documentaryResponse, documentaryPrefix, type DocumentaryAsset } from './documentaryContract'
 import { type ImageCredit, licenseTerms, toCredit } from './contract'
 import { automaticOriginal, fetchExternalImage, fetchOriginal, searchImages } from './openverse'
-import { canonicalImage, creditKeys, documentaryId, evaluateCandidate, evaluateCatalog, prepareImage, similarImage,
+import { canonicalImage, creditKeys, documentaryId, evaluateCandidate, evaluateCatalog, prepareImage, prioritizedImageQueries, similarImage,
   type AutomaticImage, type VisualRelevance, type VisualRequest, type VisualStatus } from './automaticSearch'
 import { narrativeAssignment } from './visualAllocation'
 import { refineVisualFit, useOcr, useSemantics } from './visualEnrichment'
@@ -195,7 +195,7 @@ function catalog(request: VisualRequest, pool: Pool, signal: AbortSignal, query:
   const illustrated = /\b(ilustracao|illustration)\b/i.test(request.copy.visualContext?.imageType?.normalize('NFD').replace(/\p{M}/gu, '') ?? '')
   return pooled(pool, JSON.stringify(['openverse', query, illustrated, request.revision]), signal, async inner => {
     const { results } = await searchImages({ query: query.slice(0, 160), page: 1, photographs: !illustrated, illustrations: illustrated,
-      license: '', commercial: true, ratio: '', source: '' }, AbortSignal.any([inner, AbortSignal.timeout(4200)]))
+      license: '', commercial: true, ratio: '', source: '' }, AbortSignal.any([inner, AbortSignal.timeout(6400)]))
     const found = results.flatMap(result => {
       const credit = toCredit(result)
       const terms = licenseTerms(credit)
@@ -250,7 +250,7 @@ function preparedImage(pool: Pool, candidate: Candidate, signal: AbortSignal, co
   }, () => 4000)
 }
 
-type Events = { image: (request: VisualRequest, image: AutomaticImage) => void; finish: (request: VisualRequest, status: VisualStatus) => void;
+type Events = { image: (request: VisualRequest, image: AutomaticImage, provisional: boolean) => void; finish: (request: VisualRequest, status: VisualStatus) => void;
   used: () => ReadonlySet<string> }
 export async function investigateVisuals(requests: VisualRequest[], config: Events, signal: AbortSignal) {
   if (!requests.length) return
@@ -274,19 +274,29 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
   let examinedPixels = false
   const examined = new Map<string, AutomaticImage>()
   const refinements = new Map<string, number | null>()
+  const provisionalIds = new Map<string, string>()
+  const provisionalKeys = new Map<string, Set<string>>()
   const fitKey = (request: VisualRequest, candidate: Candidate) => request.key + '\0' + candidate.credit.sourceId
   let allocation = Promise.resolve()
-  const emit = (request: VisualRequest, image: AutomaticImage, match: VisualRelevance['match']) => {
+  const emit = (request: VisualRequest, image: AutomaticImage, match: VisualRelevance['match'], sourceId: string) => {
     if (first) {
       performance.clearMeasures('post-machine:visual:first')
       performance.measure('post-machine:visual:first', { start: initial, end: performance.now() })
       first = false
     }
     image.keys.forEach(key => used.add(key))
-    remaining.delete(request)
+    const provisional = match.classification !== 'confirmed'
+    if (provisional) {
+      provisionalIds.set(request.key, sourceId)
+      provisionalKeys.set(request.key, new Set(image.keys))
+    } else {
+      provisionalIds.delete(request.key)
+      provisionalKeys.delete(request.key)
+      remaining.delete(request)
+    }
     rememberOption(pool, request.key, image.id)
     config.image(request, { ...image, match: { ...match, fingerprint: image.fingerprint,
-      fingerprintVertical: image.fingerprintVertical, fileHash: image.fileHash } })
+      fingerprintVertical: image.fingerprintVertical, fileHash: image.fileHash } }, provisional)
   }
 
   function allocate(fallback: boolean, phase: AbortSignal) {
@@ -297,9 +307,12 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
         let evaluations = [...remaining].flatMap(request => [...pool.candidates.values()].flatMap(candidate => {
           const { sourceId } = candidate.credit
           const keys = creditKeys(candidate.credit)
-          if (tried.has(sourceId) || keys.some(key => used.has(key) || request.discarded.has(key))) return []
+          const shown = provisionalIds.get(request.key)
+          if (tried.has(sourceId) || keys.some(key => used.has(key) && shown !== sourceId || request.discarded.has(key))) return []
           const fit = relevance(candidate, request)
           if (!fit || (!fallback && fit.match.classification !== 'confirmed')) return []
+          if (shown && shown !== sourceId && fit.match.classification !== 'confirmed') return []
+          if (shown === sourceId && fit.match.classification !== 'confirmed') return []
           const order = pool.options.get(request.key)?.indexOf(sourceId) ?? -1
           const adjusted = fit.match.classification === 'confirmed' ? undefined : refinements.get(fitKey(request, candidate))
           if (adjusted === null) return []
@@ -341,10 +354,13 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
             const image = examined.get(candidate.credit.sourceId) ?? await preparedImage(pool, candidate, phase, match.classification === 'confirmed')
             examined.delete(candidate.credit.sourceId)
             phase.throwIfAborted()
-            if (image.keys.some(key => used.has(key) || request.discarded.has(key)) || image.fingerprint &&
-                (similarImage(image.fingerprint, used, image.fingerprintVertical) ||
+            const shown = provisionalIds.get(request.key) === candidate.credit.sourceId
+            const shownKeys = provisionalKeys.get(request.key)
+            const comparableUsed = shown && shownKeys ? new Set([...used].filter(key => !shownKeys.has(key))) : used
+            if (image.keys.some(key => (used.has(key) && !(shown && shownKeys?.has(key))) || request.discarded.has(key)) || image.fingerprint &&
+                (similarImage(image.fingerprint, comparableUsed, image.fingerprintVertical) ||
                   similarImage(image.fingerprint, request.discarded, image.fingerprintVertical))) return
-            emit(request, image, match)
+            emit(request, image, match, candidate.credit.sourceId)
             if (candidate.document && !candidate.remembered && ['original', 'official'].includes(candidate.document.provider)) {
               void rememberVisual(scope, candidate.document, candidate.credit, image.file).catch(() => undefined)
             }
@@ -398,12 +414,11 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     await allocate(true, fast.aborted ? deadline : fast)
     const queried = new Set([campaign.query])
     for (let attempt = 0; attempt < 3; attempt++) {
-      const details = [...remaining].flatMap(request => request.copy.visualContext?.searchQueries?.slice(0, 2) ??
-        (request.query ? [request.query] : []))
+      const details = prioritizedImageQueries([...remaining], queried)
       const query = [...details, ...campaign.extraQueries].find(value => !queried.has(value))
       if (!query) break
       queried.add(query)
-      if (!remaining.size || deadline.aborted || !campaign.query || braveBlockedUntil > Date.now() || workerBlockedUntil > Date.now()) break
+      if (!remaining.size || deadline.aborted || braveBlockedUntil > Date.now() || workerBlockedUntil > Date.now()) break
       if (performance.now() - initial < 1500) await pause(1150, deadline)
       else await pause(1050, deadline)
       await braveWork('images', query, deadline)
@@ -444,6 +459,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       } catch { if (!deadline.aborted) failed = true }
     }
   } catch { if (!signal.aborted) failed = true }
+  await allocate(true, deadline)
   if (!signal.aborted) {
     performance.clearMeasures('post-machine:visual:settled')
     performance.measure('post-machine:visual:settled', { start: initial, end: performance.now(),

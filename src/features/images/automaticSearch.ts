@@ -24,10 +24,19 @@ export const visualChoiceSchema = z.object({
 })
 export type VisualChoice = z.infer<typeof visualChoiceSchema>
 export type VisualDecision = NonNullable<VisualChoice['decision']>
-export type VisualStatus = 'documental' | 'editorial' | 'illustration' | 'empty' | 'error'
+export type VisualStatus = 'documental' | 'editorial' | 'illustration' | 'provisional' | 'empty' | 'error'
 export type VisualRequest = {
   key: string; slideId: string; signature: string; revision: number; campaign: CampaignContext; ratio: number; copy: VisualCopy
-  query?: string; catalogQueries: string[]; terms: string[]; neighbors: string[]; discarded: ReadonlySet<string>
+  query?: string; imageQueries: string[]; catalogQueries: string[]; terms: string[]; neighbors: string[]; discarded: ReadonlySet<string>
+}
+export function prioritizedImageQueries(requests: readonly Pick<VisualRequest, 'imageQueries'>[], excluded: ReadonlySet<string> = new Set()) {
+  const seen = new Set(excluded)
+  const queries: string[] = []
+  for (let index = 0; index < 3; index++) for (const request of requests) {
+    const query = request.imageQueries[index]
+    if (query && !seen.has(query)) { queries.push(query); seen.add(query) }
+  }
+  return queries
 }
 const generic = /\b(?:conceitual|conceptual|metafora|metaphor|abstrat\w*|abstract|clipart|mockup|generic\w*|icon|icone|stock photo|ai generated|gerad[ao] por ia)\b/
 
@@ -35,12 +44,34 @@ function queryText(value: string, limit: number) {
   return value.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, limit)
 }
 
+function queryWithAnchor(query: string, anchor: string) {
+  const normalized = phraseKey(query)
+  const anchorKey = phraseKey(anchor)
+  if (!anchorKey) return queryText(query, 240)
+  if (normalized.includes(anchorKey)) {
+    const index = query.toLocaleLowerCase().indexOf(anchor.toLocaleLowerCase())
+    if (index >= 0) return queryText(`${query.slice(index, index + anchor.length)} ${query.slice(0, index)} ${query.slice(index + anchor.length)}`, 240)
+    return queryText(`${anchor} ${query}`, 240)
+  }
+  const context = queryText(anchor, 180)
+  const detail = queryText(query, Math.max(40, 239 - context.length))
+  return queryText(`${context} ${detail}`, 240)
+}
+
 export function requestFor(key: string, copy: VisualCopy, campaign: CampaignContext, ratio: number, revision = 0,
   neighbors: VisualCopy[] = [], discarded: string[] = []): VisualRequest | undefined {
   if (!needsImage(copy)) return
-  const detail = [copy.visualContext?.visualIntent, copy.imageBrief, copy.subtitle, copy.title].filter(Boolean).find(text => !generic.test(phraseKey(text)))
+  const detail = [copy.imageBrief, copy.visualContext?.visualIntent, copy.visualContext?.imageType, copy.subtitle, copy.title]
+    .filter(Boolean).find(text => !generic.test(phraseKey(text)))
   const search = copy.visualContext?.searchQueries?.[0] || [campaign.subject !== detail ? campaign.subject : '', detail].filter(Boolean).join(' ')
   const catalog = copy.visualContext?.searchQueries?.[0] || detail || copy.body
+  const anchor = campaign.campaignName || campaign.names.find(name => phraseKey(campaign.subject).includes(phraseKey(name))) || campaign.subject
+  const imageQueries = [...new Set([
+    detail,
+    ...copy.visualContext?.searchQueries ?? [],
+    [copy.imageBrief, copy.visualContext?.visualIntent, copy.visualContext?.imageType, copy.title].filter(Boolean).join(' '),
+  ].flatMap(value => value?.trim() ? [queryWithAnchor(value, anchor)] : []))]
+    .filter(query => query && phraseKey(query) !== phraseKey(campaign.query ?? '')).slice(0, 3)
   const groupTerms = words(campaign.subject)
   const terms = words([visualText(copy), ...copy.visualContext?.searchQueries ?? []].join(' '))
   const catalogQueries = [...new Set([catalog, copy.visualContext?.searchQueries?.[1]].flatMap(value => value
@@ -48,6 +79,7 @@ export function requestFor(key: string, copy: VisualCopy, campaign: CampaignCont
   return {
     key, slideId: key.slice(key.indexOf('/') + 1), campaign, ratio, copy, revision,
     query: search ? queryText(search, 240) : undefined,
+    imageQueries,
     catalogQueries,
     terms, neighbors: words(neighbors.map(visualText).join(' ')), discarded: new Set(discarded),
     signature: 'visual-a2:' + visualDigest([campaign.scope, campaign.context, visualText(copy), copy.visualContext, copy.role, neighbors.map(visualText), revision, discarded]),
@@ -109,7 +141,7 @@ export function documentaryId(asset: Pick<DocumentaryAsset, 'url'>) { return 'im
 const contains = (value: string, term: string) => !!term && (' ' + value + ' ').includes(' ' + term + ' ')
 const count = (terms: readonly string[], text: string) => terms.filter(term => contains(text, phraseKey(term))).length
 const documentaryPhrase = (value: string) => phraseKey(value).replace(/(\d) (?:percent|por cento)\b/g, '$1')
-const generalMediaWords = /^(?:foto|photo|image|imagem|filme|film|video|campaign|campanha|ad|ads|publicidade|holiday|natal|christmas|design|novo|nova|new|first|primeiro|primeira)$/
+const generalMediaWords = /^(?:foto|photo|image|imagem|filme|film|video|still|frame|campaign|campanha|ad|ads|publicidade|holiday|natal|christmas|design|novo|nova|new|first|primeiro|primeira)$/
 const documentaryOrigin = /\b(?:documentary|documental|photojournal\w*|reportagem|arquivo|archive|historical|historico|historic|press photo|fotografia de imprensa|on location)\b/
 
 export type VisualRelevance = { score: number; match: Omit<VisualMatch, 'fingerprint' | 'fingerprintVertical' | 'fileHash'> }
@@ -117,7 +149,8 @@ type Evaluation = VisualRelevance | { score: 0; rejected: true }
 const rejected = { score: 0, rejected: true } as const
 export function evaluateCandidate(asset: DocumentaryAsset, request: VisualRequest): Evaluation {
   const { campaign, terms, copy } = request
-  const assetLabel = documentaryPhrase([asset.caption, decodePath(asset.url).split('/').at(-1)].filter(Boolean).join(' '))
+  const assetLabel = documentaryPhrase([asset.caption, asset.evidence === 'search' ? asset.title : undefined,
+    asset.evidence === 'search' ? asset.description : undefined, decodePath(asset.url).split('/').at(-1)].filter(Boolean).join(' '))
   const local = [assetLabel, documentaryPhrase(asset.section ?? '')].filter(Boolean).join(' ')
   const text = phraseKey([asset.title, asset.description, local, decodePath(asset.page)].filter(Boolean).join(' '))
   const publication = campaign.sources[0]
@@ -155,9 +188,10 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
   const related = identity && (assetMatch || asset.evidence === 'search' && named >= 1 || !explicitCampaign && editorialPlacement)
   if (!actual && (!related || (copy.role !== 'cover' && !overlap))) return rejected
   const fit = asset.width && asset.height ? Math.min(asset.width / asset.height / request.ratio, request.ratio / (asset.width / asset.height)) : .5
-  const intent = words(copy.visualContext?.visualIntent || copy.imageBrief || copy.title)
+  const intent = words([copy.imageBrief, copy.visualContext?.visualIntent, copy.visualContext?.imageType].filter(Boolean).join(' '))
     .filter(term => !campaign.primary.includes(term) && !request.neighbors.includes(term) && !generalMediaWords.test(term))
   const specific = count(intent, assetLabel)
+  if (asset.evidence === 'search' && intent.length && !specific) return rejected
   const distinctive = copy.role === 'cover' ? 0 : intent.slice(0, 3)
     .reduce((score, term, index) => score + (term.length >= 5 && contains(assetLabel, term) ? 12 - 3 * index : 0), 0)
   const score = (actual ? 85 : 55) + Math.min(10, overlap * 3) + Math.min(4, near) + Math.min(8, named * 2) + fit * 3 +

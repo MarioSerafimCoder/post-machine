@@ -126,8 +126,12 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     const photo = photos.find(item => item.automatic?.slideKey === target.slideId && item.automatic.signature === target.signature)
     return photo ? [[target.slideId, photo] as const] : []
   })), [targets, photos])
-  const requests = useMemo(() => targets.filter(target => !automaticBySlide.has(target.slideId) &&
-    !localPlan[slides.findIndex(slide => slide.key === target.slideId)]?.picture), [targets, automaticBySlide, localPlan, slides])
+  const requests = useMemo(() => targets.filter(target => {
+    const automatic = automaticBySlide.get(target.slideId)
+    const chosenManually = automatic && slides.some(slide => slide.imageId === automatic.id)
+    const provisional = automatic && ['related', 'support'].includes(automatic.automatic?.match.classification ?? '') && !chosenManually
+    return (!automatic || provisional) && !localPlan[slides.findIndex(slide => slide.key === target.slideId)]?.picture
+  }), [targets, automaticBySlide, localPlan, slides])
   const occupied = useMemo(() => new Set(photos.filter(photo => !photo.automatic ||
     automaticBySlide.get(photo.automatic.slideKey) === photo || slides.some(slide => slide.imageId === photo.id)).flatMap(photo => {
     return creditKeys(photo.object.imageCredit as ImageCredit | undefined, photo.automatic?.match)

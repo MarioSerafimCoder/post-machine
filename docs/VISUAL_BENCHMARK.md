@@ -1,5 +1,15 @@
 # Benchmark do motor visual
 
+## Consolidação Brave Images — 24/11/2026
+
+O replay local de regressão continua em **32/32 imagens corretas, 0 incorretas e 12/44 slides vazios**. Os 12 vazios permanecem nos detalhes de Minthis e GWM, nas capas de PlayStation, Gusto, Ray Gunn, da artista entrevistada, da identidade australiana, de Gatto, da comunidade esportiva e de Julien Gobled, e nos dois slides da Caixa. O erro histórico da Fase A em `15f6be0:slide1` (outra peça do mesmo estúdio) fica como regressão negativa; o motor atual rejeita essa atribuição.
+
+O diagnóstico do código encontrou dois gargalos generalizáveis: a classificação Brave Images conferia o briefing apenas contra legenda e nome do arquivo, embora o provedor normalmente entregue a correspondência no título e na descrição; e o escalonador consumia as três consultas específicas primeiro no mesmo slide pendente. A classificação agora usa os metadados descritivos dos resultados de busca, sem ampliar esse atalho às imagens documentais já extraídas. As até três consultas específicas restantes são distribuídas em rodízio pelos slides ainda pendentes.
+
+Resultados relacionados/apoio continuam visíveis enquanto a busca específica prossegue e podem ser substituídos por um resultado confirmado. Essa pesquisa em segundo plano não muda a apresentação do slide para “Buscando imagem” quando ele já recebeu imagem. Confirmações, imagens travadas e escolhas manuais continuam fora da substituição automática. A resposta da Brave Images também fornece até duas páginas de origem permitidas para extração HTMLRewriter; hosts, redirects, DNS público, formatos e tamanho seguem as mesmas verificações do Worker.
+
+A validação local executou 153 testes unitários, lint, build, replay congelado, compilação/smoke da extração HTMLRewriter e dry-run do Wrangler. A suíte E2E passou em 162 cenários, com 12 omitidos, usando quatro workers; os quatro testes de busca progressiva também passaram isoladamente. O diagnóstico de rede usa no máximo cinco consultas Brave Images, espaçadas em pelo menos 8,1 s, preserva o sinal de cota e testa até dois downloads de raster permitido por consulta. OCR, YouTube e Browser Run não fazem parte dessa execução. **Resultados de rede Brave Images, CI e publicação protegida pendentes**; não misturar essas medidas com o replay controlado acima.
+
 ## Otimização de 24/11/2026
 
 O replay congelado manteve o GEICO e corrigiu a atribuição do detalhe da série de Max Cameron. O detalhe de briefing passou a preceder sinais genéricos do restante do texto. A precisão passou de 31/32 para 32/32, a cobertura de 31/44 para 32/44 (72,7%) e os vazios permaneceram em 12.
@@ -52,7 +62,7 @@ Depois do ajuste de ranking, o replay de regressão atribuiu 32/44 imagens váli
 
 As 146 consultas distintas capturadas do Openverse retornaram HTTP 200. A mediana das chamadas reais ao catálogo foi 1,61 s. Os downloads públicos dos candidatos documentais tiveram mediana de 0,41 s. Na reprodução, as respostas de catálogo e os rasters da fonte vieram do cache. As duas fotos escolhidas pelo motor anterior vieram do Flickr pela rede e seus tempos até primeira imagem incluem essa latência. Os números de tempo de replay servem para comparar o processamento da Fase A com o atual.
 
-O motor antigo sugeriu um desfile de 2021 para a pauta de 2026 sobre o filme do GEICO e uma fotografia de exposição para a pauta sobre a ilustradora Carolina Soares. A Fase A e a versão atual atribuíram o material do comunicado do GEICO. O único erro da versão atual foi uma foto da série correta usada para um detalhe visual diferente. O ganho observado é deste corpus, que também orientou a calibração. [Pauta de Carolina Soares](https://www.creativebloq.com/features/this-artist-specialises-in-emotional-characters-and-ethereal-scenes) e [comunicado do GEICO](https://www.geico.com/about/pressreleases/2026/20261123/).
+O motor antigo sugeriu um desfile de 2021 para a pauta de 2026 sobre o filme do GEICO e uma fotografia de exposição para a pauta sobre a ilustradora Carolina Soares. A Fase A atribuiu o material do comunicado do GEICO, mas ainda produziu erros de campanha e de detalhe. O replay após o ajuste de ranking aceitou 32/32 atribuições; o erro de detalhe da mesma série não ocorre mais. O ganho observado é deste corpus, que também orientou a calibração. [Pauta de Carolina Soares](https://www.creativebloq.com/features/this-artist-specialises-in-emotional-characters-and-ethereal-scenes) e [comunicado do GEICO](https://www.geico.com/about/pressreleases/2026/20261123/).
 
 No build servido pelo Wrangler em 1280 e 1440 px, oito carrosséis de 3 a 10 slides abriram em 0,14–0,33 s. A primeira imagem chegou em 0,48–1,28 s e a pesquisa estabilizou em 0,49–1,29 s. A reabertura com os arquivos locais levou 0,50–0,66 s. Os testes usaram respostas controladas, incluindo um erro transitório de download, investigação complementar e exportação durante a busca.
 

@@ -30,7 +30,7 @@ export function Slides({ project, current, select, action, issues, reorder, open
   project.slides.forEach((slide, index) => {
     const state = imageStatus?.(slide.id)
     if (state === 'empty' || state === 'error') photos[state].push(index)
-    else if (!state && slide.visualChoice?.match) photos.applied.push(index)
+    else if (slide.visualChoice?.match) photos.applied.push(index)
   })
   return <section className="studio-slides" aria-label="Slides">
     <header><strong>Slides</strong><button aria-expanded={open} onClick={toggle}>{open ? 'Recolher slides' : 'Mostrar slides'}</button></header>
@@ -43,8 +43,8 @@ export function Slides({ project, current, select, action, issues, reorder, open
       const status = imageStatus?.(slide.id)
       const match = slide.visualChoice?.match
       const photoStatus = status === 'empty' ? 'Nenhuma imagem adequada encontrada' :
-        status === 'error' ? 'Busca indisponível' : status ? 'Buscando imagem' :
-          match ? 'Imagem encontrada' : slide.visualChoice?.mode === 'none' ? 'Slide sem imagem' : ''
+        status === 'error' ? 'Busca indisponível' : match ? 'Imagem encontrada' : status ? 'Buscando imagem' :
+          slide.visualChoice?.mode === 'none' ? 'Slide sem imagem' : ''
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]
       const label = composition === undefined ? templates[slide.layout as keyof typeof templates] ?? 'Livre' : compositionNames[Number(composition)] ?? 'Livre'
       const stale = review && (review.scene !== slide.scene || !sameReviewSettings(review.project,project))

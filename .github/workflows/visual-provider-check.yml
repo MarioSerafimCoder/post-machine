@@ -19,16 +19,15 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: node benchmarks/capture-independent.mjs
       - run: node benchmarks/check-providers.mjs
         env:
           BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
           BRAVE_VISUAL_ZERO_SPEND: ${{ vars.BRAVE_VISUAL_ZERO_SPEND }}
           VISUAL_EXTERNAL_HOSTS: ${{ vars.VISUAL_EXTERNAL_HOSTS }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: visual-provider-check
+          name: brave-image-check
           path: benchmarks/.cache/provider-check.json
           include-hidden-files: true
           retention-days: 1

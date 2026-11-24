@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateCandidate, evaluateCatalog, requestFor, similarImage } from './automaticSearch'
+import { evaluateCandidate, evaluateCatalog, prioritizedImageQueries, requestFor, similarImage } from './automaticSearch'
 import type { DocumentaryAsset } from './documentaryContract'
 import { campaignContext, needsImage, researchUrl } from './visualContext'
 import { narrativeAssignment } from './visualAllocation'
@@ -45,6 +45,40 @@ describe('inteligência visual documental', () => {
     expect(evaluateCandidate(bts, requestFor('project/bts', copy, context, 1)!)).toMatchObject({ match: { classification: 'confirmed' } })
     expect(needsImage({ title: 'Composição exclusivamente tipográfica', visualContext: { imageType: 'textual' } })).toBe(false)
     expect(needsImage({ title: 'Leia a legenda', role: 'cta' })).toBe(false)
+  })
+  it('constrói buscas por objeto e rejeita resultados de marca sem evidência do objeto pedido', () => {
+    const brand = campaignContext({ title: 'Mudança de identidade visual', visual: {
+      subject: 'McLaren apresenta sua nova identidade visual', entities: ['McLaren'],
+    }, slides: [{ title: 'O novo logotipo', imageBrief: 'Wordmark e emblema revisados da marca' }] })
+    const markRequest = requestFor('brand/logo', { title: 'O novo logotipo', imageBrief: 'Wordmark e emblema revisados da marca' }, brand, 1.2)!
+    expect(markRequest.imageQueries[0]).toContain('McLaren')
+    expect(markRequest.imageQueries[0]).toMatch(/Wordmark|emblema/i)
+    const car = { ...film, page: 'https://images.example.test/article', provider: 'brave' as const,
+      evidence: 'search' as const, url: 'https://images.example.test/mclaren-race-car.jpg', caption: undefined,
+      title: 'McLaren 750S racing on track', description: 'A sports car at the circuit' }
+    expect(evaluateCandidate(car, markRequest)).toEqual({ score: 0, rejected: true })
+
+    const packageCopy = { title: 'A nova embalagem', imageBrief: 'Vista frontal da embalagem de varejo Riff' }
+    const packaging = campaignContext({ title: 'A Riff apresenta novas embalagens', visual: {
+      subject: 'Riff apresenta novas embalagens', entities: ['Riff'],
+    }, slides: [packageCopy] })
+    const packageRequest = requestFor('riff/package', packageCopy, packaging, 1.2)!
+    const facade = { ...car, url: 'https://images.example.test/riff-campus.jpg', title: 'Riff headquarters exterior',
+      description: 'The company headquarters and office facade' }
+    expect(packageRequest.imageQueries[0]).toMatch(/Riff.*embalagem/i)
+    expect(evaluateCandidate(facade, packageRequest)).toEqual({ score: 0, rejected: true })
+  })
+  it('usa metadados textuais do resultado Brave e distribui as consultas entre slides pendentes', () => {
+    const searchTitle = evaluateCandidate({ ...film, page: 'https://press.example.com/story', provider: 'brave', evidence: 'search',
+      url: 'https://media.example.com/opaque-file.jpg', caption: undefined,
+      title: 'GEICO How 15% Saved Christmas official still frame', description: undefined }, request)
+    expect(searchTitle).toMatchObject({ match: { classification: 'related' } })
+    expect(prioritizedImageQueries([
+      { imageQueries: ['capa A', 'detalhe A'] }, { imageQueries: ['capa B', 'detalhe B'] },
+    ])).toEqual(['capa A', 'capa B', 'detalhe A', 'detalhe B'])
+    expect(prioritizedImageQueries([
+      { imageQueries: ['capa A', 'detalhe A'] }, { imageQueries: ['capa B', 'detalhe B'] },
+    ], new Set(['capa A']))).toEqual(['capa B', 'detalhe A', 'detalhe B'])
   })
   it('usa Openverse como apoio com relevância e mantém correspondência de página original', () => {
     const credit: ImageCredit = { schemaVersion: 1, provider: 'openverse', sourceId: '762ec81b-3312-40d6-8ce2-e70aa6b43465',

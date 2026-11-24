@@ -175,18 +175,21 @@ export default {
       if (!(await env.BRAVE_LIMIT.limit({ key: 'brave-visual' })).success) return json({ state: 'limited', candidates: [] }, 429)
       const lookup = await braveSearch(input.kind, input.query, input.language, env.BRAVE_SEARCH_API_KEY, signal)
       const backendImages = [...lookup.images]
-      if (lookup.pages.length) {
+      const sourcePages = lookup.pages.length ? lookup.pages : lookup.images.map(image => ({
+        url: image.page, title: image.title, description: image.description,
+      }))
+      if (sourcePages.length) {
         const anchors = (input.anchors ?? []).map(phraseKey).filter(anchor => anchor.length >= 3)
-        const pages = lookup.pages.flatMap(page => {
+        const pages = sourcePages.flatMap(page => {
           const url = externalUrl(page.url, hosts)
           const evidence = phraseKey([page.title, page.description].filter(Boolean).join(' '))
           const matches = anchors.filter(anchor => (' ' + evidence + ' ').includes(' ' + anchor + ' ')).length
           return url && (matches || !anchors.length) ? [{ url, score: matches * 2 + Number(official(url.hostname, env)) }] : []
         }).sort((a, b) => b.score - a.score)
-        for (const { url } of pages.slice(0, 2)) {
-          const result = await pageImages(url, official(url.hostname, env) ? 'official' : 'original', hosts, signal).catch(() => undefined)
-          backendImages.push(...result?.images ?? [])
-        }
+        const uniquePages = [...new Map(pages.map(page => [page.url.href, page])).values()]
+        const extracts = await Promise.all(uniquePages.slice(0, 2).map(({ url }) =>
+          pageImages(url, official(url.hostname, env) ? 'official' : 'original', hosts, signal).catch(() => undefined)))
+        backendImages.push(...extracts.flatMap(result => result?.images ?? []))
       }
       return json({ state: lookup.state, candidates: await candidates(backendImages, person, env, key) }, lookup.state === 'limited' ? 429 : 200)
     } catch (cause) {
