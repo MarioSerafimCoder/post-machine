@@ -54,6 +54,9 @@ for (const count of [3, 6, 10]) {
     await page.route('**/api/visual/download', route => {
       const { ticket } = route.request().postDataJSON()
       downloads.push(ticket)
+      if (count === 3 && ticket === 'official-cover' && downloads.filter(id => id === ticket).length === 1) {
+        return route.fulfill({ status: 422, json: { error: 'source_unavailable' } })
+      }
       return route.fulfill({ contentType: 'image/png', body: poster(ticket === 'official-cover' ? 1 : 2) })
     })
     const data = {
@@ -103,7 +106,7 @@ for (const count of [3, 6, 10]) {
     const firstAt = performance.now()
     await expect(second).toHaveAttribute('aria-description', /Imagem encontrada/)
     const stabilizedAt = performance.now()
-    expect(downloads).toHaveLength(2)
+    expect(downloads).toHaveLength(count === 3 ? 3 : 2)
     expect(downloads).not.toContain('excluded-parade')
     expect(sourceRequests).toBe(1)
     expect(calls).toHaveLength(0)
@@ -124,7 +127,7 @@ for (const count of [3, 6, 10]) {
     await expect(first).toHaveAttribute('aria-description', /Imagem encontrada/)
     const warm = performance.now()
     expect(sourceRequests).toBe(1)
-    expect(downloads).toHaveLength(2)
+    expect(downloads).toHaveLength(count === 3 ? 3 : 2)
     await info.attach('tempos-visuais', { contentType: 'application/json', body: JSON.stringify({
       count, viewport: page.viewportSize(), openedMs: Math.round(opened - started), firstMs: Math.round(firstAt - started),
       stableMs: Math.round(stabilizedAt - started), warmMs: Math.round(warm - warmStart), sourceRequests, downloads: downloads.length,

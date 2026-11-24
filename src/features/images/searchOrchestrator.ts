@@ -76,12 +76,20 @@ async function post(route: string, body: object, signal: AbortSignal, timeout = 
   return fetch(documentaryPrefix + '/' + route, { method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body), redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]), cache: 'no-store' })
 }
+
+class VisualDownloadError extends Error {
+  constructor(readonly retryable: boolean) { super('Imagem indisponível na fonte.') }
+}
+
 export async function workerImage(route: 'download' | 'import', body: object, signal: AbortSignal, filename = 'Imagem da fonte') {
   const response = await post(route, body, signal, 6000)
   const mime = response.headers.get('content-type')?.split(';')[0]
   if (!response.ok || !mime || !['image/jpeg', 'image/png', 'image/webp'].includes(mime)) {
-    await response.body?.cancel()
-    throw Error('Imagem indisponível na fonte.')
+    const inspect = response.status === 422 && mime === 'application/json'
+    const error = inspect ? await response.json().catch(() => null) : null
+    if (!inspect) await response.body?.cancel()
+    const transient = error?.error === 'source_unavailable'
+    throw new VisualDownloadError(transient || response.status === 502 || response.status === 504)
   }
   const blob = await response.blob()
   if (!blob.size || blob.size > 10_000_000) throw Error('Imagem fora do limite de download.')
@@ -202,13 +210,19 @@ function rememberOption(pool: Pool, key: string, chosen: string) {
   if (pool.options.size > 30) pool.options.delete(pool.options.keys().next().value!)
 }
 
-function preparedImage(pool: Pool, candidate: Candidate, signal: AbortSignal) {
+function preparedImage(pool: Pool, candidate: Candidate, signal: AbortSignal, confirmed: boolean) {
   const id = candidate.credit.sourceId
   const ready = pool.prepared.get(id)
   if (ready) return Promise.resolve(ready)
   return pooled(pool, 'load:' + id, signal, async inner => {
     const bounded = AbortSignal.any([inner, AbortSignal.timeout(6000)])
-    const file = await candidate.download(bounded)
+    const file = await candidate.download(bounded).catch(async cause => {
+      if (!confirmed || !candidate.document || bounded.aborted ||
+          !(cause instanceof TypeError || (cause instanceof VisualDownloadError && cause.retryable))) throw cause
+      await pause(180, bounded)
+      bounded.throwIfAborted()
+      return candidate.download(bounded)
+    })
     const image = await prepareImage(file, candidate.credit, bounded)
     const size = file.size + String(image.object.src).length * 2
     if (size <= maxPreparedBytes) {
@@ -286,7 +300,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
         // The cover can arrive before other downloads. Check deduplication again when each file is ready.
         await Promise.all(selected.map(async ({ request, candidate, match }) => {
           try {
-            const image = await preparedImage(pool, candidate, phase)
+            const image = await preparedImage(pool, candidate, phase, match.classification === 'confirmed')
             phase.throwIfAborted()
             if (image.keys.some(key => used.has(key) || request.discarded.has(key)) || image.fingerprint && similarImage(image.fingerprint, used)) return
             emit(request, image, match)
