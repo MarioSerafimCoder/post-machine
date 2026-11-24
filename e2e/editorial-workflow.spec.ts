@@ -16,6 +16,7 @@ test('detecta caixa vazia em edição e revisa a sequência do carrossel', async
   await field.fill('Arquitetura dos pátios urbanos')
   await expect(balloon.getByText('Campo de texto vazio', { exact: false })).toBeHidden()
   await expect(first).not.toHaveAttribute('src', emptySource!)
+  if (await page.locator('.slide-menu:not([open]) > summary').count()) await page.locator('.slide-menu > summary').click()
   await page.getByRole('button', { name: 'Duplicar slide', exact: true }).click()
   const source = await first.getAttribute('src')
   const second = page.getByRole('button', { name: 'Slide 2', exact: true }).locator('img')

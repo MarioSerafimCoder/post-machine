@@ -44,7 +44,7 @@ test('abre o balão junto ao mascote e devolve o foco da revisão nas quatro lar
   await expect(page.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
   for (const [route, name] of [['radar', 'Radar'], ['auditoria', 'Auditoria'], ['studio', 'Expressa']] as const) {
     await page.getByRole('link', { name: route === 'studio' ? 'Studio' : name, exact: true }).click()
-    if (route === 'radar') await button('Criar post').first().waitFor()
+    if (route === 'radar') await page.locator('.news-story').getByRole('button', { name: 'Criar carrossel', exact: true }).first().waitFor()
     if (route === 'auditoria') {
       await page.getByRole('button', { name: /Revisar projeto:/ }).first().click()
       await button('Auditar todos os slides').click()

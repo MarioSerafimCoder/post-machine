@@ -1,5 +1,12 @@
 # Arquitetura e decisões
 
+## Evolução visual e finalização integrada
+
+- Tokens compartilhados em `src/design-tokens.css`, com ambiente grafite restrito à interface do Studio. A arte, os templates e os dados locais mantêm suas cores e contratos. Menus contextuais têm rótulos centralizados e largura própria para Radar e Studio.
+- A central de finalização reutiliza o diálogo nativo, as miniaturas Fabric, o motor de Auditoria, PNG/ZIP e backup existentes. Revisões automáticas usam debounce e cancelamento; o cache local é validado por esquema e impressão do conteúdo e das regras. Resultados desatualizados não aprovam a exportação.
+- A impressão SHA-256 da entrega registra conteúdo, ordem, formato, nome e legenda. O registro do download não substitui o checkpoint editável, inclusive na migração de mídia legada. O estado indica download iniciado, sem confundir exportação com publicação.
+- CSS nativo para movimento e foco, com respeito a movimento reduzido. Nenhuma dependência, licença, API paga ou serviço adicional foi introduzido.
+
 ## Miniaturas do Radar
 
 - A edição v1 aceita uma URL opcional de miniatura. A coleta reutiliza imagens declaradas no item pelo veículo em [Media RSS](https://www.rssboard.org/media-rss) ou no anexo RSS. Cada feed elegível tem um host HTTPS aprovado. A coleta não abre páginas de artigos para buscar Open Graph.

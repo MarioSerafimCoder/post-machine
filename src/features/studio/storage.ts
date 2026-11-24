@@ -125,10 +125,14 @@ export async function openOrCreateStudioProject(id: string, create: () => Promis
 }
 export class ProjectConflict extends Error {}
 class ProjectNotFound extends Error {}
+function recoveryContent(project: Project) {
+  return JSON.stringify({ ...validateProject(project), updatedAt: '', delivery: undefined, assetEncoding: undefined })
+}
 async function writeProject(project: Project, expected?: Project, rememberBrand = true, createOnly = false) {
   const previous = expected && revisions.get(expected)
   const packed = await pack(project, previous?.assets)
   const serialized = JSON.stringify(packed.project)
+  const contentUnchanged = expected && recoveryContent(expected) === recoveryContent(project)
   const baseline = expected && (previous?.baseline ?? JSON.stringify((await pack(expected, packed.bySource)).project))
   const written = await transaction(['projects', 'projectLibrary', 'assets', 'settings', 'recovery'], 'readwrite', tx => {
     let written = false
@@ -137,7 +141,8 @@ async function writeProject(project: Project, expected?: Project, rememberBrand 
       try {
         if (createOnly && old.result !== undefined) return
         if (expected && (expected.id !== project.id || JSON.stringify(old.result && validateProject(old.result)) !== baseline)) return
-        if (old.result && JSON.stringify(old.result) !== serialized) tx.objectStore('recovery').put(old.result, project.id)
+        // Recording a download must not replace the last editable checkpoint.
+        if (old.result && !contentUnchanged && recoveryContent(old.result) !== recoveryContent(packed.project)) tx.objectStore('recovery').put(old.result, project.id)
         const assets = tx.objectStore('assets')
         packed.assets.forEach((blob, id) => {
           const lookup = assets.getKey(id)

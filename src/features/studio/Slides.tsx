@@ -99,17 +99,17 @@ export function Slides({ project, current, select, action, issues, reorder, open
     })}</div>
     <div className="slide-actions">
       <button disabled={project.slides.length >= 20} onClick={() => action('add')}>Adicionar slide</button>
-      <button disabled={project.slides.length >= 20} onClick={() => action('duplicate')}>Duplicar slide</button>
+      <details className="slide-menu"><summary>Ações do slide {current + 1}</summary><div className="slide-menu-items"><button disabled={project.slides.length >= 20} onClick={() => action('duplicate')}>Duplicar slide</button>
       <button disabled={project.slides.length === 1} onClick={() => action('remove')}>Excluir slide</button>
       <button disabled={current === 0} onClick={() => action('up')}>Slide para esquerda</button>
-      <button disabled={current === project.slides.length - 1} onClick={() => action('down')}>Slide para direita</button>
+      <button disabled={current === project.slides.length - 1} onClick={() => action('down')}>Slide para direita</button></div></details>
     </div></>}
   </section>
 }
 
 const thumbnails = new WeakMap<Scene, Map<Format,Blob>>()
 
-const Thumbnail = memo(function Thumbnail({ scene, format, visualRevision }: { scene: Scene; format: Format; visualRevision?: string }) {
+export const Thumbnail = memo(function Thumbnail({ scene, format, visualRevision }: { scene: Scene; format: Format; visualRevision?: string }) {
   const [url, setUrl] = useState('')
   const [seen, setSeen] = useState(false)
   const element = useRef<HTMLSpanElement>(null)

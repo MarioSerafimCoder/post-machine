@@ -75,7 +75,7 @@ export function NewsAssistant({ selection, onOpen, onClose, article, opportunity
       {article ? <>
         <ArticleReading article={article} opportunity={opportunity} onDismiss={() => heading.current?.focus()} />
         <div className="news-reading-actions">
-          <button className="button button-dark news-create" onClick={() => onCreate(article)}>Criar post com esta notícia <Icon name="arrow" /></button>
+          <button className="button button-dark news-create" onClick={() => onCreate(article)}>Criar carrossel com esta notícia <Icon name="arrow" /></button>
           <a className="text-button" href={article.url} target="_blank" rel="noreferrer">Ler notícia original <Icon name="external" /></a>
         </div>
       </> : <p>Escolha <strong>Analisar notícia</strong> em um cartão para consultar o resumo e explorar uma abordagem para o post.</p>}

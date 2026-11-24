@@ -33,7 +33,7 @@ export function NewsCard({ article, saved, canSave, selected, onSave, onCreate, 
       {article.trend && <p className="news-trend"><a href="https://trends.google.com/trending?geo=BR" target="_blank" rel="noreferrer">Google Trends</a> · {article.trend}</p>}
     </div>
     <footer className="news-story-actions">
-      <button type="button" className="button button-dark news-create" onClick={onCreate}>Criar post <Icon name="arrow" /></button>
+      <button type="button" className="button button-dark news-create" onClick={onCreate}>Criar carrossel <Icon name="arrow" /></button>
       <button type="button" className="button button-outline news-read" aria-label={`Analisar notícia: ${article.title}`}
         aria-expanded={selected} aria-controls={selected ? 'news-assistant-panel' : undefined} onClick={onRead}>
         <Icon name="spark" /> Analisar notícia

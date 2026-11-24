@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import type { recentProjects } from '../features/studio/database'
 import { Icon } from './Icon'
 
+const ProjectActivity = lazy(() => import('../features/studio/ProjectActivity').then(module => ({ default: module.ProjectActivity })))
 const ProjectPreview = lazy(() => import('../features/studio/ProjectPreview'))
 type Summary = Awaited<ReturnType<typeof recentProjects>>[number]
 
@@ -31,12 +32,12 @@ export function ResumeProject({ open, resume }: { open: (id: string) => void; re
     {result === null && <p role="status">Não foi possível consultar os projetos deste navegador.</p>}
     {result && !result.projects.length && !result.preparation && <p>Seus projetos e preparações locais aparecem aqui depois que você começa.</p>}
     {result?.preparation && <button className="button button-outline" onClick={resume}>Retomar preparação</button>}
-    <div className="production-grid">{result?.projects.map(project => <article className="resume-project" key={project.id}>
+    <div className="production-grid">{result?.projects.map(project => <button className="resume-project" key={project.id} aria-label={`Continuar editando: ${project.name}`} onClick={() => open(project.id)}>
       <div className="resume-project-copy">
         <Suspense fallback={<Icon name="folder" />}><ProjectPreview key={project.updatedAt} item={{ id: project.id, revision: project.updatedAt }} /></Suspense>
-        <div><h3>{project.name || 'Projeto sem nome'}</h3><p>Revisão e edição · {project.slideCount} {project.slideCount === 1 ? 'slide' : 'slides'}</p></div>
+        <div><h3>{project.name || 'Projeto sem nome'}</h3><Suspense><ProjectActivity id={project.id} revision={project.updatedAt} /></Suspense><p>Revisão e edição · {project.slideCount} {project.slideCount === 1 ? 'slide' : 'slides'}</p></div>
       </div>
-      <button className="button button-outline" onClick={() => open(project.id)}>Continuar editando</button>
-    </article>)}</div>
+      <span className="resume-link">Continuar editando <Icon name="arrow" /></span>
+    </button>)}</div>
   </section>
 }

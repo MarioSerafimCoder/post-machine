@@ -4,6 +4,7 @@ import { CampaignStart, type CampaignStartMode } from '../campaigns/CampaignStar
 import { normalize } from '../radar/contract'
 import { DamagedProjects } from './DamagedProjects'
 import { download } from './export'
+import { ProjectActivity } from './ProjectActivity'
 import ProjectPreview from './ProjectPreview'
 import { newProjectIdentity, formatNames, type Format } from './model'
 import { backupProject, listProjects, loadProject, removeProject, restoreProject, saveLibraryProject, type ProjectSummary } from './storage'
@@ -134,7 +135,7 @@ export function ProjectLibrary({ result, refresh, error, flush, open, imported, 
       <button className="library-open" aria-label={'Abrir ' + item.name} disabled={busy} onClick={() => void run(() => open(item.id))}>
         <ProjectPreview key={item.revision} item={item} />
         <span className="library-card-copy"><strong title={item.name}>{item.name}</strong>
-          <span>{item.slideCount} {item.slideCount === 1 ? 'página' : 'páginas'} · {formatNames[item.format]}</span>
+          <ProjectActivity id={item.id} revision={item.revision} /><span>{item.slideCount} {item.slideCount === 1 ? 'página' : 'páginas'} · {formatNames[item.format]}</span>
           {Number.isFinite(Date.parse(item.updatedAt)) && <time dateTime={item.updatedAt}>{date.format(new Date(item.updatedAt))}</time>}
         </span>
       </button>

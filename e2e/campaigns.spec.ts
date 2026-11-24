@@ -14,7 +14,7 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   const title = await first.getByRole('heading').innerText()
   const url = await first.getByRole('link', { name: title, exact: true }).getAttribute('href')
   await page.getByRole('searchbox', { name: 'Buscar notícias' }).fill(title)
-  await first.getByRole('button', { name: 'Criar post' }).click()
+  await first.getByRole('button', { name: 'Criar carrossel' }).click()
   await page.getByRole('button', { name: 'Editar briefing', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Notícia de origem' }).getByRole('link')).toHaveAttribute('href', url!)
   await page.getByLabel('Público-alvo').fill('Diretores de arte')
@@ -90,7 +90,7 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
 
 test('importa Markdown de arquivo para post único', async ({ page }) => {
   await page.goto('/#/radar')
-  await page.getByRole('button', { name: 'Criar post', exact: true }).first().click()
+  await page.locator('.news-story').getByRole('button', { name: 'Criar carrossel', exact: true }).first().click()
   await page.getByRole('button', { name: 'Editar briefing', exact: true }).click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
   await page.getByLabel('Carregar arquivo').setInputFiles({

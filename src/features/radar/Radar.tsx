@@ -62,7 +62,7 @@ export function Radar({ active, start, onDesign }: { active: boolean; start?: Ca
   }>
     <div hidden={section === 1 || section === 2}>
     {preparing && <p role="status">Preparando a notícia para o Studio…</p>}
-    {openError && <p role="alert" className="info-strip">Não foi possível preparar a notícia. Tente novamente em Criar post.</p>}
+    {openError && <p role="alert" className="info-strip">Não foi possível preparar a notícia. Tente novamente em Criar carrossel.</p>}
     <News active={active && section !== 1 && section !== 2} favoritesView={section === 4} opportunitiesView={section === 3} onCreatePost={item => void selectArticle(item)}
       onCreateOpportunity={opportunity => { setRequest({ article: opportunity.articles[0], opportunity }); showSection(1); focusTool(1) }} /></div>
     <div hidden={section !== 1}><Campaigns onDesign={onDesign} request={request} active={active && section === 1}

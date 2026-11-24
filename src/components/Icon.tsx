@@ -1,5 +1,11 @@
-export type IconName = 'home' | 'radar' | 'studio' | 'audit' | 'arrow' | 'external' | 'book' | 'close' | 'shield' | 'news' | 'spark' | 'star' | 'text' | 'image' | 'shape' | 'layers' | 'folder' | 'clock' | 'trend'
+export type IconName = 'home' | 'radar' | 'studio' | 'audit' | 'arrow' | 'external' | 'book' | 'close' | 'shield' | 'news' | 'spark' | 'star' | 'text' | 'image' | 'shape' | 'layers' | 'folder' | 'clock' | 'trend' | 'undo' | 'redo' | 'fit' | 'download' | 'plus' | 'save'
 const paths: Record<IconName, string> = {
+  save: 'M4 3h13l3 3v15H4ZM8 3v6h8V3M8 21v-8h8v8',
+  undo: 'M9 4 4 9l5 5M4 9h10a6 6 0 0 1 0 12',
+  redo: 'm15 4 5 5-5 5M20 9H10a6 6 0 0 0 0 12',
+  fit: 'M9 3H3v6M15 3h6v6M3 15v6h6M21 15v6h-6',
+  download: 'M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4',
+  plus: 'M12 4v16M4 12h16',
   news: 'M4 3h16v18H4zM8 8h8M8 12h8M8 16h5',
   spark: 'M12 2l2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5Z',
   star: 'm12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z',

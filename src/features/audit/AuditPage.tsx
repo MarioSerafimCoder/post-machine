@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { listProjects, loadProject, saveProject } from '../studio/storage'
+import ProjectPreview from '../studio/ProjectPreview'
+import { ProjectActivity } from '../studio/ProjectActivity'
 import type { Project } from '../studio/model'
 import { DamagedProjects } from '../studio/DamagedProjects'
 import { AuditPanel } from './AuditPanel'
@@ -85,8 +87,8 @@ export function AuditPage() {
     {library && library.length > 0 && <>
     {!project && <div className="audit-start"><h2>Projetos recentes</h2><ul className="audit-projects">
       {library.slice(0, 6).map(item => <li key={item.id}>
-        <div><strong>{item.name || 'Projeto sem nome'}</strong>
-          <p>{item.slideCount} {item.slideCount === 1 ? 'slide' : 'slides'} · <time dateTime={item.updatedAt}>{projectDate.format(new Date(item.updatedAt))}</time></p></div>
+        <ProjectPreview item={item} /><div><strong>{item.name || 'Projeto sem nome'}</strong>
+          <p>{item.slideCount} {item.slideCount === 1 ? 'slide' : 'slides'} · <time dateTime={item.updatedAt}>{projectDate.format(new Date(item.updatedAt))}</time></p><ProjectActivity id={item.id} revision={item.revision} /></div>
         <button className="button button-dark" aria-label={`Revisar projeto: ${item.name || 'Projeto sem nome'}`} disabled={busy || loadingProject}
           onClick={() => void select(item.id)}>Revisar projeto</button>
       </li>)}

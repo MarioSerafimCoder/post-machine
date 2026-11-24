@@ -14,6 +14,10 @@ import { useDocument } from './useDocument'
 import { listProjects, loadProject, loadRecovery, readBrand, backupProject, saveProject, openOrCreateStudioProject, BackupLimitError } from './storage'
 import { ProjectLibrary } from './ProjectLibrary'
 import { download } from './export'
+import { Icon } from '../../components/Icon'
+import { rememberReview } from '../audit/reviewStorage'
+import { useAutomaticReview } from '../audit/useAutomaticReview'
+import { useDeliveryStatus } from './delivery'
 import { ExportPanel } from './ExportPanel'
 import { defaultPreferences, maxImport, maxSlides, newDraft, type DesignMode, type Draft } from '../campaigns/contract'
 import { templates, compose, semantics, fromCampaign, textExceedsLayout, type Template } from './templates'
@@ -87,6 +91,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [backupPending, setBackupPending] = useState(false)
   const [backupClock, setBackupClock] = useState(Date.now)
   const lastBackup = project && (backupTimes[project.id] ?? readBackupDate(project.id))
+  const deliveryStatus = useDeliveryStatus(project)
   const backupDue = lastBackup === undefined || backupClock - lastBackup >= backupInterval
   useEffect(() => {
     if (!active) return
@@ -275,6 +280,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     })
   }
   function receiveReview(report: AuditReport, source: Project, index?: number) {
+    if (index === undefined) void rememberReview(source, report).catch(() => undefined)
     if (index === undefined) setFullReview({ project: source, report })
     setReviewedSlides(previous => new Map(source.slides.flatMap((slide, i) => {
       if (index !== undefined && index !== i) {
@@ -571,6 +577,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       actions: [{ label: 'Revisar carrossel', run: () => { setAuditOpen(true); requestAnimationFrame(() => document.querySelector<HTMLElement>('.studio .audit-panel')?.focus()) } }],
     },
   } : undefined)
+  useAutomaticReview(active && !auditOpen && !exportOpen && !!readyCanvas, project, fullReview, receiveReview)
   useEditingReview(active && !auditOpen && !exportOpen && !editorialOpen, readyCanvas, project, current, focusFinding, () => {
     const title = readyCanvas?.getObjects().find(object => object instanceof Textbox && object.semantic === 'title')
     if (!(title instanceof Textbox)) return
@@ -625,14 +632,15 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <div className="studio-actions studio-project-actions" role="group" aria-label="Gestão do projeto">
         <button onClick={() => void back()}>Projetos</button>
         <label className="studio-project-name">Projeto<input value={project.name} maxLength={100} onChange={event => setProject({ ...project, name: event.target.value, updatedAt: new Date().toISOString() })} /></label>
-        <button onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}>Salvar</button>
+        <button className="studio-icon" aria-label="Salvar" title="Salvar agora · salvamento automático ativo" onClick={() => void flush().catch(() => setError('Falha ao salvar. Tente novamente ou exporte um backup.'))}><Icon name="save" /></button>
         {campaign && <button onClick={() => void flush().then(() => onStartCampaign('blank', campaign.id),
           () => setError('Salve o projeto antes de voltar ao briefing.'))}>Editar briefing</button>}
         <button aria-expanded={pasteProject === project.id}
           onClick={() => { setPasteProject(pasteProject === project.id ? undefined : project.id); setPastedText(''); setPastedTemplate(undefined) }}>Colar conteúdo</button>
         <span key={status} className={status === 'Salvo' ? 'studio-save-status studio-feedback' : 'studio-save-status'} data-error={saveFailed || undefined} data-saved={status === 'Salvo' || undefined} role="status">{status}</span>
         <div className="studio-backup">
-          {(backupDue || saveFailed) && <button title={lastBackup === undefined ? 'Nenhum backup ZIP registrado para este projeto.' : 'Atualize sua cópia de segurança'} disabled={backupPending} onClick={() => void downloadBackup()}>{backupPending ? 'Gerando backup…' : 'Baixar backup ZIP'}</button>}
+          {(backupDue || saveFailed) && <button className="studio-icon" aria-label={backupPending ? 'Gerando backup…' : 'Baixar backup ZIP'} title={lastBackup === undefined ? 'Nenhum backup ZIP registrado para este projeto.' : 'Atualize sua cópia de segurança'} disabled={backupPending} onClick={() => void downloadBackup()}><Icon name="download" /></button>}
+          {backupDue && <span className="sr-only">Backup recomendado.</span>}
           {lastBackup !== undefined && <time title="Último backup enviado para download" dateTime={new Date(lastBackup).toISOString()}>{backupDate.format(lastBackup)}</time>}
           {saveFailed && <span role="alert">Baixe o ZIP antes de fechar para preservar sua edição.</span>}
         </div>
@@ -673,8 +681,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       <div className="studio-toolbar-row">
         <div className="studio-actions" role="group" aria-label="Edição">
         <div className="studio-actions" role="group" aria-label="Histórico">
-          <button disabled={!history.undo} onClick={() => moveHistory(false)}>Desfazer</button>
-          <button disabled={!history.redo} onClick={() => moveHistory(true)}>Refazer</button>
+          <button className="studio-icon" aria-label="Desfazer" title="Desfazer · Ctrl+Z" disabled={!history.undo} onClick={() => moveHistory(false)}><Icon name="undo" /></button>
+          <button className="studio-icon" aria-label="Refazer" title="Refazer · Ctrl+Shift+Z" disabled={!history.redo} onClick={() => moveHistory(true)}><Icon name="redo" /></button>
         </div>
         <span className="muted">{formatNames[project.format]} · {dimensions[project.format].join(' × ')}</span>
         <label className="studio-inline-field">Zoom<select aria-label="Zoom" value={zoom} onChange={event => setManualZoom(Number(event.target.value))}>
@@ -682,10 +690,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         </select></label>
         <button aria-label="Reduzir zoom" disabled={zoom <= .1} onClick={() => setManualZoom(Math.max(.1, Math.round(zoom * 80) / 100))}>−</button>
         <button aria-label="Ampliar zoom" disabled={zoom >= 2} onClick={() => setManualZoom(Math.min(2, Math.round(zoom * 125) / 100))}>+</button>
-        <button aria-pressed={manualZoom === undefined} onClick={() => setManualZoom(undefined)}>Ajustar à tela</button>
+        <button className="studio-icon" aria-label="Ajustar à tela" title="Ajustar à tela" aria-pressed={manualZoom === undefined} onClick={() => setManualZoom(undefined)}><Icon name="fit" /></button>
         <label className="studio-inline-field"><input type="checkbox" checked={guides} onChange={event => setGuides(event.target.checked)} />Área segura</label>
         </div>
-        <div className="studio-actions studio-output" role="group" aria-label="Finalização">
+        <div className="studio-actions studio-output" role="group" aria-label="Finalização"><span className="delivery-status">{!project.delivery && fullReview && sameReviewVersion(fullReview.project, project) ? 'Revisão atual' : deliveryStatus}</span>
           <details className="review-menu" onKeyDown={event => {
             if (event.key === 'Escape') { event.currentTarget.open = false; editorialToggle.current?.focus() }
           }} onBlur={event => {
@@ -750,6 +758,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       })()}
     </div>}
     {exportOpen && <ExportPanel key={project.id} project={project} current={current} active={active} getCurrent={getCurrent} flush={flush} review={fullReview} onReport={receiveReview}
+      backup={downloadBackup} backupPending={backupPending}
+      recordDelivery={async (source, delivery) => { if (getCurrent() !== source) return; setProject({ ...source, delivery }, false); await flush() }}
       caption={project.caption ?? campaign?.content?.campaign.caption ?? ''}
       changeCaption={caption => setProject(value => value && { ...value, caption, updatedAt: new Date().toISOString() })}
       locate={focusFinding} close={() => { setExportProjectId(undefined); exportToggle.current?.focus({ preventScroll:true }) }} />}
@@ -773,7 +783,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       chooseSlide(index)
       requestAnimationFrame(() => document.querySelector<HTMLElement>('.canvas-stage')?.focus())
     }} close={() => { setEditorialProject(undefined); editorialToggle.current?.focus({ preventScroll: true }) }} />}
-    {auditOpen&&<AuditPanel project={project} assistantArea={active && !exportOpen ? 'studio' : undefined} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected) => {
+    {auditOpen&&<AuditPanel initialReview={fullReview} project={project} assistantArea={active && !exportOpen ? 'studio' : undefined} currentSlide={current} onReport={receiveReview} onFocus={focusFinding} onChange={async (value, expected) => {
       await flush()
       if (getCurrent() !== expected) throw Error('O projeto mudou. Rode novamente a auditoria.')
       const applied = setProject(value) ?? value

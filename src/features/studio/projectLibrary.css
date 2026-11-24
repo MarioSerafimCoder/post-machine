@@ -49,3 +49,10 @@
 .library-feedback { padding: 8px; margin-block: 8px; }
 @media (max-width: 1199px) { .library-projects { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (prefers-reduced-motion: reduce) { .library-card, .library-actions summary { transition: none; } }
+.studio-library .library-card { border-radius: var(--radius-panel); box-shadow: var(--shadow-card); }
+.studio-library .library-preview { background: var(--surface-secondary); height: 220px; padding: var(--space-4); }
+.studio-library .library-preview img { object-fit: contain; }
+.studio-library .library-card-copy { padding: var(--space-4); gap: var(--space-2); }
+.studio-library .library-card-copy strong { font-size: 16px; letter-spacing: -.025em; }
+.studio-library .library-header h1 { font-size: 36px; }
+.studio-library .library-tools { padding-block: var(--space-4); }

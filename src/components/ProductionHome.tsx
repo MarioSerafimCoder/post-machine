@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { snapshotSchema, type Article, type Opportunity } from '../features/radar/contract'
+import { Icon, type IconName } from './Icon'
 import { productionOrigins, type ContentOrigin } from './productionOrigins'
 
 export function ProductionHome({ choose, startArticle, children }: {
@@ -32,8 +33,8 @@ export function ProductionHome({ choose, startArticle, children }: {
   }
   return <>
     <div className="production-grid" aria-label="Origens do carrossel" role="group">
-      {productionOrigins.map(({ id, label, description }) => <button key={id} className="production-origin" onClick={() => choose(id)}>
-        <strong>{label}</strong><span>{description}</span>
+      {productionOrigins.map(({ id, label, description }) => <button key={id} className="production-origin" data-origin={id} onClick={() => choose(id)}>
+        <span className="origin-symbol"><Icon name={({ import: 'news', radar: 'radar', blank: 'plus' } as Record<string, IconName>)[id]} /><Icon name="arrow" /></span><strong>{label}</strong><span>{description}</span>
       </button>)}
     </div>
     {children}
@@ -46,7 +47,7 @@ export function ProductionHome({ choose, startArticle, children }: {
       <div className="production-grid">{edition?.map(({ articles, type, angle }, index) => {
         const article = articles[0]
         return <article className="production-opportunity" key={article.id + index}>
-          {article.imageUrl && <img src={article.imageUrl} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true }} />}
+          <div className="opportunity-cover"><span aria-hidden="true">{article.source}<Icon name="arrow" /></span>{article.imageUrl && <img src={article.imageUrl} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true }} />}</div>
           <small>{type} · {article.source}</small>
           <h3>{article.title}</h3><p>{angle}</p>
           <button className="button button-outline" disabled={!!starting} aria-label={`Criar a partir de ${article.title}`}

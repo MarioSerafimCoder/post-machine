@@ -32,6 +32,7 @@ export async function exportProject(project: Project, current?: number, { signal
   const [width, height] = dimensions[project.format]
   const slides = current === undefined ? project.slides : [project.slides[current]]
   const zip = current === undefined ? new JSZip() : undefined
+  const files: { blob: Blob; name: string }[] = []
   const findings: Finding[] = [...reviewedFindings ?? []]; let png: Blob | undefined
   const credits = projectCredits(project, current)
   if (credits) zip?.file('creditos.txt', credits)
@@ -42,6 +43,7 @@ export async function exportProject(project: Project, current?: number, { signal
     progress?.(`Renderizando ${index + 1} de ${slides.length} slides…`)
     const result = await renderScene(slide.scene, width, height, { signal, audit: reviewedFindings ? undefined : canvas => inspectCanvas(canvas, slide.id, (current ?? index)+1, project.brand, slide.layout, slide.role, project.auditSettings ?? defaultSettings) })
     png = result.blob; findings.push(...result.findings)
+    files.push({ blob: result.blob, name: `${String((current ?? index)+1).padStart(2,'0')}-${name}.png` })
     if (zip) zip.file(`${String(index+1).padStart(2,'0')}-${name}.png`, await result.blob.arrayBuffer())
   }
   signal?.throwIfAborted()
@@ -49,5 +51,5 @@ export async function exportProject(project: Project, current?: number, { signal
   const blob = zip ? await zip.generateAsync({ type: 'blob' }) : png!
   signal?.throwIfAborted()
   const warnings = findings.filter(f => f.severity !== 'info').map(f => `Slide ${f.slideNumber}: ${f.message}. ${f.details}`)
-  return { blob, name: `${name}${current === undefined ? '.zip' : `-${String(current+1).padStart(2,'0')}.png`}`, warnings, findings, credits, source: project }
+  return { blob, files, name: `${name}${current === undefined ? '.zip' : `-${String(current+1).padStart(2,'0')}.png`}`, warnings, findings, credits, source: project }
 }

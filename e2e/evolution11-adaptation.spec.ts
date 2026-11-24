@@ -60,6 +60,7 @@ test('compara, audita e exporta quadrado e story com fonte, imagem e créditos i
   test.setTimeout(60_000)
   const { original, pngHash, fontHash } = await projectWithMedia(page)
   const openAdaptation = async () => {
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
     await page.getByText('Mais ações', { exact: true }).click()
     await button(page, 'Adaptar formato').click()
     return page.getByRole('dialog', { name: 'Adaptar formato' })
@@ -81,6 +82,7 @@ test('compara, audita e exporta quadrado e story com fonte, imagem e créditos i
     const zip = await JSZip.loadAsync(await downloadFrom(page, () => button(page, 'Exportar ZIP').click(), true))
     expect(await zip.file('creditos.txt')!.async('string')).toContain('Autor da fixture')
     expect(zip.filter(path => path.endsWith('.png'))).toHaveLength(2)
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
     await page.getByText('Mais ações', { exact: true }).click()
     const backup = await JSZip.loadAsync(await downloadFrom(page, () => button(page, 'Backup completo').click()))
     expect(backup.file('assets/' + pngHash)).toBeTruthy()
@@ -91,6 +93,7 @@ test('compara, audita e exporta quadrado e story com fonte, imagem e créditos i
     expect(title.fontFamily).toBe(original.brand.headingFont)
     expect(image.scaleX).toBeCloseTo(image.scaleY, 4)
     expect(image.top).not.toBe(290)
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
     await button(page, 'Projetos').click()
     await button(page, 'Abrir Recorte de direção (restaurado)').click()
     await expect(page.getByText('Retrato · 1080 × 1350', { exact: true })).toBeVisible()
@@ -99,11 +102,13 @@ test('compara, audita e exporta quadrado e story com fonte, imagem e créditos i
 
 test('salva variante de um template e oferece a composição correspondente ao formato', async ({ page }) => {
   const { pngHash, fontHash } = await projectWithMedia(page)
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
   await page.getByText('Mais ações', { exact: true }).click()
   await button(page, 'Salvar como template').click()
   await page.getByLabel('Nome do template').fill('Família editorial')
   await button(page, 'Salvar template').click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
   await button(page, 'Projetos').click()
   await page.getByText('＋ Novo projeto', { exact: true }).click()
   await button(page, 'Usar template').click()

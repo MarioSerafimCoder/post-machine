@@ -68,6 +68,7 @@ test('preparação com texto, lote, associação e prévia persiste projeto edit
   await expect(page.getByRole('button', {name:/· Uma capa$/})).toBeVisible()
   await page.getByRole('button', {name:'Refazer',exact:true}).click()
   await expect(page.getByRole('button', {name:/· Capa refinada$/})).toBeVisible()
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
   await page.getByRole('button', {name:'Salvar',exact:true}).click()
   await expect(page.getByRole('status').filter({hasText:'Salvo'})).toBeVisible()
   await page.reload()
@@ -209,6 +210,7 @@ test('coleções premium fabricam, editam o gradiente e ordenam frames', async (
   expect(painted.getImageData(20,20,1,1).data[0]).toBeGreaterThan(200)
   expect(painted.getImageData(20,1300,1,1).data[0]).toBeLessThan(90)
   const backupRequest=page.waitForEvent('download')
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
   await page.getByText('Mais ações',{exact:true}).click()
   await button('Backup completo').click()
   const backup=await JSZip.loadAsync(await readFile(await (await backupRequest).path()))
@@ -216,6 +218,7 @@ test('coleções premium fabricam, editam o gradiente e ordenam frames', async (
   expect(stored.slides[0].scene.objects.find((item: {semantic?:string}) => item.semantic === 'title')).toMatchObject({
     text:'Um novo olhar', styles:expect.arrayContaining([expect.objectContaining({style:{fill:'#d60016'}})]),
   })
+  if (await page.getByRole('dialog', { name: 'Finalizar projeto', exact: true }).isVisible()) await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
   await button('Salvar').click()
   await expect(page.getByRole('status').filter({hasText:'Salvo'})).toBeVisible()
   await page.reload()

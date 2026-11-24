@@ -96,6 +96,7 @@ test('cria pauta com origem criativa e abre o resultado no Studio', async ({ pag
   const result = await Promise.race([exportEvent, warning.waitFor().then(async () => { await warning.click(); return exportEvent })])
   const png = await readFile(await result.path())
   expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1080, 1350])
+  await page.getByRole('button', { name: 'Fechar exportação', exact: true }).click()
   await page.getByRole('link', { name: 'Radar', exact: true }).click()
   await page.getByRole('button', { name: 'Virais e formatos', exact: true }).click()
   await expect(virals.locator('article')).toContainText('Formas de comparar soluções')

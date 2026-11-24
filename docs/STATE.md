@@ -1,5 +1,14 @@
 # Estado real — 24/11/2026
 
+## Evolução visual e central de finalização
+
+- Studio com superfície grafite, ferramentas compactas, nomes centralizados, propriedades contextuais preservadas, slides em coluna e ações secundárias recolhidas. Menus do Radar e Studio receberam larguras adequadas; a altura do editor foi ajustada para manter os comandos acessíveis em 1366 × 768.
+- Tokens visuais compartilhados e refinamentos de início, Radar, biblioteca e Auditoria. A central de finalização reúne prévias, revisão, PNG individual, todos os PNGs, ZIP, legenda, créditos e backup. Revisão automática com debounce, reaproveitamento de cache validado e estados reais de exportação.
+- Corrigida a preservação do checkpoint ao registrar uma entrega, incluindo projetos legados. Botões de exportação aguardam a revisão inicial para evitar que um clique concorra com sua inicialização.
+- Validação local: 134 testes unitários, lint, typecheck/build e dry-run aprovados antes do ajuste final. A suíte completa passou 152 cenários e omitiu 11 repetições; uma falha intermitente na inicialização da exportação motivou o ajuste final. Os testes dirigidos de recuperação passaram nos dois perfis desktop.
+- A matriz adicional de menus e formulários passou em 1024, 1280, 1366, 1440, 1920 e 2560 px, incluindo briefing, importação, referências, marca, propriedades, busca de imagens, regras de auditoria e estados vazios. Capturas reais geradas para essas telas e para início, Radar, biblioteca, Studio, assistente e finalização. Comparação visual com capturas anteriores confirmou a diferenciação do ambiente criativo.
+- A validação final passou em lint, 134 testes unitários, typecheck/build e seis cenários dirigidos de auditoria, overflow e exportação. O domínio, os feeds e o favicon mantêm o redirecionamento para Cloudflare Access. Publicação em acompanhamento pelo workflow existente. A conferência visual extensiva foi encerrada a pedido do proprietário; permanece recomendada uma sessão de uso após a publicação. A conexão Cloudflare disponível não permite consultar billing; nenhum plano, recurso ou configuração de cobrança foi alterado.
+
 ## Central de produção e montagem recomendada
 
 - A página inicial reúne as três origens de **Criar carrossel**, os projetos recentes com prévias reais, a retomada de preparações e as oportunidades da edição do Radar. O Studio restaura o slide que estava aberto ao reabrir um projeto.

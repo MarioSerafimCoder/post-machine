@@ -34,7 +34,7 @@ test('Radar abre um único projeto editável e aplica foto licenciada da fonte e
   }))
   const other = await context.newPage()
   await other.goto('/#/radar')
-  const create = (tab: typeof page) => tab.getByRole('button', { name: 'Criar post', exact: true }).click()
+  const create = (tab: typeof page) => tab.locator('.news-story').getByRole('button', { name: 'Criar carrossel', exact: true }).click()
   await Promise.all([create(page), create(other)])
   const project = page.getByLabel('Projeto', { exact: true })
   await expect(project).toHaveValue(article.title)
@@ -59,7 +59,7 @@ test('Radar abre um único projeto editável e aplica foto licenciada da fonte e
 test('Studio distribui texto e JSON em versões editáveis com fonte e aviso de excesso', async ({ page }) => {
   await page.route('https://api.openverse.org/v1/images/?*', route => route.fulfill({ status: 503 }))
   await page.goto('/#/radar')
-  await page.getByRole('button', { name: 'Criar post', exact: true }).first().click()
+  await page.locator('.news-story').getByRole('button', { name: 'Criar carrossel', exact: true }).first().click()
   const studio = page.getByRole('region', { name: 'Editor Studio' })
   const importText = async (text: string) => {
     await studio.getByRole('button', { name: 'Colar conteúdo' }).click()

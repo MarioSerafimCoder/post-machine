@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Project } from '../studio/model'
 import { download } from '../studio/export'
+import { recallReview, rememberReview } from './reviewStorage'
 import { auditProject } from './engine'
 import { defaultSettings, type AuditReport, type Category, type Finding, type Severity } from './contract'
 import { prepareSafeMove } from './fix'
-import { sameReviewVersion } from './review'
+import { sameReviewVersion, type Review } from './review'
 import { useAuditAssistant } from '../intelligence/auditSignal'
 import './audit.css'
 
@@ -13,10 +14,10 @@ const categories: Record<Category,string> = {
   contrast:'Contraste', branding:'Marca', consistency:'Consistência',
 }
 
-type Props = { view?: 'diagnosis' | 'corrections' | 'results'; project: Project; assistantArea?: 'studio' | 'auditoria'; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => Promise<Project>; onReport?: (report: AuditReport, project: Project, index?: number) => void; onUndo?: () => void | Promise<void> }
-export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,onUndo,onReport,view='diagnosis'}: Props) {
-  const [report,setReport] = useState<AuditReport>()
-  const [source,setSource] = useState<Project>()
+type Props = { initialReview?: Review; view?: 'diagnosis' | 'corrections' | 'results'; project: Project; assistantArea?: 'studio' | 'auditoria'; currentSlide?: number; onFocus: (finding: Finding) => void; onChange: (project: Project, expected: Project, correction?: boolean) => Promise<Project>; onReport?: (report: AuditReport, project: Project, index?: number) => void; onUndo?: () => void | Promise<void> }
+export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,onUndo,onReport,initialReview,view='diagnosis'}: Props) {
+  const [report,setReport] = useState<AuditReport | undefined>(initialReview?.report)
+  const [source,setSource] = useState<Project | undefined>(initialReview?.project)
   const [scope,setScope] = useState<number>()
   const [busy,setBusy] = useState(false)
   const [progress,setProgress] = useState('')
@@ -43,6 +44,12 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
     return () => { latest.current = undefined }
   }, [project])
   useEffect(() => () => controller.current?.abort(), [])
+  useEffect(() => {
+    if (initialReview) return
+    let active = true
+    void recallReview(project).then(cached => { if (active && cached && !controller.current) { setReport(cached); setSource(project) } })
+    return () => { active = false }
+  }, [project, initialReview])
   async function run(index?: number, value=project, corrections: string[] = fixes.current) {
     controller.current?.abort(); const abort = new AbortController();controller.current=abort
     setBusy(true);setError('');setProgress('Preparando…');setAnalyzed({ done: 0, total: index === undefined ? value.slides.length : 1 })
@@ -51,6 +58,7 @@ export function AuditPanel({project,assistantArea,currentSlide,onFocus,onChange,
         if (!abort.signal.aborted) { setAnalyzed({ done, total }); setProgress(`${done} de ${total} slides`) }
       }})
       if(abort.signal.aborted)return
+      if (index === undefined) void rememberReview(value, result).catch(() => undefined)
       onReport?.(result,value,index)
       setReport({...result,corrections});setSource(value);setScope(index);setReviewed(new Set());setProgress('')
     } catch (cause) {if(!abort.signal.aborted){setProgress('');setError(cause instanceof Error?cause.message:String(cause))}}

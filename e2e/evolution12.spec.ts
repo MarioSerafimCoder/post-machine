@@ -103,7 +103,7 @@ test('abre conteúdo importado no Studio e preenche o frame em segundo plano', a
   await page.route('https://api.openverse.org/v1/images/?*', route => interrupted
     ? route.fulfill({ status: 503 }) : route.fallback())
   await page.goto('/#/radar')
-  await button(page, 'Criar post').first().click()
+  await page.locator('.news-story').getByRole('button', { name: 'Criar carrossel', exact: true }).first().click()
   await button(page, 'Editar briefing').click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
   await button(page, 'Gerar prompt para IA').click()
@@ -143,7 +143,7 @@ test('aplica uma foto de arquivo como apoio quando o assunto exato não tem imag
       ? [photo('Macy’s Thanksgiving Day Parade 2022', 1, true)] : [] } })
   })
   await page.goto('/#/radar')
-  await button(page, 'Criar post').first().click()
+  await page.locator('.news-story').getByRole('button', { name: 'Criar carrossel', exact: true }).first().click()
   await button(page, 'Editar briefing').click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
   await button(page, 'Gerar prompt para IA').click()
