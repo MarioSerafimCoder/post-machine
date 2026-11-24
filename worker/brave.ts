@@ -27,7 +27,7 @@ export async function braveSearch(kind: SearchKind, query: string, language: str
   busy = true
   try {
     const response = await fetch(endpoint, { headers: { 'X-Subscription-Token': apiKey, Accept: 'application/json' },
-      credentials: 'omit', redirect: 'error', cache: 'no-store', signal })
+      credentials: 'omit', redirect: 'manual', cache: 'no-store', signal })
     if (!response.ok) {
       await response.body?.cancel()
       const resets = (response.headers.get('x-ratelimit-reset') ?? '').split(',').map(Number)

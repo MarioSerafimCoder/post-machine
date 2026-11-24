@@ -32,7 +32,10 @@ afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks() })
 
 describe('Worker de pesquisa visual', () => {
   it('serve a SPA e valida assinatura, emissor, audiência, validade e origem', async () => {
-    const outbound = vi.fn(async () => jwks())
+    const outbound = vi.fn(async (_url: string, init: RequestInit) => {
+      expect(init.redirect).toBe('manual')
+      return jwks()
+    })
     vi.stubGlobal('fetch', outbound)
     expect(await (await worker.fetch(new Request(origin + '/'), env)).text()).toBe('SPA')
     expect((await worker.fetch(request('brave', {}), env)).status).toBe(401)
@@ -76,9 +79,10 @@ describe('Worker de pesquisa visual', () => {
   })
   it('mantém Brave opcional e abre o circuito ao receber 429', async () => {
     const jwt = await token()
-    const outbound = vi.fn(async (input: URL | string) => String(input).startsWith(issuer) ? jwks() : new Response('', {
-      status: 429, headers: { 'retry-after': '30' },
-    }))
+    const outbound = vi.fn(async (input: URL | string, init: RequestInit) => {
+      expect(init.redirect).toBe('manual')
+      return String(input).startsWith(issuer) ? jwks() : new Response('', { status: 429, headers: { 'retry-after': '30' } })
+    })
     vi.stubGlobal('fetch', outbound)
     const query = { kind: 'images', query: 'Peças da campanha' }
     expect(await (await worker.fetch(request('brave', query, jwt), env)).json()).toEqual({ state: 'disabled', candidates: [] })
@@ -91,7 +95,8 @@ describe('Worker de pesquisa visual', () => {
   })
   it('verifica DNS novamente ao seguir redirecionamentos e limita volume pelo usuário autenticado', async () => {
     const jwt = await token()
-    vi.stubGlobal('fetch', vi.fn(async (raw: URL | string) => {
+    vi.stubGlobal('fetch', vi.fn(async (raw: URL | string, init: RequestInit) => {
+      expect(init.redirect).toBe('manual')
       const url = new URL(raw)
       if (url.hostname === 'visual-test-team.cloudflareaccess.com') return jwks()
       if (url.hostname === 'cloudflare-dns.com') return Response.json({ Status: 0,

@@ -63,7 +63,7 @@ async function publicDns(hostname: string, signal: AbortSignal) {
   const answers = await Promise.all(['A', 'AAAA'].map(async type => {
     const endpoint = new URL('https://cloudflare-dns.com/dns-query')
     endpoint.search = new URLSearchParams({ name: hostname, type }).toString()
-    const response = await fetch(endpoint, { headers: { Accept: 'application/dns-json' }, redirect: 'error', signal })
+    const response = await fetch(endpoint, { headers: { Accept: 'application/dns-json' }, redirect: 'manual', signal })
     if (!response.ok) { await response.body?.cancel(); throw Error('DNS unavailable') }
     const result = await readJson(response, 12_000) as { Status?: number; Answer?: { type: number; data: string; TTL: number }[] }
     if (result.Status !== 0) throw Error('DNS unavailable')
@@ -100,7 +100,7 @@ const keysets = new Map<string, Keys>()
 async function accessKeys(issuer: string) {
   const existing = keysets.get(issuer)
   if (existing && existing.expires > Date.now()) return existing.keys
-  const response = await fetch(issuer + '/cdn-cgi/access/certs', { redirect: 'error', signal: AbortSignal.timeout(2500) })
+  const response = await fetch(issuer + '/cdn-cgi/access/certs', { redirect: 'manual', signal: AbortSignal.timeout(2500) })
   if (!response.ok) { await response.body?.cancel(); throw Error('Access keys unavailable') }
   const data = await readJson(response, 32_000) as { keys: Keys['keys'] }
   if (!Array.isArray(data.keys)) throw Error('Access keys unavailable')
