@@ -35,7 +35,7 @@ const queryInput = z.object({ kind: z.enum(['web', 'images']), query: z.string()
   language: z.enum(['en', 'pt']).optional(), anchors: z.array(z.string().max(160)).max(8).optional() }).strict()
 const ticketInput = z.object({ ticket: z.string().max(4200) }).strict()
 const extraInput = z.object({
-  renderTicket: z.string().max(4200).optional(), query: z.string().trim().min(2).max(240).optional(), campaign: z.string().max(240).optional(),
+  renderTicket: z.string().max(4200).optional(), channelTicket: z.string().max(4200).optional(), query: z.string().trim().min(2).max(240).optional(), campaign: z.string().max(240).optional(),
   anchors: z.array(z.string().max(160)).max(8).optional(), excluded: z.array(z.string().max(160)).max(16).optional(),
   year: z.string().regex(/^\d{4}$/).optional(),
 }).strict()
@@ -47,8 +47,8 @@ const hostsFor = (env: Env) => [env.VISUAL_EXTERNAL_HOSTS, env.VISUAL_OFFICIAL_H
 const official = (host: string, env: Env) => (env.VISUAL_OFFICIAL_HOSTS ?? '').split(',').some(item => item.trim().toLowerCase() === host)
 const browserEnabled = (host: string, env: Env) => env.VISUAL_BROWSER_FREE === 'confirmed' && !!env.BROWSER &&
   (env.VISUAL_BROWSER_HOSTS ?? '').split(',').some(item => item.trim().toLowerCase() === host)
-const audiovisualEnabled = (env: Env) => env.VISUAL_YOUTUBE_QUOTA === 'confirmed' && !!env.YOUTUBE_API_KEY && !!env.VISUAL_YOUTUBE_CHANNELS
-type Extraction = { images: Extracted[]; links: string[]; blocked?: boolean; requiresRendering?: boolean }
+const audiovisualEnabled = (env: Env) => env.VISUAL_YOUTUBE_QUOTA === 'confirmed' && !!env.YOUTUBE_API_KEY
+type Extraction = { images: Extracted[]; links: string[]; blocked?: boolean; requiresRendering?: boolean; channelId?: string; finalUrl?: URL }
 async function pageImages(url: URL, provider: 'original' | 'official', hosts: string, signal: AbortSignal): Promise<Extraction> {
   const { response, url: final } = await externalFetch(url, hosts, 'text/html,application/xhtml+xml', signal)
   if (!response.ok || !/^(?:text\/html|application\/xhtml\+xml)(?:;|$)/i.test(response.headers.get('content-type') ?? '') ||
@@ -56,8 +56,20 @@ async function pageImages(url: URL, provider: 'original' | 'official', hosts: st
     await response.body?.cancel()
     return { images: [], links: [], blocked: true }
   }
-  const html = new TextDecoder().decode(await readLimited(response, 1_800_000))
-  return extractArticle(html, final, provider)
+  const limit = 3_000_000
+  if (!response.body || Number(response.headers.get('content-length')) > limit) {
+    await response.body?.cancel()
+    throw Error('HTML size limit')
+  }
+  let bytes = 0
+  const html = response.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      bytes += chunk.byteLength
+      if (bytes > limit) throw Error('HTML size limit')
+      controller.enqueue(chunk)
+    },
+  }))
+  return { ...await extractArticle(html, final, provider === 'official' && final.origin !== url.origin ? 'original' : provider), finalUrl: final }
 }
 
 async function download(url: URL, hosts: string, signal: AbortSignal) {
@@ -115,7 +127,9 @@ export default {
         const raw = input.renderTicket && await verifyTicket(input.renderTicket, person, key, 'render')
         const page = raw && externalUrl(raw, hosts)
         const render = page && browserEnabled(page.hostname, env)
-        const channelId = audiovisualEnabled(env) && input.query && officialChannel(env.VISUAL_YOUTUBE_CHANNELS, input.anchors ?? [])
+        const verified = input.channelTicket && await verifyTicket(input.channelTicket, person, key, 'channel')
+        const channelId = audiovisualEnabled(env) && input.query && (verified && /^UC[\w-]{22}$/.test(verified)
+          ? verified : officialChannel(env.VISUAL_YOUTUBE_CHANNELS, input.anchors ?? []))
         if ((!render && !channelId) || !env.VISUAL_EXTRA_LIMIT) return json({ state: 'disabled', candidates: [] })
         if (!(await env.VISUAL_EXTRA_LIMIT.limit({ key: 'visual-complement' })).success) return json({ state: 'limited', candidates: [] }, 429)
         const rendering = render && env.BROWSER
@@ -148,9 +162,12 @@ export default {
         const images = [...extraction.images, ...related?.images ?? [], ...feed]
         const ready = images.some(image => !['social', 'feed'].includes(image.evidence) &&
           externalUrl(image.url, hosts) && (image.width ?? 480) >= 480 && (image.height ?? 480) >= 480)
-        const renderTicket = input.primary && !ready && !extraction.blocked && extraction.requiresRendering && browserEnabled(page.hostname, env)
-          ? await issueTicket(page.href, person, key, 'render') : undefined
-        return json({ candidates: await candidates(images, person, env, key), renderTicket,
+        const finalPage = extraction.finalUrl
+        const renderTicket = input.primary && !ready && !extraction.blocked && extraction.requiresRendering && finalPage &&
+          browserEnabled(finalPage.hostname, env) ? await issueTicket(finalPage.href, person, key, 'render') : undefined
+        const channelTicket = input.primary && audiovisualEnabled(env) && extraction.channelId &&
+          await issueTicket(extraction.channelId, person, key, 'channel') || undefined
+        return json({ candidates: await candidates(images, person, env, key), renderTicket, channelTicket,
           audiovisualAvailable: input.primary && !extraction.blocked && audiovisualEnabled(env) ? true : undefined })
       }
       if (env.BRAVE_VISUAL_ZERO_SPEND !== 'confirmed' || !env.BRAVE_SEARCH_API_KEY) return json({ state: 'disabled', candidates: [] })

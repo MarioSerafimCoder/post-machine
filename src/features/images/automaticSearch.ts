@@ -158,8 +158,10 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
   const intent = words(copy.visualContext?.visualIntent || copy.imageBrief || copy.title)
     .filter(term => !campaign.primary.includes(term) && !request.neighbors.includes(term) && !generalMediaWords.test(term))
   const specific = count(intent, assetLabel)
+  const distinctive = copy.role === 'cover' ? 0 : intent.slice(0, 3)
+    .reduce((score, term, index) => score + (term.length >= 5 && contains(assetLabel, term) ? 12 - 3 * index : 0), 0)
   const score = (actual ? 85 : 55) + Math.min(10, overlap * 3) + Math.min(4, near) + Math.min(8, named * 2) + fit * 3 +
-    (asset.evidence === 'figure' ? 4 : 0) + (declaredCover ? 18 : 0) + Math.min(20, specific * (copy.role === 'cover' ? 3 : 8))
+    (asset.evidence === 'figure' ? 4 : 0) + (declaredCover ? 18 : 0) + Math.min(20, specific * (copy.role === 'cover' ? 3 : 8)) + distinctive
   return { score, match: actual ? {
     strategy: 'documental', classification: 'confirmed',
     reason: 'O material aparece no conteúdo ou nos dados estruturados de uma fonte associada à pauta.',

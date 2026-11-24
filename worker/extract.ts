@@ -25,7 +25,7 @@ function srcset(value: string | null) {
   }).sort((a, b) => b.size - a.size)[0]?.src
 }
 
-export async function extractArticle(html: string, page: URL, provider: 'original' | 'official') {
+export async function extractArticle(html: string | ReadableStream<Uint8Array>, page: URL, provider: 'original' | 'official') {
   const images = new Map<string, Media>()
   const links = new Set<string>()
   const metadata = new Map<string, string>()
@@ -41,6 +41,8 @@ export async function extractArticle(html: string, page: URL, provider: 'origina
   let structured = ''
   let anchor: { href: string; label: string } | undefined
   let unavailable = false
+  let channelId: string | undefined
+  let requiresRendering = false
   const add = (raw: unknown, fields: Omit<Media, 'url'>) => {
     let url = typeof raw === 'string' && researchUrl(raw.trim(), page.href)
     if (url && url.origin === page.origin && /^\/_next\/image(?:\/|$)/.test(url.pathname)) {
@@ -71,6 +73,15 @@ export async function extractArticle(html: string, page: URL, provider: 'origina
     if (Array.isArray(value)) { value.slice(0, 24).forEach(item => descriptor(item, depth + 1)); return }
     const item = value as Record<string, unknown>
     const types = [item['@type']].flat()
+    if (provider === 'official' && types.some(type => /^(?:Organization|Corporation|LocalBusiness)$/.test(String(type))) &&
+        typeof item.url === 'string' && researchUrl(item.url)?.origin === page.origin) {
+      for (const entry of [item.sameAs].flat().slice(0, 20)) {
+        if (typeof entry !== 'string') continue
+        const social = researchUrl(entry)
+        const match = social?.origin === 'https://www.youtube.com' && /^\/channel\/(UC[\w-]{22})\/?$/.exec(social.pathname)
+        if (match) { channelId ??= match[1]; break }
+      }
+    }
     if (types.some(type => /Article|BlogPosting|PressRelease/.test(String(type)))) {
       const title = text(item.headline ?? item.name, 500)
       const pageUri = typeof item.url === 'string' ? researchUrl(item.url, page.href) : undefined
@@ -88,6 +99,7 @@ export async function extractArticle(html: string, page: URL, provider: 'origina
     descriptor(item.mainEntity, depth + 1)
   }
   const intercept = new HTMLRewriter()
+    .on('script,noscript', { element() { requiresRendering = true } })
     .on(blocked, { element(node) { omitted++; node.onEndTag(() => { omitted-- }) } })
     .on('article,[itemprop="articleBody"],.entry-content,.post-content', { element(node) {
       if (omitted) return
@@ -154,7 +166,7 @@ export async function extractArticle(html: string, page: URL, provider: 'origina
       text(chunk) { if (anchor) anchor.label = (anchor.label + chunk.text).slice(0, 300) },
     })
   const transformed = intercept.transform(new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } }))
-  await transformed.arrayBuffer()
+  await transformed.body?.pipeTo(new WritableStream())
   descriptors.forEach(value => descriptor(value))
   if (unavailable) return { images: [], links: [], blocked: true }
   const title = text(metadata.get('og:title') ?? metadata.get('article:title') ?? metadata.get('twitter:title'), 500)
@@ -167,5 +179,5 @@ export async function extractArticle(html: string, page: URL, provider: 'origina
     width: image.width ?? (image.evidence === 'social' ? ogWidth : undefined),
     height: image.height ?? (image.evidence === 'social' ? ogHeight : undefined),
     caption: text(figure ? captions.get(figure) : undefined, 600) ?? image.caption }]),
-    links: [...links], title, requiresRendering: /<(?:script|noscript)\b/i.test(html) }
+    links: [...links], title, requiresRendering, channelId }
 }

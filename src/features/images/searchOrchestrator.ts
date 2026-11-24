@@ -6,13 +6,13 @@ import { canonicalImage, creditKeys, documentaryId, evaluateCandidate, evaluateC
 import { narrativeAssignment } from './visualAllocation'
 import { refineVisualFit, useOcr, useSemantics } from './visualEnrichment'
 import { readVisualMemory, rememberVisual, type RememberedVisual } from './visualMemory'
-import { researchUrl } from './visualContext'
+import { audiovisualIntent, researchUrl } from './visualContext'
 
 type Candidate = {
   credit: ImageCredit; document?: DocumentaryAsset; metadata?: string; illustrated?: boolean
   download: (signal: AbortSignal) => Promise<File>; remembered?: boolean
 }
-type Discovery = { candidates: DocumentaryAsset[]; state?: string; renderTicket?: string; audiovisualAvailable?: boolean }
+type Discovery = { candidates: DocumentaryAsset[]; state?: string; renderTicket?: string; audiovisualAvailable?: boolean; channelTicket?: string }
 const empty: Discovery = { candidates: [] }
 const poolSize = 8
 const maxPreparedBytes = 22_000_000
@@ -396,10 +396,13 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       }
     }
     await allocate(true, fast.aborted ? deadline : fast)
-    const unresolved = [...remaining]
-    const details = [...new Set([...unresolved.flatMap(request => request.copy.visualContext?.searchQueries?.slice(0, 2) ??
-      (request.query && request.query !== campaign.query ? [request.query] : [])), ...campaign.extraQueries])].slice(0, 3)
-    for (const query of details) {
+    const queried = new Set([campaign.query])
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const details = [...remaining].flatMap(request => request.copy.visualContext?.searchQueries?.slice(0, 2) ??
+        (request.query ? [request.query] : []))
+      const query = [...details, ...campaign.extraQueries].find(value => !queried.has(value))
+      if (!query) break
+      queried.add(query)
       if (!remaining.size || deadline.aborted || !campaign.query || braveBlockedUntil > Date.now() || workerBlockedUntil > Date.now()) break
       if (performance.now() - initial < 1500) await pause(1150, deadline)
       else await pause(1050, deadline)
@@ -422,14 +425,18 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       }))
     }
     const extra = pool.complement
+    const videoSlide = [...remaining].find(request => audiovisualIntent(request.copy, campaign.subject))
+    const videoQuery = extra?.audiovisualAvailable && videoSlide
+      ? campaign.campaignName ? campaign.query : videoSlide.query ?? campaign.query : undefined
     if (remaining.size && !deadline.aborted && performance.now() - initial < 24_000 &&
-        (extra?.renderTicket || extra?.audiovisualAvailable && campaign.query)) {
+        (extra?.renderTicket || videoQuery) && extra) {
       try {
         const provider: SearchProvider<object> = { name: 'complement', discover: (input, phase) => lookup('complement', input, phase) }
         const anchors = campaign.names.filter(name => name.length <= 160).slice(0, 8)
         extraChecks++
         await discover(pool, provider, campaign.scope, {
-          renderTicket: extra.renderTicket, query: extra.audiovisualAvailable ? campaign.query : undefined,
+          renderTicket: extra.renderTicket, query: videoQuery,
+          channelTicket: videoQuery ? extra.channelTicket : undefined,
           campaign: campaign.campaignName, anchors, excluded: campaign.excluded.filter(name => name.length <= 160).slice(0, 16),
           year: /^\d{4}$/.test(String(campaign.year)) ? String(campaign.year) : undefined,
         }, deadline)

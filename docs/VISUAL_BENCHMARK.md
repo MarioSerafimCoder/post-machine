@@ -1,5 +1,25 @@
 # Benchmark do motor visual
 
+## Otimização de 24/11/2026
+
+O replay congelado manteve o GEICO e corrigiu a atribuição do detalhe da série de Max Cameron. O detalhe de briefing passou a preceder sinais genéricos do restante do texto. A precisão passou de 31/32 para 32/32, a cobertura de 31/44 para 32/44 (72,7%) e os vazios permaneceram em 12.
+
+| Diagnóstico das 13 lacunas originais | Slides | Evidência e tratamento |
+| --- | ---: | --- |
+| HTML truncado | 4 | A nova leitura em fluxo abriu as quatro páginas na rede. Uma retornou três candidatos elegíveis. |
+| Evidência insuficiente para verificar o detalhe ou a campanha | 5 | Aliases, dimensões, legendas genéricas e arquivos opacos limitaram a classificação de GWM, Gusto, Ray Gunn e Caixa, com dois slides na mesma pauta. |
+| Material repetido ou visualmente pouco distinto | 2 | Minthis e a galeria esportiva exigem outra peça elegível para ocupar o slide que ficou livre. |
+| Atribuição a outro autor nos metadados | 1 | A candidata da matéria de Julien Gobled atribui o trabalho a outro autor. |
+| Alocação na série certa e no detalhe errado | 1 | A correção geral de ranking resolveu o caso no replay. |
+
+Os dois downloads indisponíveis do corpus anterior estão registrados abaixo. Os replays reutilizam a captura anterior, inclusive nos quatro casos de HTML truncado. Os candidatos descobertos pela nova leitura são dados de rede em um ensaio separado, sem alteração da rubrica histórica.
+
+A amostra inédita contém 30 notícias públicas, com cinco de cada área pedida. Em rede real, as 30 fontes responderam HTTP 200. HTMLRewriter e classificação levaram 674 ms na mediana. Houve 24 downloads elegíveis, com mediana de 415 ms e mediana de 1,03 s da fonte ao primeiro raster. Seis capas ficaram vazias. O ensaio mede uma capa por notícia na etapa documental direta. Ele não inclui a pesquisa completa do Studio, o Openverse ou o desempenho em produção.
+
+No Chromium com navegador novo e pesos servidos pelo Vite local, CLIP quantizado carregou em 1,78 s, inferiu o primeiro par em mais 1,78 s e apresentou mediana de 1,69 s na sessão quente. Os pesos somam 128,1 MB. O ensaio a frio inclui a transferência local, sem medir o primeiro download pela internet. O resultado mantém CLIP opcional e OCR desligado.
+
+Reprodução com `node benchmarks/capture-independent.mjs`, `node benchmarks/review-independent.mjs`, `node benchmarks/capture-independent.mjs --regression` e `node benchmarks/run-visual.mjs`. A checagem autenticada de provedores usa o workflow manual de diagnóstico visual. [Amostra inédita](../benchmarks/independent-sample.json).
+
 ## Amostra e método
 
 31 notícias públicas de oito áreas, com 31 capas e 13 slides de detalhe. O GEICO faz parte da amostra e usa as mesmas regras das demais campanhas. A revisão cruzou as fontes, legendas e imagens em uma folha de contato local. A rubrica identifica as imagens aceitas por slide. Quatro pautas ficaram sem imagens nesta extração e dois dos 71 URLs distintos estavam indisponíveis como raster elegível. As 69 imagens obtidas ficaram no cache local. [Amostra de notícias](../src/features/images/fixtures/documentary-sample.json), [rubrica](../benchmarks/visual-subjects.json) e [fonte oficial do GEICO](https://www.geico.com/about/pressreleases/2026/20261123/).

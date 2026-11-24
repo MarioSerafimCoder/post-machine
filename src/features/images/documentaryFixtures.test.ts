@@ -12,8 +12,8 @@ beforeAll(async () => {
   const script = await build({ stdin: { resolveDir: '.', contents: `
     import { extractArticle } from './worker/extract';
     export default { async fetch(request) {
-      const { html, url } = await request.json();
-      return Response.json(await extractArticle(html, new URL(url), 'original'));
+      const { html, url, official } = await request.json();
+      return Response.json(await extractArticle(html, new URL(url), official ? 'official' : 'original'));
     } };
   ` }, bundle: true, write: false, format: 'esm' })
   runtime = new Miniflare({ workers: [{ config: { name: 'visual-test', compatibilityDate: '2026-11-13',
@@ -22,6 +22,18 @@ beforeAll(async () => {
 afterAll(async () => { await runtime?.dispose() })
 
 describe('extração documental em HTMLRewriter', () => {
+  it('descobre canal declarado pela organização da origem oficial', async () => {
+    const url = 'https://www.geico.com/press/'
+    const channel = 'UC' + 'a'.repeat(22)
+    const html = '<script type="application/ld+json">' + JSON.stringify({
+      '@type': 'Organization', url: 'https://www.geico.com', sameAs: ['https://www.youtube.com/channel/' + channel],
+    }) + '</script>'
+    for (const official of [true, false]) {
+      const r = await runtime.dispatchFetch('http://test/', { method: 'POST', body: JSON.stringify({ url, html, official }) })
+      expect((await r.json() as { channelId?: string }).channelId).toBe(official ? channel : undefined)
+    }
+  })
+
   it('deriva de metadados estruturados, galeria e poster e ignora recomendações', async () => {
     const url = 'https://www.geico.com/about/pressreleases/2026/20261123/'
     const html = `<head>

@@ -1,0 +1,34 @@
+name: Diagnóstico visual com franquia gratuita
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: visual-provider-check
+  cancel-in-progress: false
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node benchmarks/capture-independent.mjs
+      - run: node benchmarks/check-providers.mjs
+        env:
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+          BRAVE_VISUAL_ZERO_SPEND: ${{ vars.BRAVE_VISUAL_ZERO_SPEND }}
+          VISUAL_EXTERNAL_HOSTS: ${{ vars.VISUAL_EXTERNAL_HOSTS }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-provider-check
+          path: benchmarks/.cache/provider-check.json
+          include-hidden-files: true
+          retention-days: 1

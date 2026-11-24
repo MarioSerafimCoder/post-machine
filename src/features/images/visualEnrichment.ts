@@ -16,13 +16,9 @@ export async function refineVisualFit<T extends Evaluation>(evaluations: T[], im
   const prompts = requests.map(({ campaign, copy }) =>
     [copy.visualContext?.visualIntent || copy.imageBrief, copy.title, campaign.subject].filter(Boolean).join('. ').slice(0, 280))
   const semantics = async () => {
-    const { createSemanticSession } = await import('./semanticClient')
-    signal.throwIfAborted()
-    const session = createSemanticSession('clip')
-    try {
-      const result = await session.compare(items.map(([, image]) => ({ key: image.fileHash, file: image.file })), prompts, signal)
-      items.forEach(([id], index) => scores.set(id, result.scores[index]))
-    } finally { session.close() }
+    const { compareClip } = await import('./semanticClient')
+    const result = await compareClip(items.map(([, image]) => ({ key: image.fileHash, file: image.file })), prompts, signal)
+    items.forEach(([id], index) => scores.set(id, result.scores[index]))
   }
   const recognize = async () => {
     const entry = eligible.find(({ candidate, request }) => (request.campaign.campaignName || request.campaign.excluded.length) &&

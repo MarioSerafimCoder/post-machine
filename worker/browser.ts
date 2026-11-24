@@ -25,7 +25,12 @@ export async function renderVisualPage(binding: BrowserBinding, url: URL, provid
         }
         try {
           const upstream = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: 3200 })
-          if (!upstream.ok() || Number(upstream.headers()['content-length']) > 1800000) return route.abort()
+          const status = upstream.status()
+          if (!upstream.ok() || Number(upstream.headers()['content-length']) > 1800000) {
+            return type === 'document'
+              ? route.fulfill({ status: status >= 400 ? status : 422, body: '' })
+              : route.abort()
+          }
           const headers = upstream.headers()
           delete headers['set-cookie']
           return route.fulfill({ response: upstream, headers })

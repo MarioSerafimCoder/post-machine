@@ -1,5 +1,11 @@
 # Estado real — 24/11/2026
 
+## Otimização de cobertura documental
+
+- A extração progressiva agora lê HTML em fluxo até 3 MB. A pesquisa complementar reavalia somente slides pendentes e o ranking dá mais peso ao assunto principal de slides de detalhe. No corpus de regressão, 32 das 32 atribuições foram aceitas e 12 de 44 slides continuaram vazios. O acesso público às quatro páginas antes truncadas voltou a produzir HTML utilizável e uma delas revelou candidatos elegíveis para nova seleção.
+- Em 30 notícias inéditas, a extração direta e o download pela rede produziram 24 capas, com seis lacunas em seis áreas temáticas. A mediana até o primeiro raster aceito na seleção automática foi 1,03 s. A avaliação de capa e o replay de carrosséis são ensaios distintos. [Método e resultados](VISUAL_BENCHMARK.md).
+- A busca audiovisual agora admite canais indicados por metadados organizacionais em origens oficiais autorizadas. CLIP mantém por curto prazo a sessão do Worker e seus embeddings e encerra inferências obsoletas. Browser Run preserva o status de falha da navegação principal sem afrouxar o bloqueio de origem. As flags de YouTube, CLIP, Browser Run e OCR seguem desligadas de fábrica.
+
 ## Continuidade do motor visual
 
 - A busca documental preserva o acervo por campanha e a entrada progressiva no Studio. O ranking passou a considerar o papel de cada imagem no carrossel, a evidência própria da legenda e as outras peças que poderiam ocupar o mesmo frame. A deduplicação combina URL, SHA-256 e dois eixos de impressão visual. Aprovações, rejeições e substituições acompanham o projeto e o backup local.

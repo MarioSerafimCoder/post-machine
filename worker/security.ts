@@ -140,12 +140,12 @@ export async function accessRequestSubject(request: Request, issuer?: string, au
 }
 
 const hmac = (secret: string) => crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
-export async function issueTicket(url: string, person: string, secret: string, purpose?: 'render') {
+export async function issueTicket(url: string, person: string, secret: string, purpose?: 'render' | 'channel') {
   const payload = encode(encoder.encode(JSON.stringify([url, person, Date.now() + 15 * 60_000, ...purpose ? [purpose] : []])))
   const signature = await crypto.subtle.sign('HMAC', await hmac(secret), encoder.encode(payload))
   return payload + '.' + encode(new Uint8Array(signature))
 }
-export async function verifyTicket(ticket: string, person: string, secret: string, purpose?: 'render') {
+export async function verifyTicket(ticket: string, person: string, secret: string, purpose?: 'render' | 'channel') {
   try {
     const parts = ticket.split('.')
     if (parts.length !== 2 || parts.some(part => !/^[\w-]+$/.test(part))) return

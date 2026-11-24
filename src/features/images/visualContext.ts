@@ -103,3 +103,9 @@ export function campaignContext(input: {
   }
 }
 export type CampaignContext = ReturnType<typeof campaignContext>
+
+export function audiovisualIntent(copy: VisualCopy, subject = '') {
+  const intent = [copy.visualContext?.imageType, copy.visualContext?.visualIntent, copy.imageBrief, copy.title,
+    copy.role === 'cover' ? subject : ''].filter(Boolean).join(' ')
+  return /\b(?:filme|film|trailer|teaser|comercial|commercial|video|videoclipe|bastidores|behind the scenes|making of|stop motion|audiovisual)\b/.test(phraseKey(intent))
+}
