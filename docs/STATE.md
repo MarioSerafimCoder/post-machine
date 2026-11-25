@@ -3,7 +3,7 @@
 ## Publicação do lote Editorial 02 e Editorial 03
 
 - O proprietário autorizou atualizar o repositório e publicar os dois templates. O lote reúne doze composições editáveis no formato 1080 × 1350 e preserva o Editorial 01. O bundle inclui somente código, textos de exemplo e frames substituíveis; fotografias, uploads e backups pessoais continuam fora do repositório público.
-- A preparação local passou por lint, 158 testes unitários e build. O empacotamento e a suíte desktop estão sendo conferidos novamente antes do envio. A publicação usará o workflow protegido existente, que exige CI aprovado para o mesmo commit e verifica o Cloudflare Access.
+- Publicação concluída em 25/11/2026 às 11:21 (Brasília), no commit `62e8378`. O [CI do mesmo commit](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45631665926) aprovou lint, testes unitários, build, suíte E2E desktop e dry-run. O [deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45631687684) concluiu coleta, validações e promoção da versão `9aec3713-12f7-41a2-a23d-c85d4753376c` para 100% do tráfego. A verificação posterior confirmou HTTP 302 para Cloudflare Access na aplicação, nos dados e nas cinco rotas visuais. A sessão autenticada não foi revalidada nesta retomada. Os registros “somente local” abaixo descrevem a preparação anterior; o código das duas famílias agora está publicado. Fotografias e backups pessoais permanecem locais. Sem novos serviços ou custos adicionais.
 
 ## Editorial 03 · Jornada — somente local
 
