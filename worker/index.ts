@@ -5,7 +5,7 @@ import { braveSearch } from './brave'
 import { discoverVideos, officialChannel } from './audiovisual'
 import { renderVisualPage, type BrowserBinding } from './browser'
 import { extractArticle, type Extracted } from './extract'
-import { accessRequestSubject, externalFetch, externalUrl, issueTicket, rasterSignature, readLimited, readJson, verifyTicket } from './security'
+import { accessRequestSubject, externalFetch, externalUrl, issueTicket, rasterSignature, readLimited, readJson, verifiedPortfolioPage, verifyTicket } from './security'
 
 type Limiter = { limit(input: { key: string }): Promise<{ success: boolean }> }
 type Env = {
@@ -45,7 +45,8 @@ const routes = new Set(['page', 'brave', 'download', 'import', 'complement'])
 const rasterAccept = 'image/png,image/jpeg,image/webp'
 
 const hostsFor = (env: Env) => [env.VISUAL_EXTERNAL_HOSTS, env.VISUAL_OFFICIAL_HOSTS].filter(Boolean).join(',')
-const official = (host: string, env: Env) => (env.VISUAL_OFFICIAL_HOSTS ?? '').split(',').some(item => item.trim().toLowerCase() === host)
+const official = (url: URL, env: Env) => verifiedPortfolioPage(url) ||
+  (env.VISUAL_OFFICIAL_HOSTS ?? '').split(',').some(item => item.trim().toLowerCase() === url.hostname)
 const browserEnabled = (host: string, env: Env) => env.VISUAL_BROWSER_FREE === 'confirmed' && !!env.BROWSER &&
   (env.VISUAL_BROWSER_HOSTS ?? '').split(',').some(item => item.trim().toLowerCase() === host)
 const audiovisualEnabled = (env: Env) => env.VISUAL_YOUTUBE_QUOTA === 'confirmed' && !!env.YOUTUBE_API_KEY
@@ -135,7 +136,7 @@ export default {
         if ((!render && !channelId) || !env.VISUAL_EXTRA_LIMIT) return json({ state: 'disabled', candidates: [] })
         if (!(await env.VISUAL_EXTRA_LIMIT.limit({ key: 'visual-complement' })).success) return json({ state: 'limited', candidates: [] }, 429)
         const rendering = render && env.BROWSER
-          ? renderVisualPage(env.BROWSER, page, official(page.hostname, env) ? 'official' : 'original', signal) : undefined
+          ? renderVisualPage(env.BROWSER, page, official(page, env) ? 'official' : 'original', signal) : undefined
         if (rendering) context?.waitUntil(rendering.catch(() => undefined))
         const results = await Promise.allSettled([
           rendering ?? [],
@@ -151,15 +152,15 @@ export default {
         const input = pageInput.parse(payload)
         const page = externalUrl(input.url, hosts)
         if (!page) return json({ error: 'invalid_destination' }, 403)
-        const provider = official(page.hostname, env) ? 'official' : 'original'
+        const provider = official(page, env) ? 'official' : 'original'
         const feed: Extracted[] = input.primary && input.image && externalUrl(input.image, hosts) ?
           [{ url: input.image, page: page.href, provider, evidence: 'feed', title: input.title }] : []
         let extraction: Awaited<ReturnType<typeof pageImages>>
         try { extraction = await pageImages(page, provider, hosts, signal) }
         catch { return json({ candidates: await candidates(feed, person, env, key), partial: true }) }
         const link = extraction.links.map(url => externalUrl(url, hosts)).find(url => url &&
-          (url.hostname === page.hostname || official(url.hostname, env)))
-        const related = link && !signal.aborted ? await pageImages(link, official(link.hostname, env) ? 'official' : provider, hosts, signal)
+          (url.hostname === page.hostname || official(url, env)))
+        const related = link && !signal.aborted ? await pageImages(link, official(link, env) ? 'official' : provider, hosts, signal)
           .catch(() => undefined) : undefined
         const images = [...extraction.images, ...related?.images ?? [], ...feed]
         const ready = images.some(image => !['social', 'feed'].includes(image.evidence) &&
@@ -187,11 +188,11 @@ export default {
           const url = externalUrl(page.url, hosts)
           const evidence = phraseKey([page.title, page.description].filter(Boolean).join(' '))
           const matches = anchors.filter(anchor => (' ' + evidence + ' ').includes(' ' + anchor + ' ')).length
-          return url && (matches || !anchors.length) ? [{ url, score: matches * 2 + Number(official(url.hostname, env)) }] : []
+          return url && (matches || !anchors.length) ? [{ url, score: matches * 2 + Number(official(url, env)) }] : []
         }).sort((a, b) => b.score - a.score)
         const uniquePages = [...new Map(pages.map(page => [page.url.href, page])).values()]
         const extracts = await Promise.all(uniquePages.slice(0, 2).map(({ url }) =>
-          pageImages(url, official(url.hostname, env) ? 'official' : 'original', hosts, signal).catch(() => undefined)))
+          pageImages(url, official(url, env) ? 'official' : 'original', hosts, signal).catch(() => undefined)))
         backendImages.push(...extracts.flatMap(result => result?.images ?? []))
       }
       return json({ state: lookup.state, candidates: await candidates(backendImages, person, env, key) }, lookup.state === 'limited' ? 429 : 200)

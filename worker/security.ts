@@ -8,10 +8,22 @@ const defaultHosts = [
   'upload.wikimedia.org', 'live.staticflickr.com', 'www.businesswire.com', 'mms.businesswire.com',
   'i.ytimg.com',
 ]
+
+export const verifiedPortfolioPage = (url: URL) =>
+  url.origin === 'https://how.studio' && /^\/work\/pets\/?$/.test(url.pathname) && !url.search
+
+const portfolioNamespace = '/how-and-how/'
+export const verifiedPortfolioImage = (url: URL) => url.origin === 'https://images.prismic.io' &&
+  url.pathname.startsWith(portfolioNamespace) &&
+  /^[a-z0-9_-][\w.-]*\.(?:png|jpe?g|webp)$/i.test(url.pathname.slice(portfolioNamespace.length))
+
 export function externalUrl(value: string, configured = '', base?: string) {
   const url = researchUrl(value, base)
+  if (!url) return
   const hosts = [...defaultHosts, ...configured.split(',').map(host => host.trim().toLowerCase())]
-  return url && hosts.includes(url.hostname) && !/^\/_next\/image(?:\/|$)/i.test(url.pathname) &&
+  const allowed = url.hostname === 'how.studio' ? verifiedPortfolioPage(url) :
+    url.hostname === 'images.prismic.io' ? verifiedPortfolioImage(url) : hosts.includes(url.hostname)
+  return allowed && !/^\/_next\/image(?:\/|$)/i.test(url.pathname) &&
     (url.hostname !== 'i.ytimg.com' || !url.search && /^\/vi\/[\w-]{11}\/(?:sd|maxres)default\.jpg$/.test(url.pathname)) &&
     ![...url.searchParams.keys()].some(key => /^(?:url|uri|redirect|redirect_uri|target|destination|callback|proxy)$/i.test(key)) ? url : undefined
 }
@@ -78,7 +90,8 @@ async function publicDns(hostname: string, signal: AbortSignal) {
 }
 
 export async function externalFetch(initial: URL, configured: string | undefined, accept: string, signal: AbortSignal) {
-  let url = initial
+  let url = externalUrl(initial.href, configured)
+  if (!url) throw Error('Destination rejected')
   for (let hop = 0; hop <= 2; hop++) {
     await publicDns(url.hostname, signal)
     const response = await fetch(url, { headers: { Accept: accept }, credentials: 'omit', redirect: 'manual', cache: 'no-store', signal })

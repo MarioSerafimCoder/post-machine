@@ -1,5 +1,12 @@
 # Estado real — 25/11/2026
 
+## Fase 12 — Homologação e estabilidade
+
+- Em `91e3ba5`, o diagnóstico fez cinco consultas Brave Images e recebeu 60 URLs diretas em cinco respostas HTTP 200. O classificador rejeitou 56 e marcou quatro como relacionadas. Dois WebP da Creative Boom passaram pelo download e pela assinatura raster. Os dois candidatos de Gatto ficaram bloqueados pela origem. A rodada usou a franquia gratuita e confirmou que o termo australiano saiu inteiro. [Diagnóstico](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45607465793).
+- No recorte dirigido, o caso da Havaianas tinha uma imagem principal no HTML que a extração não devolvia. As seis imagens retornadas pertenciam às recomendações da página e foram descartadas. Em Loewe, os arquivos acessíveis não tinham evidência suficiente para identificar o objeto específico dos slides da amostra. Em Gatto, houve candidatos relacionados barrados antes do download. Entre os arquivos elegíveis testados na Brave, não houve falha de download.
+- A página oficial da HOW+HOW e os originais da Pets Foundation e Pets Insurance passaram em extração, classificação, download e decodificação locais. O Worker admite a página exata do caso e apenas rasters no namespace da agência no Prismic. A exceção para marcas gráficas exige a legenda da submarca nessa página oficial. A busca mantém Access, verificação DNS, redirecionamentos controlados e limites de leitura. [Fonte da agência](https://how.studio/work/pets).
+- Lint, 156 testes unitários, build, smoke do HTMLRewriter e dry-run do Wrangler passaram. O deploy protegido exige o CI do mesmo commit. [CI](https://github.com/MarioSerafimCoder/post-machine/actions/workflows/ci.yml) e [deploy](https://github.com/MarioSerafimCoder/post-machine/actions/workflows/deploy.yml).
+
 ## Consolidação visual 2/2
 
 - O prompt externo pede investigação documental por slide, fontes primárias, consultas no idioma original e URLs já conferidas. O JSON v1 guarda as sugestões opcionais na campanha e nos slides, inclusive em montagem, armazenamento e backup. O Worker confirma a presença das imagens nas páginas autorizadas e valida os originais. O Studio abre enquanto o acervo, as fontes e a consulta de lacunas são processados.

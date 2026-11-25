@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import worker from '../../../worker/index'
-import { externalUrl, issueTicket, publicAddress, rasterSignature, verifyTicket } from '../../../worker/security'
+import { externalFetch, externalUrl, issueTicket, publicAddress, rasterSignature, verifyTicket } from '../../../worker/security'
 
 const issuer = 'https://visual-test-team.cloudflareaccess.com'
 const audience = 'visual-test-app'
@@ -76,6 +76,27 @@ describe('Worker de pesquisa visual', () => {
     expect(rasterSignature(Uint8Array.from([255, 216, 255, 0]), 'image/jpeg')).toBe(false)
     const response = await worker.fetch(request('download', { ticket: 'incorrect' }, await token()), env)
     expect(response.status).toBe(403)
+  })
+  it('restringe o portfólio à página revisada e aos rasters do namespace da agência', async () => {
+    const page = 'https://how.studio/work/pets'
+    const asset = 'https://images.prismic.io/how-and-how/pets-foundation.jpg?auto=format%2Ccompress&w=1080'
+    expect(externalUrl(page)?.href).toBe(page)
+    expect(externalUrl(asset)?.href).toBe(asset)
+    const outbound = vi.fn()
+    vi.stubGlobal('fetch', outbound)
+    const configured = 'how.studio,images.prismic.io'
+    for (const url of [
+      'https://how.studio/work/other',
+      page + '?target=https%3A%2F%2Fpublic.example.com',
+      'https://images.prismic.io/other-tenant/foundation.jpg',
+      'https://images.prismic.io/how-and-how/pets.svg',
+      'https://images.prismic.io/how-and-how/dir%2fabc.jpg',
+      'https://images.prismic.io/how-and-how/foundation.jpg?url=https%3A%2F%2Fpublic.example.com',
+    ]) {
+      expect(externalUrl(url, configured)).toBeUndefined()
+      await expect(externalFetch(new URL(url), configured, 'image/jpeg', new AbortController().signal)).rejects.toThrow('Destination rejected')
+    }
+    expect(outbound).not.toHaveBeenCalled()
   })
   it('usa o navegador complementar somente para o propósito assinado e fecha a sessão', async () => {
     const jwt = await token()

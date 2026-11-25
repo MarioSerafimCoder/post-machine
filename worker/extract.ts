@@ -1,5 +1,6 @@
 import type { DocumentaryAsset } from '../src/features/images/documentaryContract'
 import { researchUrl } from '../src/features/images/visualContext'
+import { verifiedPortfolioImage, verifiedPortfolioPage } from './security'
 
 type Element = { getAttribute(name: string): string | null; onEndTag(callback: () => void): void }
 type Chunk = { text: string; lastInTextNode: boolean }
@@ -14,7 +15,8 @@ type Media = Omit<Extracted, 'page' | 'provider'> & { figure?: number; withinArt
 const text = (value: unknown, max: number) => typeof value === 'string'
   ? value.replace(/<[^>]{1,200}>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) || undefined : undefined
 const dimension = (value: unknown) => /^\d{1,5}$/.test(String(value)) && Number(value) > 0 && Number(value) <= 40000 ? Number(value) : undefined
-const unwanted = /(?:^|[\s/._-])(?:logo|avatar|favicon|sprite|placeholder|tracking|spacer|pixel|advertisement|icon|homepage|sitewide)(?=$|[\s/._-])/i
+const unwanted = /(?:^|[\s/._-])(?:avatar|favicon|sprite|placeholder|tracking|spacer|pixel|advertisement|icon|homepage|sitewide)(?=$|[\s/._-])/i
+const logo = /(?:^|[\s/._-])logo(?=$|[\s/._-])/i
 const blocked = 'header,nav,footer,aside,[role="navigation"],[role="complementary"],.related,.recommended,.more-stories,.advertisement,.ads,.breadcrumb,[class*="teaser"],[class*="related-"],[class*="recommended-"]'
 const press = /\b(press.?kit|media.?kit|newsroom|press.?release|press.?room|portfolio|case.?study|press assets|still photography|multimedia|sala de imprensa|kit de imprensa)\b/i
 
@@ -26,6 +28,7 @@ function srcset(value: string | null) {
 }
 
 export async function extractArticle(html: string | ReadableStream<Uint8Array>, page: URL, provider: 'original' | 'official') {
+  const petsPortfolio = provider === 'official' && verifiedPortfolioPage(page)
   const images = new Map<string, Media>()
   const links = new Set<string>()
   const metadata = new Map<string, string>()
@@ -44,13 +47,16 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
   let channelId: string | undefined
   let requiresRendering = false
   const add = (raw: unknown, fields: Omit<Media, 'url'>) => {
-    let url = typeof raw === 'string' && researchUrl(raw.trim(), page.href)
+    let url = typeof raw === 'string' && researchUrl(raw.trim().replace(/&amp;/gi, '&'), page.href)
     if (url && url.origin === page.origin && /^\/_next\/image(?:\/|$)/.test(url.pathname)) {
       const original = url.searchParams.get('url')
       url = !!original && /^\/(?!\/)/.test(original) && researchUrl(original, page.href)
     }
     if (!url || unwanted.test(url.pathname) || unwanted.test(fields.caption ?? '') ||
       (fields.width && fields.width < 360) || (fields.height && fields.height < 300) || images.size >= 45) return
+    const caption = fields.caption ?? ''
+    if ((logo.test(url.pathname) || logo.test(caption)) &&
+        !(petsPortfolio && verifiedPortfolioImage(url) && /\b(?:Pets Insurance|Pets Foundation|Pet Pals)\b/i.test(caption))) return
     const before = images.get(url.href)
     if (!before || ['figure', 'poster', 'structured'].includes(fields.evidence)) images.set(url.href, { ...before, ...fields, url: url.href })
   }
@@ -142,7 +148,8 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
     })
     .on('article img, main img, [itemprop="articleBody"] img, .entry-content img, .post-content img, .gallery img, figure img, article picture source, main picture source, figure picture source, article video[poster], main video[poster]', {
       element(node) {
-        if (omitted || unwanted.test([node.getAttribute('class'), node.getAttribute('id')].join(' '))) return
+        const identity = [node.getAttribute('class'), node.getAttribute('id')].join(' ')
+        if (omitted || unwanted.test(identity) || logo.test(identity)) return
         const candidate = srcset(node.getAttribute('data-srcset') ?? node.getAttribute('srcset')) ??
           node.getAttribute('data-original') ?? node.getAttribute('data-src') ?? node.getAttribute('data-lazy-src') ??
           node.getAttribute('data-full') ?? node.getAttribute('poster') ?? node.getAttribute('src')
