@@ -114,3 +114,6 @@
 
 .express-paste { padding: 18px; background: white; border: 1px solid var(--line); border-radius: 10px; }
 .express-slides article { border-top: 3px solid var(--ink); padding: 16px; gap: 12px; }
+
+.collection-actions .button-delete-template { color: #fff; background: #b91c1c; border-color: #b91c1c; }
+.collection-actions .button-delete-template:hover { background: #991b1b; border-color: #991b1b; }

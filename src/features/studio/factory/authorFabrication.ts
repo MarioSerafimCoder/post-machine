@@ -55,7 +55,7 @@ function selectBrand(template: AuthorTemplate, local: Brand) {
 }
 
 async function fillSlide(template: AuthorTemplate, project: Proposal['project'], slide: PlannedSlide, index: number, removeImage: boolean, signal: AbortSignal) {
-  const source = template.design.slides[0].scene
+  const source = template.design.slides[index % template.design.slides.length].scene
   const [width, height] = dimensions[project.format]
   const canvas = new StaticCanvas(document.createElement('canvas'), { width, height, renderOnAddRemove: false, enableRetinaScaling: false })
   const id = crypto.randomUUID()

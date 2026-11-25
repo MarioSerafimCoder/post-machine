@@ -570,3 +570,7 @@ Windows, Intel i5-9400F, Node 24.18.0, Chromium do Playwright e build Vite servi
 ## Dossiê Editorial no Studio
 
 O menu Novo projeto abre uma cópia local editável das seis composições em 1080 × 1350 px. Os quadros públicos substituem os uploads. A abertura do sexto slide, a renomeação e a reabertura da cópia foram verificadas no navegador a 1280 e 1440 px.
+
+## Biblioteca de templates
+
+Editorial 01 integra Meus templates com seis slides editáveis. O atalho próprio foi removido. A biblioteca exibe Excluir template em vermelho nos cards de templates e coleções. A exclusão das coleções é persistida neste navegador. Verificados edição dos seis slides, exclusão persistente e botão vermelho a 1280 e 1440 px.

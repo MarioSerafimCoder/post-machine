@@ -6,8 +6,7 @@ import { DamagedProjects } from './DamagedProjects'
 import { download } from './export'
 import { ProjectActivity } from './ProjectActivity'
 import ProjectPreview from './ProjectPreview'
-import { emptySlide, newProject, newProjectIdentity, formatNames, type Format } from './model'
-import dossierSlides from './dossieEditorial.json'
+import { newProjectIdentity, formatNames, type Format } from './model'
 import { backupProject, listProjects, loadProject, removeProject, restoreProject, saveLibraryProject, type ProjectSummary } from './storage'
 import { StorageSettings } from './StorageSettings'
 import './projectLibrary.css'
@@ -91,16 +90,6 @@ export function ProjectLibrary({ result, refresh, error, flush, open, imported, 
         <div className="library-popover">
           <button disabled={busy} onClick={express}>Preparar carrossel</button>
           <button disabled={busy} onClick={templates}>Usar template</button>
-          <button disabled={busy} onClick={() => void run(async () => {
-            const project = newProject('portrait')
-            project.name = 'Dossiê Editorial'
-            project.brand = { ...project.brand, margin: 45, primary: '#080718', secondary: '#FF4000', background: '#F5F5F5' }
-            project.slides = dossierSlides.map(({ role, background, objects }) => ({
-              ...emptySlide(), role, layout: 'editorial', scene: { background, objects: structuredClone(objects) },
-            }))
-            await saveLibraryProject(project)
-            await open(project.id)
-          })}>Editar Dossiê Editorial</button>
           <button disabled={busy} onClick={create}>Criar projeto vazio</button>
           <label>Formato do projeto<select value={format} onChange={e => setFormat(e.target.value as Format)}>
             {Object.entries(formatNames).map(([key, name]) => <option key={key} value={key}>{name}</option>)}

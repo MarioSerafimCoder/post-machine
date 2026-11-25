@@ -51,6 +51,22 @@ function Thumbnail({ style, index, format }: { style: Collection; index: number;
 export function CollectionGallery({ selected, format, setFormat, use }: {
   selected?: string; format: Format; setFormat: (format: Format) => void; use: (style: Collection) => void
 }) {
+  const [excluded, setExcluded] = useState<string[]>(() => {
+    try {
+      const value: unknown = JSON.parse(localStorage.getItem('post-machine:excluded-collections') ?? '[]')
+      return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []
+    } catch { return [] }
+  })
+  const [error, setError] = useState('')
+  function exclude(style: Collection) {
+    if (!window.confirm(`Excluir a coleção “${style.name}” desta biblioteca neste navegador?`)) return
+    try {
+      const next = [...excluded, style.id]
+      localStorage.setItem('post-machine:excluded-collections', JSON.stringify(next))
+      setExcluded(next)
+      setError('')
+    } catch { setError('Não foi possível salvar a exclusão da coleção. Tente novamente.') }
+  }
   const [preview, setPreview] = useState<Collection>()
   const [index, setIndex] = useState(0)
   const dialog = useRef<HTMLDialogElement>(null)
@@ -65,12 +81,14 @@ export function CollectionGallery({ selected, format, setFormat, use }: {
     <label>Formato da coleção<select value={format} onChange={event => setFormat(event.target.value as Format)}>
       {Object.entries(formatNames).map(([key,name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}
     </select></label>
-    <div className="collection-grid">{[...collections].sort((a,b) => Number(!!b.premium) - Number(!!a.premium)).map(style => <article key={style.id} data-selected={style.id === selected}>
+    {error && <p role="alert">{error}</p>}
+    <div className="collection-grid">{collections.filter(style => !excluded.includes(style.id)).sort((a,b) => Number(!!b.premium) - Number(!!a.premium)).map(style => <article key={style.id} data-selected={style.id === selected}>
       <Thumbnail key={format} style={style} index={0} format={format} />
       <div className="collection-card-copy">
         <h3>{style.name}</h3>{style.premium && <small className="collection-premium">Coleção premium</small>}<p>{style.style}</p><small>{style.formats.map(value => formatNames[value]).join(' · ')}</small>
         <div className="collection-actions"><button className="button button-outline" onClick={event => visualize(style,event.currentTarget)}>Visualizar</button>
-          <button className="button button-dark" onClick={() => use(style)}>{style.id === selected ? 'Selecionada' : 'Usar coleção'}</button></div>
+          <button className="button button-dark" onClick={() => use(style)}>{style.id === selected ? 'Selecionada' : 'Usar coleção'}</button>
+          <button className="button button-delete-template" onClick={() => exclude(style)}>Excluir template</button></div>
       </div>
     </article>)}</div>
     <dialog ref={dialog} className="collection-dialog" aria-labelledby="collection-preview-title" onClose={() => {

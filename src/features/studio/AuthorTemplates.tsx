@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { templateRole, templateRoles, type AuthorTemplate, type TemplateMetadata, type TemplateSummary } from './authorTemplate'
 import { download, renderScene } from './export'
 import { loadFonts } from './fonts'
-import { dimensions, formatNames, type Format, type Project } from './model'
+import { emptySlide, newProject, dimensions, formatNames, type Format, type Project } from './model'
 import { backupAuthorTemplate, listAuthorTemplates, loadAuthorTemplate, readAuthorTemplateBackup, saveAuthorTemplate, updateAuthorTemplate } from './storage'
+import editorialSlides from './dossieEditorial.json'
+import { transaction } from './database'
 import { StudioDialog } from './StudioDialog'
 import { AdaptLayoutDialog } from './AdaptLayoutDialog'
 
@@ -13,6 +15,35 @@ async function templateThumbnail(design: Project) {
   await loadFonts(design.brand)
   const [width, height] = dimensions[design.format]
   return (await renderScene(design.slides[0].scene, width, height, { scale: .24 })).blob
+}
+
+async function installEditorialTemplate() {
+  const install = async () => {
+    const key = 'editorial-template-v1'
+    const installed = await transaction(['settings'], 'readonly', tx => {
+      const request = tx.objectStore('settings').get(key)
+      return () => request.result === true
+    })
+    if (installed) return
+    const familyId = 'fe849b0a-8a9c-4f7b-b52b-ec8d56c230c5'
+    const existing = await listAuthorTemplates()
+    if (!existing.some(item => item.familyId === familyId)) {
+      const design = newProject('portrait')
+      design.name = 'Editorial 01'
+      design.brand = { ...design.brand, margin: 45, primary: '#080718', secondary: '#FF4000', background: '#F5F5F5' }
+      design.slides = editorialSlides.map(({ role, background, objects }) => ({
+        ...emptySlide(), role, layout: 'editorial', scene: { background, objects: structuredClone(objects) },
+      }))
+      await saveAuthorTemplate({ schemaVersion: 1, name: design.name,
+        description: 'Carrossel com seis composições e quadros de imagem editáveis.',
+        category: 'Editorial', brandMode: 'linked', familyId }, design, await templateThumbnail(design))
+    }
+    await transaction(['settings'], 'readwrite', tx => {
+      tx.objectStore('settings').put(true, key)
+      return () => undefined
+    })
+  }
+  return navigator.locks ? navigator.locks.request('post-machine-editorial-template', install) : install()
 }
 
 function Thumb({ item }: { item: TemplateSummary }) {
@@ -88,7 +119,7 @@ export function AuthorTemplates({ format, selected, use, edit }: {
   const [status, setStatus] = useState('')
   useEffect(() => {
     let alive = true
-    void listAuthorTemplates().then(value => { if (alive) setItems(value) }, cause => { if (alive) setError(message(cause)) })
+    void installEditorialTemplate().then(() => listAuthorTemplates()).then(value => { if (alive) setItems(value) }, cause => { if (alive) setError(message(cause)) })
     return () => { alive = false }
   }, [])
   const categories = [...new Set(items?.map(item => item.category))]
@@ -145,6 +176,9 @@ export function AuthorTemplates({ format, selected, use, edit }: {
           <button className="button button-dark" aria-pressed={selected === item.id} disabled={busy} onClick={() => void selectTemplate(item)}>
             {selected === item.id ? 'Selecionado' : 'Usar template'}
           </button>
+            <button className="button button-delete-template" disabled={busy} onClick={() => {
+              if (window.confirm(`Excluir o template “${item.name}”?`)) void run(() => updateAuthorTemplate(item, null), 'Template excluído.')
+            }}>Excluir template</button>
         </div>
         <details className="author-template-actions"><summary>Gerenciar template</summary>
           <div className="collection-actions">
@@ -161,9 +195,7 @@ export function AuthorTemplates({ format, selected, use, edit }: {
             <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
               download(await backupAuthorTemplate(item.id), `template-${item.id}.zip`)
             }, 'Backup preparado.')}>Exportar backup</button>
-            <button className="button button-outline" disabled={busy} onClick={() => {
-              if (window.confirm(`Excluir o template “${item.name}”?`)) void run(() => updateAuthorTemplate(item, null), 'Template excluído.')
-            }}>Excluir template</button>
+
           </div>
         </details>
       </div>

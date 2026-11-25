@@ -507,7 +507,7 @@ async function writeTemplate(id: string, expected: string | undefined, update: (
 
 export async function saveAuthorTemplate(metadata: TemplateMetadata, design: Project, thumbnail: Blob, previous?: TemplateSummary) {
   const fields = templateMetadataSchema.parse(metadata)
-  if (design.slides.length !== 1 || !design.slides[0].scene.objects.length) throw Error('Selecione uma composição de um slide com elementos.')
+  if (!design.slides.length || design.slides.some(slide => !slide.scene.objects.length)) throw Error('Selecione composições com elementos.')
   if (thumbnail.type !== 'image/png' || thumbnail.size === 0 || thumbnail.size > 2_000_000) throw Error('Miniatura inválida.')
   const id = previous?.id ?? crypto.randomUUID()
   const packed = await pack({ ...design, id, name: fields.name, campaignId: null, campaignUpdatedAt: null, caption: undefined })
