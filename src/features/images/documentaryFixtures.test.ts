@@ -22,6 +22,14 @@ beforeAll(async () => {
 afterAll(async () => { await runtime?.dispose() })
 
 describe('extração documental em HTMLRewriter', () => {
+  it('preserva descrição do objeto quando figcaption contém somente o crédito', async () => {
+    const response = await runtime.dispatchFetch('http://test/', { method: 'POST', body: JSON.stringify({
+      url: 'https://www.creativebloq.com/article', html: '<article><figure><img src="/photo.jpg" alt="Ceramic mug packaging photographed in a studio"><figcaption>(Image credit: Photographer)</figcaption></figure><aside><img src="/other.jpg" alt="Other packaging"></aside></article>',
+    }) })
+    const { images } = await response.json() as { images: DocumentaryAsset[] }
+    expect(images).toHaveLength(1)
+    expect(images[0].caption).toBe('Ceramic mug packaging photographed in a studio (Image credit: Photographer)')
+  })
   it('descobre canal declarado pela organização da origem oficial', async () => {
     const url = 'https://www.geico.com/press/'
     const channel = 'UC' + 'a'.repeat(22)
@@ -55,7 +63,7 @@ describe('extração documental em HTMLRewriter', () => {
       '/assets/poster.jpg', '/large.jpg', '/public/images/aboutgeico/GEICO_15_Percent_Saved_Christmas.jpg',
     ])
     expect(images.find(image => image.url.endsWith('/large.jpg'))).toMatchObject({
-      page: url, evidence: 'figure', caption: 'Peça da campanha', section: 'Bastidores',
+      page: url, evidence: 'figure', caption: 'Oficina Peça da campanha', section: 'Bastidores',
     })
     expect(links).toEqual(['https://www.geico.com/press-kit/'])
   })
@@ -93,7 +101,7 @@ describe('amostra documental pública de 24/11/2026', () => {
     for (const id of ['bf3827f4', '6af3aacd']) {
       const recommendations = report(id).filter(asset => asset.url.endsWith('/artificial-filme-poster.jpg'))
       expect(recommendations).toHaveLength(1)
-      expect(recommendations[0].evaluation).toEqual({ score: 0, rejected: true })
+      expect(recommendations[0].evaluation).toMatchObject({ score: 0, rejected: true })
     }
   })
 })

@@ -1,6 +1,8 @@
+import { editorialRelevance, rankNews, relatedNews } from './relevance'
+import { useNewsPreferences } from './useNewsPreferences'
 import { Opportunities } from './Opportunities'
 import type { Opportunity } from './contract'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { normalize, snapshotSchema, type Article, type Snapshot } from './contract'
 import { editorialCategories } from './categories'
@@ -54,6 +56,9 @@ async function writeFavorite(id: string, saved: boolean) {
 }
 
 export function News({ active, onCreatePost, favoritesView, opportunitiesView, onCreateOpportunity }: { active: boolean; favoritesView?: boolean; opportunitiesView: boolean; onCreateOpportunity: (value: Opportunity) => void; onCreatePost: (article: Article) => void }) {
+  const learning = useNewsPreferences()
+  const [ordering, setOrdering] = useState('relevance')
+  const [focus, setFocus] = useState('')
   const [reading, setReading] = useState<string | null>()
   const assistantLauncher = useRef<HTMLButtonElement>(null)
   const reader = useRef<HTMLButtonElement>(null)
@@ -104,6 +109,8 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
     try {
       await writeFavorite(id,save)
       setFavorites(current => save ? [...current ?? [],id] : current?.filter(value => value !== id))
+      const article = data?.items.find(item => item.id === id)
+      if (article) learning.learn(article, save ? 1 : -1)
       setStorageError(false)
       setFavoriteStatus(save ? 'Notícia adicionada aos favoritos.' : 'Notícia removida dos favoritos.')
     } catch { setStorageError(true) }
@@ -113,6 +120,7 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
     const newsFilters = { query, category, source, language, period, kind, scope, onlyFavorites }
     window.history.replaceState({ ...window.history.state, newsFilters }, '')
     try { sessionStorage.setItem(newsFiltersKey, JSON.stringify(newsFilters)) } catch { /* O histórico permanece disponível. */ }
+    learning.learn(item, 2)
     onCreatePost(item)
   }
   function refresh() { setState('loading'); setReload(value => value + 1) }
@@ -124,7 +132,7 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
       target?.focus()
     })
   }
-  const items = data?.items ?? []
+  const items = useMemo(() => data?.items ?? [], [data])
   const options = (key: 'source' | 'language') => [...new Set(items.flatMap(item => item[key] ? [item[key]!] : []))].sort((a,b) => a.localeCompare(b,'pt-BR'))
   const categories = [...new Set<string>([...editorialCategories, ...items.map(item => item.category)])]
   const terms = normalize(query.trim()).split(/\s+/)
@@ -138,7 +146,9 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
   }, [active])
   const daysOld = data?.collectedAt ? Math.floor((now - Date.parse(data.collectedAt)) / 86400000) : 0
   const cutoff = now - Number(period) * 86400000
-  const results = items.filter(item =>
+  const ordered = useMemo(() => ordering === 'recent' ? [...items].sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '')) : rankNews(items, now, learning.preferences), [items, now, ordering, learning.preferences])
+  const results = ordered.filter(item =>
+    (!focus || (focus === 'design' ? editorialRelevance(item, now).forDesigners : focus === 'visual' ? !!item.imageUrl : editorialRelevance(item, now).highPotential)) &&
     (!category || item.category === category) && (!source || item.source === source) &&
     (!language || item.language === language) && (!period || (item.publishedAt && Date.parse(item.publishedAt) >= cutoff && Date.parse(item.publishedAt) <= now)) &&
     (!kind || item.trend) && (!scope || item.editorial?.scope === scope) && (!(onlyFavorites || favoritesView) || favorites?.includes(item.id)) &&
@@ -147,6 +157,7 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
   const article = visible.find(item => item.id === reading)
   const periods: [string, string][] = [['1', 'Últimas 24 horas'], ['7', 'Últimos 7 dias'], ['14', 'Últimos 14 dias']]
   const chips = [
+    { key: 'focus', label: focus && ({ design: 'Para designers', potential: 'Potencial editorial', visual: 'Imagem indicada na fonte' }[focus]), clear: () => setFocus('') },
     { key: 'search', label: query.trim() && `Busca “${query.trim()}”`, clear: () => setQuery('') },
     { key: 'category', label: category, clear: () => setCategory('') },
     { key: 'period', label: periods.find(([value]) => value === period)?.[1], clear: () => setPeriod('') },
@@ -182,6 +193,7 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
       </div>)}
     </div>}
     {state === 'error' && <p role="alert" className="info-strip">Não foi possível carregar as notícias.{data ? ' Exibindo a última edição aberta.' : ' Tente novamente.'}</p>}
+    {learning.error && <p role="alert">Não foi possível salvar as preferências editoriais neste navegador.</p>}
     {storageError && <p role="alert" className="info-strip">Não foi possível acessar os favoritos neste navegador.</p>}
     <p className="sr-only" role="status">{favoriteStatus}</p>
     {data && <div hidden={!opportunitiesView}><Opportunities active={active && opportunitiesView} items={data.opportunities} editionAt={data.attemptedAt} favorites={favorites} saving={saving} save={id => void toggle(id)} create={onCreateOpportunity} /></div>}
@@ -196,6 +208,9 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
         <div className="news-filters" id="news-advanced" hidden={!filtersOpen}>
         {select('Fonte',source,setSource,options('source').map(v => [v,v]))}
         {select('Idioma',language,setLanguage,options('language').map(v => [v, v === 'pt' ? 'Português' : v === 'en' ? 'Inglês' : v]))}
+        {select('Ordenar',ordering,setOrdering,[['relevance','Relevância para criação'],['recent','Mais recentes']])}
+        {select('Interesse',focus,setFocus,[['design','Para designers'],['potential','Potencial editorial'],['visual','Imagem indicada na fonte']])}
+        <button className="button button-outline" onClick={() => learning.reset()}>Redefinir preferências editoriais</button>
         {select('Destaque',kind,setKind,[['trend','Google Trends']])}
         {items.some(item => item.editorial) && select('Recorte',scope,setScope,[['direct','Criação e mercado'],['adjacent','Contexto criativo']])}
         <label className="news-checkbox"><input type="checkbox" checked={onlyFavorites} disabled={!favorites} onChange={event => { setOnlyFavorites(event.target.checked); setLimit(pageSize) }} /> Só favoritos</label>
@@ -221,6 +236,7 @@ export function News({ active, onCreatePost, favoritesView, opportunitiesView, o
               ? 'Use a estrela nos cartões para guardar notícias aqui.' : 'Ainda não há notícias nesta edição.'}</p>
           </div> : <div className="news-grid news-story-grid">
             {visible.map(item => <NewsCard key={item.id} article={item} saved={favorites?.includes(item.id) ?? false}
+              reason={editorialRelevance(item, now).reason} related={relatedNews(item, items)} onReject={() => { learning.learn(item, -1); setFavoriteStatus('Preferência editorial ajustada neste navegador.') }}
               canSave={Boolean(favorites) && !saving} onSave={() => void toggle(item.id)} onCreate={() => startBriefing(item)}
               selected={article?.id === item.id} onRead={event => {
                 reader.current = event.currentTarget

@@ -200,6 +200,7 @@ for (const count of [3, 4, 6, 10]) {
     const zip = await JSZip.loadAsync(await readFile(await (await backup).path()))
     const project = JSON.parse(await zip.file('project.json')!.async('string'))
     expect(project.importedContent.campaign.visualContext.campaignName).toBe(campaignName)
+    expect(project.importedContent.slides.map((slide: { id: string }) => slide.id).sort()).toEqual(project.slides.map((slide: { id: string }) => slide.id).sort())
     expect(project.slides[count === 10 ? 2 : 1].visualContext.imageType).toBe('Bastidores')
     expect(project.slides[0].scene.objects.some((item: { imageCredit?: { provider: string } }) => item.imageCredit?.provider === 'official')).toBe(true)
     if (count === 3) expect(project.slides[0].visualChoice).toMatchObject({ mode: 'manual', decision: 'approved' })

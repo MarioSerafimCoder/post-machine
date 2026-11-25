@@ -16,7 +16,8 @@ function NewsThumbnail({ article }: { article: Article }) {
   </div>
 }
 
-export function NewsCard({ article, saved, canSave, selected, onSave, onCreate, onRead }: {
+export function NewsCard({ article, saved, canSave, selected, onSave, onCreate, onRead, reason, related = [], onReject }: {
+  reason?: string; related?: Article[]; onReject?: () => void
   article: Article; saved: boolean; canSave: boolean; selected: boolean
   onSave: () => void; onCreate: () => void; onRead: (event: MouseEvent<HTMLButtonElement>) => void
 }) {
@@ -29,6 +30,8 @@ export function NewsCard({ article, saved, canSave, selected, onSave, onCreate, 
         {article.publishedAt ? <time dateTime={article.publishedAt}>{dateFormat.format(new Date(article.publishedAt))}</time> : 'Sem data de publicação'}
         {article.editorial?.scope === 'adjacent' && <span>· Contexto criativo</span>}
       </p>
+      {reason && <p className="muted">{reason}</p>}
+      {related.length > 0 && <details><summary>Pautas relacionadas · {related.length}</summary><ul>{related.map(item => <li key={item.id}><a href={item.url} target="_blank" rel="noreferrer">{item.title} · {item.source}</a></li>)}</ul></details>}
       {article.summary && <p className="news-story-summary" lang={article.language}>{article.summary}</p>}
       {article.trend && <p className="news-trend"><a href="https://trends.google.com/trending?geo=BR" target="_blank" rel="noreferrer">Google Trends</a> · {article.trend}</p>}
     </div>
@@ -42,6 +45,7 @@ export function NewsCard({ article, saved, canSave, selected, onSave, onCreate, 
         title={saved ? 'Remover dos favoritos' : 'Adicionar aos favoritos'} disabled={!canSave} onClick={onSave}>
         <Icon name="star" />
       </button>
+      {onReject && <button type="button" className="button button-outline" onClick={onReject}>Menos como esta</button>}
     </footer>
   </article>
 }

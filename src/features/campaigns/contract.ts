@@ -1,3 +1,4 @@
+import { identifyContent, slideIdSchema } from './slideIdentity'
 import { z } from 'zod'
 import { articleSchema, opportunitySchema, webUrl, type Article, type Opportunity } from '../radar/contract'
 import { headlineSessionSchema } from '../headlines/contract'
@@ -35,6 +36,7 @@ const publishedAtSchema = z.preprocess(value =>
 )
 const sourceSchema = z.object({ title: short.trim().min(1), url: webUrl, publishedAt: publishedAtSchema })
 const slideSchema = z.object({
+  id: slideIdSchema.optional().catch(undefined),
   order: z.number().int().min(1).max(maxSlides), role: z.enum(['cover', 'content', 'cta']),
   title: short, subtitle: short.optional(), body: prose, imageBrief: prose, layoutType: short, headlines: headlineSessionSchema.optional(),
   visualContext: slideVisualSchema.optional(),
@@ -44,7 +46,11 @@ export const contentSchema = z.object({
   campaign: z.object({ title: short, objective: short, audience: short, tone: short, format, caption: prose, cta: prose,
     visualContext: campaignVisualSchema.optional() }),
   sources: z.array(sourceSchema).max(50),
-  slides: z.array(slideSchema).min(1).max(maxSlides),
+  slides: z.array(slideSchema).min(1).max(maxSlides).transform(slides => {
+    const counts = new Map<string, number>()
+    for (const slide of slides) if (slide.id) counts.set(slide.id, (counts.get(slide.id) ?? 0) + 1)
+    return slides.map(slide => slide.id && counts.get(slide.id) !== 1 ? { ...slide, id: undefined } : slide)
+  }),
 }).refine(({ slides }) => slides.every((slide, index) => slide.order === index + 1), { path: ['slides'], message: 'Use posições consecutivas a partir de 1.' })
 const legacyDraftSchema = z.object({
   schemaVersion: z.literal(1), id: z.uuid(), article: articleSchema,
@@ -107,7 +113,7 @@ export function draftFromReference(reference: Reference, preferences: Preference
     briefing: { ...draft.briefing, approach, notes: `Referência de formato: ${format.name}. ${format.slides}` } }
 }
 
-export function createPrompt({ article, briefing, title, creativeOrigin, opportunity }: Draft, editorialInstructions: readonly string[] = []) {
+export function createPrompt({ article, briefing, title, creativeOrigin, opportunity, content }: Draft, editorialInstructions: readonly string[] = []) {
   const count = slideCount(briefing)
   const example: Content = {
     schemaVersion: 1,
@@ -117,7 +123,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     },
     sources: opportunity ? opportunity.articles.map(originalSource) : article ? [originalSource(article)] : creativeOrigin ? [creativeSource(creativeOrigin)] : [],
     slides: Array.from({ length: count }, (_, index) => ({
-      order: index + 1, role: index === 0 ? (count === 1 ? 'content' : 'cover') : index === count - 1 ? 'cta' : 'content',
+      id: content?.slides[index]?.id ?? crypto.randomUUID(), order: index + 1, role: index === 0 ? (count === 1 ? 'content' : 'cover') : index === count - 1 ? 'cta' : 'content',
       title: '', body: '', imageBrief: '', layoutType: 'editorial',
     })),
   }
@@ -146,6 +152,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     'Título e resumo não equivalem ao artigo integral. Consulte a fonte original quando necessário. Se o acesso falhar, limite o texto ao que os dados fornecidos sustentam e indique a limitação.',
     'Separe fatos verificáveis, interpretações e opiniões na redação. Preserve o contexto e não invente números, estudos, citações, datas, atribuições ou referências.',
     'Escreva headlines específicas e interessantes, sem clichês, linguagem artificial ou clickbait enganoso. Organize a narrativa com progressão clara e textos curtos para caber na peça.',
+    'O campo id de cada slide é opcional. Ao revisar uma campanha existente, preserve o id da mesma peça, mesmo ao editar texto ou reordenar; peças novas ou duplicadas devem ter ids distintos.',
     'Sugira uma imagem pertinente e indique a direção de arte de cada peça em imageBrief e layoutType. Escreva uma legenda contextualizada e um CTA coerente com o objetivo.',
     'Investigue as imagens junto com o texto editorial. Identifique a marca, a campanha ou o projeto pelo nome exato, as entidades relevantes e o ano. Para cada slide, especifique o objeto visual que comprova o conteúdo (peça, cena, aplicação ou detalhe). Priorize comunicados oficiais, portfólios dos autores e kits de imprensa. Abra as fontes para verificar se documentam a pauta. Escreva consultas de pesquisa no idioma original das fontes.',
     'Quando houver evidência, use campaign.visualContext com subject, entities (nomes completos), campaignName, year (número), mediaType, searchQueries, preferredSources (URLs HTTPS de páginas com materiais) e excludedSubjects (assuntos, peças ou imagens a evitar). Use slides[].visualContext com visualIntent, searchQueries, preferredSourceUrls e imageType quando houver informação específica do slide.',
@@ -246,7 +253,7 @@ export function reviewImport(input: string, draft?: Draft) {
     slides.some(slide => !slide.title.trim() || !slide.layoutType.trim())) {
     throw Error('Preencha o título, objetivo e tom da campanha, além do título e layout de cada slide.')
   }
-  const content = draft ? applyBriefingFormat(parsed.data, draft.briefing) : parsed.data
+  const content = draft ? identifyContent(applyBriefingFormat(parsed.data, draft.briefing), draft.content ?? undefined) : parsed.data
   const originals = draft?.opportunity ? draft.opportunity.articles.map(originalSource) :
     draft?.article ? [originalSource(draft.article)] : draft?.creativeOrigin ? [creativeSource(draft.creativeOrigin)] : []
   const ignored: string[] = []

@@ -1,3 +1,4 @@
+import { isSearchFailure } from '../images/searchDiagnostics'
 import { memo, useEffect, useRef, useState } from 'react'
 import { renderScene } from './export'
 import { dimensions, type Scene, type Format } from './model'
@@ -29,7 +30,8 @@ export function Slides({ project, current, select, action, issues, reorder, open
   const photos = { applied: [] as number[], empty: [] as number[], error: [] as number[] }
   project.slides.forEach((slide, index) => {
     const state = imageStatus?.(slide.id)
-    if (state === 'empty' || state === 'error') photos[state].push(index)
+    if (state === 'empty' || state === 'insufficient') photos.empty.push(index)
+    else if (isSearchFailure(state)) photos.error.push(index)
     else if (slide.visualChoice?.match) photos.applied.push(index)
   })
   return <section className="studio-slides" aria-label="Slides">
@@ -42,8 +44,8 @@ export function Slides({ project, current, select, action, issues, reorder, open
       const review = issues.get(slide.id)
       const status = imageStatus?.(slide.id)
       const match = slide.visualChoice?.match
-      const photoStatus = status === 'empty' ? 'Nenhuma imagem adequada encontrada' :
-        status === 'error' ? 'Busca indisponível' : match ? 'Imagem encontrada' : status ? 'Buscando imagem' :
+      const photoStatus = slide.visualChoice?.reviewRequired ? 'Contexto alterado: revise a imagem' : status === 'empty' ? 'Nenhuma imagem adequada encontrada' :
+        isSearchFailure(status) ? 'Revise a busca de imagem' : match ? 'Imagem encontrada' : status ? 'Buscando imagem' :
           slide.visualChoice?.mode === 'none' ? 'Slide sem imagem' : ''
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]
       const label = composition === undefined ? templates[slide.layout as keyof typeof templates] ?? 'Livre' : compositionNames[Number(composition)] ?? 'Livre'

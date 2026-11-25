@@ -1,9 +1,11 @@
+import { failureText } from './searchDiagnostics'
 import type { VisualMatch, VisualStatus } from './automaticSearch'
 
 function visualStatusText(status?: VisualStatus, match?: VisualMatch) {
   if (match) return 'Imagem encontrada'
   if (status === 'provisional') return 'Buscando imagem…'
   if (status === 'illustration' || status === 'editorial' || status === 'documental') return 'Buscando imagem…'
+  if (status && status in failureText) return failureText[status as keyof typeof failureText]
   if (status === 'error') return 'Busca indisponível. Tente novamente ou escolha uma imagem.'
   if (status === 'empty') return 'Nenhuma imagem adequada encontrada.'
   return ''

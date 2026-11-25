@@ -10,7 +10,7 @@ const distinctPublishers = (a: Article, b: Article) => {
   return x !== y && !x.endsWith(`.${y}`) && !y.endsWith(`.${x}`) && normalize(a.source) !== normalize(b.source)
 }
 const time = (item: Article) => item.publishedAt ? Date.parse(item.publishedAt) : NaN
-function sameEvent(a: Article, b: Article) {
+export function sameEvent(a: Article, b: Article) {
   if (a.category !== b.category || Math.abs(time(a) - time(b)) > 48 * hour ||
       !Number.isFinite(time(a)) || !Number.isFinite(time(b))) return false
   const x = terms(a.title), y = terms(b.title)

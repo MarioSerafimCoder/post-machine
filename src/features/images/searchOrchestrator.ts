@@ -1,12 +1,14 @@
+import { VisualSearchError, failureKind, type VisualFailure } from './searchDiagnostics'
 import { documentaryResponse, documentaryPrefix, type DocumentaryAsset } from './documentaryContract'
 import { type ImageCredit, licenseTerms, toCredit } from './contract'
 import { automaticOriginal, fetchExternalImage, fetchOriginal, searchImages } from './openverse'
-import { canonicalImage, creditKeys, documentaryId, evaluateCandidate, evaluateCatalog, prepareImage, prioritizedImageQueries, similarImage,
+import { canonicalImage, creditKeys, documentaryId, evaluateCandidate, evaluateCatalog, prepareImage, similarImage,
   requestFor, type AutomaticImage, type VisualRelevance, type VisualRequest, type VisualStatus } from './automaticSearch'
 import { narrativeAssignment } from './visualAllocation'
 import { refineVisualFit, useOcr, useSemantics } from './visualEnrichment'
 import { readVisualMemory, rememberVisual, type RememberedVisual } from './visualMemory'
 import { audiovisualIntent, campaignContext, phraseKey, researchUrl, words, type CampaignContext } from './visualContext'
+import { nextVisualQuery, visualQueryKey, type SearchOutcome } from './adaptiveSearch'
 
 type Candidate = {
   credit: ImageCredit; document?: DocumentaryAsset; metadata?: string; illustrated?: boolean
@@ -22,7 +24,7 @@ const transferGrace = 850
 const pools = new Map<string, Pool>()
 type Job = { controller: AbortController; users: number; task: Promise<unknown>; expires: number; abortTimer?: ReturnType<typeof setTimeout> }
 type Pool = { jobs: Map<string, Job>; usedUntil: number; candidates: Map<string, Candidate>; prepared: Map<string, AutomaticImage>;
-  bytes: number; options: Map<string, string[]>; braveQueries: Set<string>; complement?: Discovery; downloads: Set<Promise<unknown>> }
+  bytes: number; options: Map<string, string[]>; braveQueries: Set<string>; complement?: Discovery; downloads: Set<Promise<unknown>>; revisions: Map<string, number> }
 let braveQueue = Promise.resolve()
 let nextBraveAt = 0
 
@@ -34,7 +36,7 @@ function poolFor(key: string) {
     const idle = [...pools].find(([, item]) => ![...item.jobs.values()].some(job => job.users > 0))
     if (pools.size >= poolSize && idle) pools.delete(idle[0])
     pool = { jobs: new Map(), usedUntil: now, candidates: new Map(), prepared: new Map(), bytes: 0, options: new Map(),
-      braveQueries: new Set(), downloads: new Set() }
+      braveQueries: new Set(), downloads: new Set(), revisions: new Map() }
   }
   pools.delete(key)
   pools.set(key, pool)
@@ -82,14 +84,15 @@ async function post(route: string, body: object, signal: AbortSignal, timeout = 
     body: JSON.stringify(body), redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]), cache: 'no-store' })
 }
 
-class VisualDownloadError extends Error {
-  constructor(readonly retryable: boolean) { super('Imagem indisponível na fonte.') }
+class VisualDownloadError extends VisualSearchError {
+  constructor(readonly retryable: boolean) { super('download') }
 }
 
 export async function workerImage(route: 'download' | 'import', body: object, signal: AbortSignal, filename = 'Imagem da fonte') {
   const response = await post(route, body, signal, 6000)
   const mime = response.headers.get('content-type')?.split(';')[0]
   if (!response.ok || !mime || !['image/jpeg', 'image/png', 'image/webp'].includes(mime)) {
+    if (response.ok) { await response.body?.cancel(); throw new VisualSearchError('incompatible') }
     const inspect = response.status === 422 && mime === 'application/json'
     const error = inspect ? await response.json().catch(() => null) : null
     if (!inspect) await response.body?.cancel()
@@ -142,7 +145,7 @@ async function lookup(route: 'page' | 'brave' | 'complement', input: object, sig
       workerBlockedUntil = Date.now() + negativeLifetime
     }
     await response.body?.cancel()
-    return empty
+    return { ...empty, state: 'unavailable' }
   }
   if (!response.ok) {
     if (response.status === 429) {
@@ -150,7 +153,7 @@ async function lookup(route: 'page' | 'brave' | 'complement', input: object, sig
       else if (route === 'page') workerBlockedUntil = Date.now() + 60_000
     }
     await response.body?.cancel()
-    return empty
+    throw new VisualSearchError(response.status === 403 ? 'blocked' : response.status === 429 ? 'limited' : response.status === 504 ? 'timeout' : 'connection')
   }
   const raw = await response.json()
   const parsed = documentaryResponse.safeParse(raw)
@@ -272,7 +275,9 @@ function preparedImage(pool: Pool, candidate: Candidate, signal: AbortSignal, co
         bounded.throwIfAborted()
         return candidate.download(bounded)
       })
-      const image = await prepareImage(file, candidate.credit, bounded)
+      const image = await prepareImage(file, candidate.credit, bounded).catch(cause => {
+        bounded.throwIfAborted(); void cause; throw new VisualSearchError('incompatible')
+      })
       const size = file.size + String(image.object.src).length * 2
       if (size <= maxPreparedBytes) {
         for (const [key, prior] of pool.prepared) {
@@ -347,13 +352,20 @@ export function rememberManualVisual(request: VisualRequest, image: AutomaticIma
 }
 
 type Events = { image: (request: VisualRequest, image: AutomaticImage, provisional: boolean) => void; finish: (request: VisualRequest, status: VisualStatus) => void;
-  used: () => ReadonlySet<string> }
+  used: () => ReadonlySet<string>; trace?: (event: { stage: string; ms: number; slide?: string; url?: string; reason?: string }) => void }
 export async function investigateVisuals(requests: VisualRequest[], config: Events, signal: AbortSignal) {
   if (!requests.length) return
   const campaign = requests[0].campaign
   const scope = scopeOf(requests[0])
   const pool = poolFor(scope)
+  const retry = requests.some(request => request.revision > (pool.revisions.get(request.key) ?? 0))
+  for (const request of requests) pool.revisions.set(request.key, request.revision)
+  if (retry) {
+    for (const [key, job] of pool.jobs) if (!job.users && job.expires <= Date.now() + negativeLifetime) pool.jobs.delete(key)
+  }
   const initial = performance.now()
+  const trace = (stage: string, request?: VisualRequest, candidate?: Candidate, reason?: string) =>
+    config.trace?.({ stage, ms: performance.now() - initial, slide: request?.key, url: candidate?.credit.originalUrl, reason })
   const fast = AbortSignal.any([signal, AbortSignal.timeout(14_000)])
   const deadline = AbortSignal.any([signal, AbortSignal.timeout(28_000)])
   const remaining = new Set(requests)
@@ -361,6 +373,8 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
   let downloads = 0
   let discovered = false
   let failed = false
+  const failures = new Set<VisualFailure>()
+  const recordFailure = (cause: unknown) => { failed = true; failures.add(failureKind(cause)) }
   let first = true
   let sourceChecks = 0
   let braveChecks = 0
@@ -403,9 +417,16 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
           const { sourceId } = candidate.credit
           const keys = creditKeys(candidate.credit)
           const shown = provisionalIds.get(request.key)
-          if (tried.has(sourceId) || keys.some(key => used.has(key) && shown !== sourceId || request.discarded.has(key))) return []
+          if (tried.has(sourceId)) return []
+          if (keys.some(key => used.has(key) && shown !== sourceId || request.discarded.has(key))) {
+            trace('discard', request, candidate, 'used_or_manually_discarded'); return []
+          }
           const fit = relevance(candidate, request)
-          if (!fit || (!fallback && fit.match.classification !== 'confirmed')) return []
+          if (!fit) {
+            const decision = candidate.document && evaluateCandidate(candidate.document, request)
+            trace('discard', request, candidate, decision && 'rejected' in decision ? decision.reason : 'insufficient_evidence'); return []
+          }
+          if (!fallback && fit.match.classification !== 'confirmed') return []
           if (shown && shown !== sourceId && fit.match.classification !== 'confirmed') return []
           if (shown === sourceId && fit.match.classification !== 'confirmed') return []
           const order = pool.options.get(request.key)?.indexOf(sourceId) ?? -1
@@ -446,7 +467,9 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
         // The cover can arrive before other downloads. Check deduplication again when each file is ready.
         await Promise.all(selected.map(async ({ request, candidate, match }) => {
           try {
+            trace('download_start', request, candidate)
             const image = examined.get(candidate.credit.sourceId) ?? await preparedImage(pool, candidate, phase, match.classification === 'confirmed')
+            trace('download_ready', request, candidate)
             examined.delete(candidate.credit.sourceId)
             phase.throwIfAborted()
             const shown = provisionalIds.get(request.key) === candidate.credit.sourceId
@@ -454,12 +477,15 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
             const comparableUsed = shown && shownKeys ? new Set([...used].filter(key => !shownKeys.has(key))) : used
             if (image.keys.some(key => (used.has(key) && !(shown && shownKeys?.has(key))) || request.discarded.has(key)) || image.fingerprint &&
                 (similarImage(image.fingerprint, comparableUsed, image.fingerprintVertical) ||
-                  similarImage(image.fingerprint, request.discarded, image.fingerprintVertical))) return
+                  similarImage(image.fingerprint, request.discarded, image.fingerprintVertical))) {
+              trace('discard', request, candidate, 'duplicate_pixels_or_manual_discard'); return
+            }
             emit(request, image, match, candidate.credit.sourceId)
+            trace('allocated', request, candidate, match.classification)
             if (candidate.document && !candidate.remembered && ['original', 'official'].includes(candidate.document.provider)) {
               void rememberVisual(scope, candidate.document, candidate.credit, image.file).catch(() => undefined)
             }
-          } catch { failed = true }
+          } catch (cause) { recordFailure(cause); trace('download_failed', request, candidate, failureKind(cause)) }
         }))
       }
     })
@@ -484,20 +510,26 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       const discovery = await discover(pool, originalPage, JSON.stringify([source.url, preferredImages]), { url: source.url, title: source.title || undefined,
         image: first ? campaign.sourceImage : undefined, primary: first,
         preferredImages: preferredImages.length ? preferredImages : undefined }, fast)
+      if (discovery.state === 'blocked') failures.add('blocked')
+      if (discovery.state === 'unavailable') failures.add('connection')
       if (first) pool.complement = discovery
       await allocate(false, fast)
-    } catch { if (!fast.aborted) failed = true }
+    } catch (cause) { if (!signal.aborted) recordFailure(cause) }
   }
   const braveWork = async (kind: BraveQuery['kind'], query: string, phase: AbortSignal) => {
     if (phase.aborted || workerBlockedUntil > Date.now() || braveBlockedUntil > Date.now() || !remaining.size) return
-    const key = kind + ':' + phraseKey(query)
-    if (!pool.braveQueries.has(key) && pool.braveQueries.size >= 5) return
+    const key = visualQueryKey(kind, query)
+    if (!pool.braveQueries.has(key) && pool.braveQueries.size >= 5) { failures.add('limited'); return }
     pool.braveQueries.add(key)
     try {
       braveChecks++
-      await searchBrave(pool, campaign, kind, query, phase)
+      const result = await searchBrave(pool, campaign, kind, query, phase)
+      if (result.state === 'limited') failures.add('limited')
+      if (result.state === 'unavailable') failures.add('connection')
       await allocate(false, phase)
-    } catch { if (!phase.aborted) failed = true }
+      return { kind, query, cause: result.state === 'blocked' ? 'blocked' :
+        failures.has('download') ? 'download' : result.candidates.length ? 'unusable' : 'empty' } as SearchOutcome
+    } catch (cause) { if (!signal.aborted) recordFailure(cause) }
   }
 
   try {
@@ -519,26 +551,22 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       if (sources.length) await sourceWork(sources[0])
       if (remaining.size) await Promise.all(sources.slice(1).map(sourceWork))
     }
-    if (campaign.query && remaining.size && !fast.aborted) {
-      const started = Date.now()
-      await braveWork('web', campaign.query, fast)
-      if (remaining.size && braveBlockedUntil <= Date.now() && workerBlockedUntil <= Date.now()) {
-        await pause(Math.max(0, 1150 - (Date.now() - started)), fast)
-        await braveWork('images', campaign.query, fast)
-      }
-    }
     await allocate(true, fast.aborted ? deadline : fast)
-    const queried = new Set([campaign.query])
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const details = prioritizedImageQueries([...remaining], queried)
-      const query = [...details, ...campaign.extraQueries].find(value => !queried.has(value))
-      if (!query) break
-      queried.add(query)
-      if (!remaining.size || deadline.aborted || braveBlockedUntil > Date.now() || workerBlockedUntil > Date.now()) break
-      if (performance.now() - initial < 1500) await pause(1150, deadline)
-      else await pause(1050, deadline)
-      await braveWork('images', query, deadline)
+    const queried = new Set<string>()
+    let outcome: SearchOutcome | undefined
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const pending = [...remaining].sort((a, b) => Number(provisionalIds.has(a.key)) - Number(provisionalIds.has(b.key)))
+      const next = nextVisualQuery(pending, queried, outcome)
+      if (!next || !remaining.size || deadline.aborted || braveBlockedUntil > Date.now() || workerBlockedUntil > Date.now()) break
+      queried.add(visualQueryKey(next.kind, next.query))
+      // The provider queue already enforces spacing; a second sleep wasted time.
+      const previousOutcome = outcome
+      outcome = await braveWork(next.kind, next.query, deadline)
       await allocate(true, deadline)
+      // Two channels with candidates but no eligible object need better editorial
+      // evidence, not another equivalent headline. Proceed to licensed photographs.
+      if (next.kind === 'web' && previousOutcome?.cause === 'unusable' && outcome?.cause === 'unusable' &&
+          ![...remaining].some(request => [...pool.candidates.values()].some(candidate => relevance(candidate, request)))) break
     }
     // Openverse is shared support. Duplicate queries share one response and all results enter the same pool.
     const targets = [...remaining].slice(0, 5)
@@ -550,7 +578,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
             await catalog(request, pool, deadline, query)
             discovered = true
             await allocate(true, deadline)
-          } catch { failed = true }
+          } catch (cause) { recordFailure(cause) }
           if (!remaining.has(request) || deadline.aborted) break
         }
       }))
@@ -580,7 +608,8 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     performance.clearMeasures('post-machine:visual:settled')
     performance.measure('post-machine:visual:settled', { start: initial, end: performance.now(),
       detail: { slides: requests.length, pending: remaining.size, sourceChecks, braveChecks, catalogChecks, extraChecks, downloadAttempts: downloads } })
-    for (const request of remaining) config.finish(request, failed && !discovered ? 'error' : 'empty')
+    for (const request of remaining) config.finish(request, deadline.aborted ? 'timeout' :
+      [...failures][0] ?? (pool.candidates.size ? 'insufficient' : failed && !discovered ? 'connection' : 'empty'))
   }
 }
 

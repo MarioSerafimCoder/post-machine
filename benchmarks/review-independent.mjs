@@ -2,7 +2,8 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { createCanvas, loadImage } from '@napi-rs/canvas'
 
 const cache = new URL('./.cache/', import.meta.url)
-const rows = JSON.parse(await readFile(new URL('independent-network.json', cache), 'utf8'))
+const prefix = process.argv.find(arg => arg.startsWith('--prefix='))?.slice(9) ?? 'independent'
+const rows = JSON.parse(await readFile(new URL(prefix + '-network.json', cache), 'utf8'))
 const sheet = createCanvas(1200, 1500)
 const draw = sheet.getContext('2d')
 draw.fillStyle = 'white'
@@ -49,6 +50,6 @@ for (let offset = 0; offset < rows.length; offset += 3) {
     selected.push({ index, ...credit })
   }
 }
-await writeFile(new URL('independent-contact.jpg', cache), sheet.toBuffer('image/jpeg'))
-await writeFile(new URL('independent-selection.json', cache), JSON.stringify(selected, null, 2))
+await writeFile(new URL(prefix + '-contact.jpg', cache), sheet.toBuffer('image/jpeg'))
+await writeFile(new URL(prefix + '-selection.json', cache), JSON.stringify(selected, null, 2))
 console.log(JSON.stringify({ downloaded: selected.filter(row => row.url).length, missing: selected.filter(row => row.missing).length }))

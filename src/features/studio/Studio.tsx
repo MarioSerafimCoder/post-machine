@@ -1,3 +1,5 @@
+import { useStudioShortcuts } from './useStudioShortcuts'
+import { isSearchFailure } from '../images/searchDiagnostics'
 import { ContextHeader, ContextRail, type ContextTool } from '../../components/ContextRail'
 import { StudioImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
@@ -31,7 +33,7 @@ import { ActiveSelection, Canvas, FabricImage, Textbox } from 'fabric'
 import { CanvasView } from './CanvasView'
 import { Properties } from './Properties'
 import { newProjectIdentity, defaultBrand, emptySlide, dimensions, formatNames, newProject, newProjectBrand, type Format, type Project } from './model'
-import { addObject, duplicate, sceneOf } from './objects'
+import { addObject, sceneOf } from './objects'
 import { cropImage, readImage } from './images'
 import './studio.css'
 import { AuditPanel } from '../audit/AuditPanel'
@@ -256,23 +258,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     chooseSlide(index >= 0 ? index : Math.min(currentRef.current, next.slides.length - 1))
     setRevision(value => value + 1)
   }
-  const historyKey = useEffectEvent(moveHistory)
-  useEffect(() => {
-    if (!active) return
-    const key = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || resolvePage(window.location.hash) !== 'studio' || document.querySelector('dialog[open]') || !canvas.current || event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable=true]')) return
-      const selected = canvas.current.getActiveObject()
-      if (selected instanceof Textbox && selected.isEditing) return
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); historyKey(event.shiftKey); return }
-      if (event.key === 'Delete' && selected) { event.preventDefault(); canvas.current.remove(...canvas.current.getActiveObjects()); canvas.current.discardActiveObject(); changed() }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd' && selected) {
-        const target = canvas.current
-        event.preventDefault()
-        void duplicate(target).then(() => { if (canvas.current === target) changed() }, () => setError('Não foi possível duplicar o elemento.'))
-      }
-    }
-    window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key)
-  }, [active, changed])
+  useStudioShortcuts(active, canvas, changed, moveHistory, setError)
   function replace(value: Project, fromStorage = false) { setProject(value, !fromStorage, fromStorage); setRevision(n => n + 1) }
   function chooseSlide(index: number, projectId = project?.id) {
     currentRef.current = index
@@ -887,7 +873,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         setPanel('Imagens')
         if (operation === 'empty') openImages('search', index)
         else if (operation === 'error') {
-          const failed = new Set(frameTargets.filter(item => autoSearch.status(item) === 'error').map(item => item.key))
+          const failed = new Set(frameTargets.filter(item => isSearchFailure(autoSearch.status(item))).map(item => item.key))
           setProject(latest => latest && ({ ...latest, slides: latest.slides.map(slide =>
             slide.visualChoice?.mode === 'automatic' && failed.has(latest.id + '/' + slide.id)
               ? { ...slide, visualChoice: { ...slide.visualChoice, revision: (slide.visualChoice.revision ?? 0) + 1 } } : slide) }))

@@ -185,6 +185,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
     title: image.title ?? title, description: image.description ?? description, publishedAt,
     width: image.width ?? (image.evidence === 'social' ? ogWidth : undefined),
     height: image.height ?? (image.evidence === 'social' ? ogHeight : undefined),
-    caption: text(figure ? captions.get(figure) : undefined, 600) ?? image.caption }]),
+    // Attribution-only figcaptions must not erase the object's alt description.
+    caption: text([...new Set([image.caption, figure ? captions.get(figure) : undefined].filter(Boolean))].join(' '), 600) }]),
     links: [...links], title, requiresRendering, channelId }
 }

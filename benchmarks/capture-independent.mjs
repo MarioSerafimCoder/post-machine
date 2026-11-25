@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { build } from 'esbuild'
 import { Miniflare } from 'miniflare'
 import independent from './independent-sample.json' with { type: 'json' }
@@ -25,7 +25,9 @@ const harness = await build({ stdin: { resolveDir: '.', contents: `
 ` }, bundle: true, write: false, format: 'esm' })
 const runtime = new Miniflare({ workers: [{ config: { name: 'independent-visual', compatibilityDate: '2026-11-13',
   manifest: { mainModule: 'index.mjs', modules: { 'index.mjs': { type: 'esm', contents: harness.outputFiles[0].text } } } } }] })
-const rows = process.argv.includes('--regression') ? regression.filter(row => row.status === 'body_limit') : independent
+const samplePath = process.argv.find(arg => arg.startsWith('--sample='))?.slice(9)
+const outputName = process.argv.find(arg => arg.startsWith('--output='))?.slice(9)
+const rows = samplePath ? JSON.parse(await readFile(samplePath, 'utf8')) : process.argv.includes('--regression') ? regression.filter(row => row.status === 'body_limit') : independent
 async function sample(row) {
   const started = performance.now()
   try {
@@ -58,7 +60,7 @@ async function sample(row) {
 try {
   const results = []
   for (let offset = 0; offset < rows.length; offset += 3) results.push(...await Promise.all(rows.slice(offset, offset + 3).map(sample)))
-  const name = process.argv.includes('--regression') ? 'regression-large-pages.json' : 'independent-network.json'
+  const name = outputName ?? (process.argv.includes('--regression') ? 'regression-large-pages.json' : 'independent-network.json')
   await writeFile(new URL(name, file), JSON.stringify(results, null, 2))
   console.log(JSON.stringify({ sample: results.length, parsed: results.filter(row => row.recovered !== undefined).length,
     withEligible: results.filter(row => row.candidates?.length).length, overPreviousLimit: results.filter(row => row.bytes > 1_800_000).length }))

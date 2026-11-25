@@ -80,7 +80,7 @@ export function fromCampaign(draft: Draft, brand: Brand, preferred?: Template, f
     }
     const title = scene.objects.find(object => object.semantic === 'title')
     if (title && s.headlines) title.headlines = structuredClone(s.headlines)
-    return { id: crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, visualSubtitle: s.subtitle, visualContext: s.visualContext, scene,
+    return { id: s.id ?? crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, visualSubtitle: s.subtitle, visualContext: s.visualContext, scene,
       ...((layout === 'photo' || layout === 'split') && query ? { visualChoice: { mode: 'automatic' as const } } : {}) }
   })
   return project

@@ -33,9 +33,9 @@ describe('inteligência visual documental', () => {
   })
   it('rejeita Natal genérico e material do desfile mesmo quando a página menciona o filme', () => {
     expect(evaluateCandidate({ ...film, page: 'https://www.flickr.com/photo', provider: 'brave', evidence: 'search',
-      title: 'Christmas puppets in New York', caption: undefined }, request)).toEqual({ score: 0, rejected: true })
-    expect(evaluateCandidate({ ...film, caption: 'Road Trip to Parade: GEICO float' }, request)).toEqual({ score: 0, rejected: true })
-    expect(evaluateCandidate({ ...film, caption: 'Frame do filme “Winter Adventure”' }, request)).toEqual({ score: 0, rejected: true })
+      title: 'Christmas puppets in New York', caption: undefined }, request)).toMatchObject({ score: 0, rejected: true })
+    expect(evaluateCandidate({ ...film, caption: 'Road Trip to Parade: GEICO float' }, request)).toMatchObject({ score: 0, rejected: true })
+    expect(evaluateCandidate({ ...film, caption: 'Frame do filme “Winter Adventure”' }, request)).toMatchObject({ score: 0, rejected: true })
     expect(evaluateCandidate({ ...film, provider: 'brave', evidence: 'search' }, request)).toMatchObject({ match: { classification: 'related' } })
   })
   it('reconhece campanhas animadas reais e reserva os bastidores para a peça que os pede', () => {
@@ -56,7 +56,7 @@ describe('inteligência visual documental', () => {
     const car = { ...film, page: 'https://images.example.test/article', provider: 'brave' as const,
       evidence: 'search' as const, url: 'https://images.example.test/mclaren-race-car.jpg', caption: undefined,
       title: 'McLaren 750S racing on track', description: 'A sports car at the circuit' }
-    expect(evaluateCandidate(car, markRequest)).toEqual({ score: 0, rejected: true })
+    expect(evaluateCandidate(car, markRequest)).toMatchObject({ score: 0, rejected: true })
 
     const packageCopy = { title: 'A nova embalagem', imageBrief: 'Vista frontal da embalagem de varejo Riff' }
     const packaging = campaignContext({ title: 'A Riff apresenta novas embalagens', visual: {
@@ -66,7 +66,7 @@ describe('inteligência visual documental', () => {
     const facade = { ...car, url: 'https://images.example.test/riff-campus.jpg', title: 'Riff headquarters exterior',
       description: 'The company headquarters and office facade' }
     expect(packageRequest.imageQueries[0]).toMatch(/Riff.*embalagem/i)
-    expect(evaluateCandidate(facade, packageRequest)).toEqual({ score: 0, rejected: true })
+    expect(evaluateCandidate(facade, packageRequest)).toMatchObject({ score: 0, rejected: true })
   })
   it('usa metadados textuais do resultado Brave e distribui as consultas entre slides pendentes', () => {
     const searchTitle = evaluateCandidate({ ...film, page: 'https://press.example.com/story', provider: 'brave', evidence: 'search',

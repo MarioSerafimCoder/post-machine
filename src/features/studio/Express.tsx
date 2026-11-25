@@ -1,3 +1,5 @@
+import { imagePhoto } from './expressPhoto'
+import { isSearchFailure } from '../images/searchDiagnostics'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
 import { maxImport, maxSlides, type Content, type Draft } from '../campaigns/contract'
@@ -8,12 +10,11 @@ import { ImageLibrary } from '../images/ImageLibrary'
 import { editorialImageQuery } from '../images/editorialQuery'
 import type { ImageCredit } from '../images/contract'
 import { importVisualUrl } from '../images/searchOrchestrator'
-import { collections, type CollectionSlide, collectionBrand, prepareCollectionImage } from './collections'
+import { collections, type CollectionSlide, collectionBrand } from './collections'
 import { CollectionGallery } from './CollectionGallery'
 import { bodyLimit, fromStructured, parseExpress, titleLimit } from './expressContent'
 import { fabricate, planFactoryImages, recompose, type Fabrication, type FactoryInput, type Proposal } from './factory/fabricate'
 import { divideBody, type Input } from './factory/planning'
-import { readImage } from './images'
 import { dimensions, formatNames, type Brand, type Format, type Project } from './model'
 import { ProposalReview } from './factory/ProposalReview'
 import { useAssistantSignal } from '../intelligence/signals'
@@ -43,7 +44,10 @@ const noFlush = async () => {}
 const maxImages = 30
 const maxImageBytes = 80_000_000
 const key = () => crypto.randomUUID()
-const entry = (data: CollectionSlide = { title:'', body:'' }): Entry => ({ ...data, key:key() })
+const entry = (data: CollectionSlide = { title:'', body:'' }): Entry => {
+  const id = data.id ?? key()
+  return { ...data, id, key: id }
+}
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : String(cause)
 export function Express({ active, brand, campaign, originMode, format: initialFormat, cancel, open, editTemplate }: {
   active: boolean; brand: Brand; campaign?: Draft; originMode?: 'import' | 'blank'; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
@@ -229,7 +233,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     const discardedVisuals = current && current !== photo
       ? rememberRejectedVisual(slide.discardedVisuals, current.object.imageCredit as ImageCredit | undefined, current.automatic?.match)
       : slide.discardedVisuals
-    change(slide.key, { imageId: id, imageLocked: false,
+    change(slide.key, { imageId: id, imageLocked: false, needsImageReview: false,
       discardedVisuals,
       visualDecision: current && current !== photo ? photo ? 'replaced' : 'rejected'
         : photo?.automatic ? 'approved' : slide.visualDecision,
@@ -290,18 +294,6 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     setError('')
   }
 
-  async function imagePhoto(file: File, credit?: ImageCredit, signal?: AbortSignal): Promise<Photo> {
-    const buffer = await file.arrayBuffer()
-    const hash = new Uint8Array(await crypto.subtle.digest('SHA-256',buffer))
-    const id = Array.from(hash, byte => byte.toString(16).padStart(2,'0')).join('')
-    signal?.throwIfAborted()
-    const image = await readImage(file)
-    try {
-      signal?.throwIfAborted()
-      if (credit) image.set({ imageCredit: credit })
-      return { id, name:file.name, bytes:file.size, object:prepareCollectionImage(image), file }
-    } finally { image.dispose() }
-  }
   async function addPhotos(files: File[], credit?: ImageCredit, signal?: AbortSignal, slideKey?: string) {
     if (operation.current) throw Error('Aguarde a importação atual.')
     if (files.length > maxImages) throw Error(`Selecione até ${maxImages} imagens por vez.`)
@@ -434,7 +426,13 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     setBusy(true); setError(''); operation.current = true
     try {
       if (draftGate === 'ready') await draftQueue.flush(slot)
-      const sourceContent = linked?.content ?? importedContent
+      const originalContent = linked?.content ?? importedContent
+      const sourceContent = originalContent && { ...originalContent,
+        slides: slides.map((slide, index) => ({ id: slide.key, order: index + 1,
+          role: slide.role ?? (index === 0 ? 'cover' as const : 'content' as const), title: slide.title,
+          subtitle: slide.subtitle, body: slide.body, imageBrief: slide.imageBrief ?? '',
+          layoutType: slide.layoutType ?? (slide.imageId === null ? 'text' : 'editorial'),
+          visualContext: slide.visualContext, headlines: slide.headlines })) }
       const project = {
         ...proposal.project, id: projectId, name:(name.trim() || slides[0]?.title.trim() || 'Novo carrossel').slice(0,100),
         caption, campaignId:linked?.id ?? null, campaignUpdatedAt:linked?.updatedAt ?? null,
@@ -447,7 +445,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
         const entry = slides[index]
         const image = frameImage(slide.scene)
         const request = frameRequest(project, slide, research)
-        const state = { revision: entry.searchRevision, discarded: entry.discardedVisuals, decision: entry.visualDecision }
+        const state = { revision: entry.searchRevision, discarded: entry.discardedVisuals, decision: entry.visualDecision, reviewRequired: entry.needsImageReview }
         const auto = automaticBySlide.get(entry.key)?.automatic
         if (entry.imageId === null) return rewriteVisualFrame(slide, { ...state, mode: 'none' })
         if (image && (entry.imageId || localPlan[index]?.picture)) {
@@ -522,8 +520,8 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     },
   } : undefined)
 
-  const interrupted = requests.filter(item => search.status(item) === 'error')
-  const missing = requests.filter(item => search.status(item) === 'empty')
+  const interrupted = requests.filter(item => isSearchFailure(search.status(item)) && search.status(item) !== 'insufficient')
+  const missing = requests.filter(item => ['empty', 'insufficient'].includes(search.status(item) ?? ''))
   let panel: ReactNode
   if (step === 'Conteúdo') panel = <div className="express-content">
     <div className="express-paste">
@@ -578,7 +576,8 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
       <label>Subtítulo<input value={slide.subtitle ?? ''} onChange={event => change(slide.key,{subtitle:event.target.value})} /></label>
       <label>Texto<textarea id={'express-edit-text-' + index} rows={3} value={slide.body} onChange={event => change(slide.key,{body:event.target.value})} /></label>
         <label>Chamada para ação<input value={slide.cta ?? ''} onChange={event => change(slide.key,{cta:event.target.value})} /></label>
-        <label>Briefing de imagem<input value={slide.imageBrief ?? ''} onChange={event => change(slide.key,{imageBrief:event.target.value})} /></label>
+        {slide.needsImageReview && <p role="status">O contexto visual mudou. Revise a imagem escolhida.</p>}
+        <label>Briefing de imagem<input value={slide.imageBrief ?? ''} onChange={event => change(slide.key,{imageBrief:event.target.value, needsImageReview:true})} /></label>
         {(automaticBySlide.has(slide.key) || requests.some(item => item.slideId === slide.key)) && <div className="express-image-match">
           {automaticBySlide.has(slide.key) ? <img src={String(automaticBySlide.get(slide.key)?.object.src)} alt="" /> :
             <span className="visual-search-placeholder" aria-hidden="true" />}
@@ -834,10 +833,15 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
             setOrigin('openverse')
             setImageBriefSlide(missing[0].slideId)
           }}>Escolher imagem · {missing.length}</button>}
-          {interrupted.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
-            const keys = new Set(interrupted.map(item => item.slideId))
+          {missing.length + interrupted.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
+            const pending = new Set([...missing, ...interrupted].map(item => item.slideId))
+            setSlides(items => items.map(slide => pending.has(slide.key) ? { ...slide, imageId: null } : slide))
+            setStatus('Peças pendentes definidas sem imagem. Confira a composição na prévia.')
+          }}>Usar somente texto nas pendentes</button>}
+          {interrupted.length + missing.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
+            const keys = new Set([...interrupted, ...missing].map(item => item.slideId))
             setSlides(items => items.map(slide => keys.has(slide.key) ? { ...slide, searchRevision: (slide.searchRevision ?? 0) + 1 } : slide))
-          }}>Tentar novamente · {interrupted.length}</button>}
+          }}>Buscar imagens pendentes · {interrupted.length + missing.length}</button>}
         </div>}
         <div className="express-stage" key={step} inert={step === 'Conteúdo' && progress !== undefined}>{panel}</div>
         {step !== 'Prévia' && (step !== 'Conteúdo' || editingSlides) && <div className="collection-actions express-next">

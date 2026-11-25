@@ -157,7 +157,7 @@ export default {
           [{ url: input.image, page: page.href, provider, evidence: 'feed', title: input.title }] : []
         let extraction: Awaited<ReturnType<typeof pageImages>>
         try { extraction = await pageImages(page, provider, hosts, signal) }
-        catch { return json({ candidates: await candidates(feed, person, env, key), partial: true }) }
+        catch { return json({ candidates: await candidates(feed, person, env, key), partial: true, state: 'unavailable' }) }
         const link = extraction.links.map(url => externalUrl(url, hosts)).find(url => url &&
           (url.hostname === page.hostname || official(url, env)))
         const related = link && !signal.aborted ? await pageImages(link, official(link, env) ? 'official' : provider, hosts, signal)
@@ -171,7 +171,7 @@ export default {
         const channelTicket = input.primary && audiovisualEnabled(env) && extraction.channelId &&
           await issueTicket(extraction.channelId, person, key, 'channel') || undefined
         const preferred = new Set(input.preferredImages?.flatMap(raw => externalUrl(raw, hosts)?.href ?? []) ?? [])
-        return json({ candidates: await candidates(images, person, env, key, preferred), renderTicket, channelTicket,
+        return json({ state: extraction.blocked ? 'blocked' : 'ok', candidates: await candidates(images, person, env, key, preferred), renderTicket, channelTicket,
           audiovisualAvailable: input.primary && !extraction.blocked && audiovisualEnabled(env) ? true : undefined })
       }
       if (env.BRAVE_VISUAL_ZERO_SPEND !== 'confirmed' || !env.BRAVE_SEARCH_API_KEY) return json({ state: 'disabled', candidates: [] })

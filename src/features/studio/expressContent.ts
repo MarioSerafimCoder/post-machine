@@ -8,7 +8,7 @@ export const bodyLimit = 8000
 
 export function fromStructured(content: Content, briefing?: Briefing) {
   return content.slides.map(slide => ({
-    title: slide.title, subtitle: slide.subtitle, body: slide.body, role: slide.role, imageBrief: slide.imageBrief, visualContext: slide.visualContext,
+    id: slide.id, layoutType: slide.layoutType, title: slide.title, subtitle: slide.subtitle, body: slide.body, role: slide.role, imageBrief: slide.imageBrief, visualContext: slide.visualContext,
     headlines: slide.headlines, cta: slide.role === 'cta' || content.slides.length === 1 ? content.campaign.cta : '',
     ...(textLayout(slide.layoutType) ? { imageId: null } : {}),
     intent: explicitIntent(slide.layoutType) ?? (slide.role === 'content' && briefing?.approach === 'Comparação' &&

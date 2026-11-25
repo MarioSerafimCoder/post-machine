@@ -124,3 +124,63 @@ node benchmarks/run-visual.mjs --models
 ```
 
 A primeira execução registra as consultas do corpus, e `--catalog` captura as respostas com intervalos de 3,4 s. O coletor encerra em HTTP 429 e limita a captura a 120 buscas por execução. `--ocr` repete apenas a avaliação de texto. Os manifestos de revisão dos pesos, os candidatos baixados e os resultados ficam em diretórios locais. O repositório versiona os IDs, URLs públicas, rótulos e os scripts.
+
+
+## Evolução 13 — 25/11/2026
+
+O replay de regressão (`node benchmarks/run-visual.mjs`) preservou 32 atribuições corretas de 32 em 44 slides: precisão observada 100%, cobertura documental e visual 72,7%, 12 vazios, zero incorretas. Os valores são iguais ao estado anterior desta evolução. Nenhuma imagem de apoio adicional foi selecionada nesse recorte.
+
+A amostra inédita `benchmarks/evolution13-sample.json` reúne oito pautas da edição local que não pertencem aos corpora documental, independente ou de consolidação anteriores. Inclui evento de motion design, ferramenta de web design, oferta de frame, três campanhas publicitárias e duas pautas Adobe. É uma amostra exploratória de capas, concentrada em dois veículos, não uma homologação de carrosséis longos. O caso promocional foi mantido no denominador.
+
+A captura real de oito páginas recuperou oito HTMLs e cinco imagens pertinentes baixáveis e decodificáveis, inspecionadas na folha de contato. São registros das pautas, inclusive material gráfico da campanha Adobe; não são substitutos inventados para documentos ausentes. Três páginas excedem o antigo limite de 1,8 MB, mas passam no limite atual. Os três vazios correspondem à ferramenta de web design, oferta de frame e crítica ao Firefly: nenhum candidato recuperado passou pelos filtros atuais. Não foi acrescida uma origem autorizada sem evidência de necessidade.
+
+Comparação pareada do orquestrador de `b6861d7` com a implementação local, usando os mesmos cinco candidatos revisados e tempos de extração gravados:
+
+| Métrica | Antes | Depois |
+| --- | ---: | ---: |
+| Precisão documental observada | 5/5 (100%) | 5/5 (100%) |
+| Cobertura documental | 5/8 (62,5%) | 5/8 (62,5%) |
+| Apoio editorial adicional | 0/8 | 0/8 |
+| Cobertura visual por imagem | 5/8 (62,5%) | 5/8 (62,5%) |
+| Vazios / incorretas | 3 / 0 | 3 / 0 |
+| Mediana até a primeira imagem, somente preenchidos | 1,092 s | 1,100 s |
+| Mediana do tempo total, oito pautas | 1,104 s | 1,105 s |
+| Maior tempo total | 1,754 s | 1,747 s |
+| Tentativas Brave / consultas reais nesse replay | 3 / 0 | 3 / 0 |
+| Custo adicional | R$ 0 | R$ 0 |
+
+No replay, Brave responde desativada e Openverse responde vazio. Portanto, a comparação valida preservação da extração e aplicação progressiva, mas não mede ganho de consultas Brave ao vivo nem reutilização comercial dos provedores. O teste não inclui custos de API: a captura usa páginas públicas e arquivos públicos, e o replay é local. Oferecer uma composição textual não foi contado como cobertura visual concluída. As metas de precisão ≥98% e cobertura adequada ≥90% não estão comprovadas em produção; a cobertura ficou abaixo da meta nas duas amostras, sem relaxamento da classificação. A redistribuição precisa de uma rodada real controlada com a franquia gratuita existente para demonstrar ganho.
+
+Reprodução com as ferramentas existentes:
+
+```sh
+node benchmarks/capture-independent.mjs --sample=benchmarks/evolution13-sample.json --output=evolution13-network.json
+node benchmarks/review-independent.mjs --prefix=evolution13
+node benchmarks/replay-captured.mjs --prefix=evolution13
+```
+
+Rasters, folha de contato, capturas e resultados completos permanecem em `benchmarks/.cache`, fora dos arquivos versionados. O script de replay arquiva o `HEAD` na primeira execução como baseline; a comparação registrada aqui usou `b6861d7`. Nova coleta pela rede pode devolver conteúdo e disponibilidade diferentes e requer nova inspeção das seleções antes de comparar precisão.
+# Evolução 13.1 — 25/11/2026
+
+O painel Brave confirmou US$ 4,90 de crédito gratuito, US$ 0 comprado e recarga automática desligada antes da captura. O preço Search publicado é US$ 5/1000 consultas. O diagnóstico usou dez consultas reais na fase de captura e desenvolvimento (US$ 0,05 do crédito concedido, custo adicional R$ 0), com teto local de 60 consultas e reserva de US$ 0,50. A comparação abaixo reproduz os mesmos retornos de rede guardados em `benchmarks/.cache/evolution131/`; não cobra novas consultas. O arquivo local da chave e os HTMLs/rasters são ignorados pelo Git.
+
+| Medida | Antes, evolução 13 | Após 13.1 |
+| --- | ---: | ---: |
+| Slides com imagem documental pertinente | 10/12 (83,3%) | 10/12 (83,3%) |
+| Precisão documental observada | 10/10 (100%) | 10/10 (100%) |
+| Cobertura editorial por fotografia | 0/12 | 0/12 |
+| Cobertura visual total por imagem | 10/12 (83,3%) | 10/12 (83,3%) |
+| Slides sem imagem | 2 | 2 |
+| Mediana até primeira imagem, entre preenchidos | 0,834 s | 0,797 s |
+| Mediana total, 12 slides | 1,096 s | 0,893 s |
+| Média total, 12 slides | 1,550 s | 1,617 s |
+| Consultas no replay pareado | 4 Images | 2 Images + 2 Web |
+| Custo adicional | R$ 0 | R$ 0 |
+
+A amostra tem oito pautas já usadas na evolução 13 e quatro matérias de feeds recentes; portanto mede regressão comparável e comportamento em casos adicionais, não generalização de 98% em produção. As imagens aplicadas foram inspecionadas como contato visual local. A única seleção nova de um ensaio intermediário era uma obra alheia em uma matéria sobre molduras; ela motivou reverter o afrouxamento, não foi incluída no resultado final. A amostra de um slide por pauta não mede reaproveitamento entre vários slides. O replay preserva respostas e tempo de cada requisição capturada; diferenças de renderização local e carga do navegador ainda influem nos milissegundos.
+
+Os dois vazios são as matérias sobre ferramenta de web design e moldura digital: HTML e Brave entregaram imagens, mas os metadados não provaram que uma imagem representa o objeto específico. Na ferramenta, o `alt` descreve genericamente capturas de software. Na moldura, a legenda de uma imagem em destaque descreve uma moldura embora o raster mostre outra obra; usar só a legenda causaria falso positivo. Há URLs de outros hosts bloqueadas durante a pesquisa, mas não explicam os dois vazios: os resultados da página original também foram rejeitados por evidência insuficiente. Não houve falha de download nos dez arquivos finais. As razões de cada candidato, as consultas e o tempo de cada etapa estão nos relatórios locais `before-replay.json` e `after-replay.json`. O limite de 24 candidatos por resposta e 3 MB por HTML continua em vigor.
+
+O Radar foi avaliado com 114 notícias publicadas nos 14 dias anteriores à coleta local, reunindo feeds acessíveis e o snapshot existente. A rubrica manual de título e resumo usa grau 2 para produção/cultura visual direta, 1 para contexto criativo e 0 para comércio, finanças ou audiência sem análise visual. No topo de 20 notícias: grau 2, 13→17; grau 0, 3→0; NDCG@20, 0,745→0,930. Exemplos rebaixados corretamente: receita publicitária da Best Buy e ofertas de laptops. Exemplos antes baixos: identidade da Carling, tipografia recuperada e desenho editorial. Pesos mantidos; somente expressões de contexto e promoção foram alteradas. A etiqueta e o snapshot têm autoria/metodologia no arquivo `benchmarks/evolution131-radar-review.json`. Essa rubrica depende de julgamento humano e da edição; não foi apresentada como verdade factual do conteúdo integral.
+
+Reprodução local sem consumo: `node benchmarks/diagnose-visual.mjs --before`, `node benchmarks/diagnose-visual.mjs`, `node benchmarks/audit-radar.mjs`. A captura `--live` só é permitida com orçamento verificado no painel e arquivo local de chave, e incrementa o ledger antes de cada consulta. O catálogo Openverse foi consultado sem custo e não gerou apoio elegível nos dois vazios. O código de produção mantém Access, lista de origens, DNS público, redirects controlados e assinatura dos rasters.

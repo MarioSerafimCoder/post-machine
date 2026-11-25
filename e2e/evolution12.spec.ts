@@ -61,7 +61,7 @@ test('cola, busca em paralelo, usa apoio editorial e retoma escolhas e créditos
   await button(page, 'Imagens').click()
   release()
   await expect(exactStatus(page, 'Imagem encontrada').nth(1)).toBeVisible()
-  await expect(exactStatus(page, 'Nenhuma imagem adequada encontrada.')).toBeVisible()
+  await expect(exactStatus(page, 'As imagens encontradas não têm evidência suficiente. Escolha uma imagem ou use somente texto.')).toBeVisible()
   await button(page, 'Escolher imagem · 1').click()
   await expect(page.getByLabel('Buscar pelo conteúdo do slide').locator('option:checked')).toContainText('Cidade abstrata')
   await page.screenshot({ path: info.outputPath('apoio-editorial.png'), fullPage: true })

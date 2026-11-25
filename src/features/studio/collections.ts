@@ -90,6 +90,7 @@ export const collections = [
 ]
 
 export type CollectionSlide = {
+  id?: string; layoutType?: string
   title: string; subtitle?: string; emphasis?: string; body: string; cta?: string; imageBrief?: string
   role?: 'cover' | 'content' | 'cta'; composition?: number; image?: Record<string, unknown>
   intent?: 'highlight' | 'comparison'; framing?: 'cover' | 'contain'

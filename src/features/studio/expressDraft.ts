@@ -7,7 +7,7 @@ import type { VisualDecision, VisualMatch } from '../images/automaticSearch'
 import type { FocalPoint } from './vision/signals'
 
 export type ExpressSlide = CollectionSlide & { key: string; imageId?: string | null; ignoreVisual?: boolean;
-  imageLocked?: boolean; searchRevision?: number; discardedVisuals?: string[]; visualDecision?: VisualDecision }
+  needsImageReview?: boolean; imageLocked?: boolean; searchRevision?: number; discardedVisuals?: string[]; visualDecision?: VisualDecision }
 export type ExpressPhoto = { id: string; name: string; bytes: number; object: Record<string, unknown>; file: Blob
   automatic?: { slideKey: string; signature: string; match: VisualMatch; focalPoint?: FocalPoint }
 }
@@ -120,16 +120,27 @@ export function reconcileExpressSlides(values: Input[], previous: ExpressSlide[]
     const id = signature(slide)
     counts.set(id, (counts.get(id) ?? 0) + 1)
   }
+  const identities = new Map<string, ExpressSlide[]>()
+  const incoming = new Map<string, number>()
+  for (const slide of previous) identities.set(slide.key, [...identities.get(slide.key) ?? [], slide])
+  for (const slide of values) if (slide.id) incoming.set(slide.id, (incoming.get(slide.id) ?? 0) + 1)
+  const used = new Set<string>()
   return values.map(slide => {
-    const id = signature(slide)
-    const candidates = matches.get(id)
-    const match = candidates?.length === 1 && counts.get(id) === 1 ? candidates[0] : undefined
+    const signatureId = signature(slide)
+    const candidates = slide.id ? identities.get(slide.id) : matches.get(signatureId)
+    const unique = slide.id ? incoming.get(slide.id) === 1 : counts.get(signatureId) === 1
+    const match = unique && candidates?.length === 1 && !used.has(candidates[0].key) ? candidates[0] : undefined
+    const key = match?.key ?? (slide.id && incoming.get(slide.id) === 1 ? slide.id : newKey())
+    used.add(key)
     const importedImageId = slide.imageId === null ? null : undefined
     const imageId = match?.imageId !== undefined ? match.imageId : importedImageId
-    return { ...slide, key: match?.key ?? newKey(), imageId, framing: match?.framing ?? slide.framing,
-      ...(match?.focalPoint ? { focalPoint: match.focalPoint } : {}), ...(match?.ignoreVisual ? { ignoreVisual: true } : {}),
+    const visualChanged = !!match && JSON.stringify([match.imageBrief, match.visualContext]) !== JSON.stringify([slide.imageBrief, slide.visualContext])
+    return { ...slide, id: key, key, imageId, framing: match?.framing ?? slide.framing,
+      composition: match?.composition ?? slide.composition, ignoreVisual: match?.ignoreVisual,
+      focalPoint: match?.focalPoint ?? slide.focalPoint,
       imageLocked: match?.imageLocked, searchRevision: match?.searchRevision, discardedVisuals: match?.discardedVisuals,
-      visualDecision: match?.visualDecision,
+      visualDecision: match?.visualDecision, image: match?.image ?? slide.image,
+      needsImageReview: visualChanged || match?.needsImageReview,
     }
   })
 }

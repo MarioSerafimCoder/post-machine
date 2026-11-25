@@ -1,9 +1,10 @@
+import { identifyContent } from './slideIdentity'
 import { backupSchema, defaultPreferences, draftSchema, newDraft, preferencesSchema, type Backup, type Draft, type Preferences } from './contract'
 import type { Article } from '../radar/contract'
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('post-machine-campaigns', 2)
+    const request = indexedDB.open('post-machine-campaigns', 3)
     request.onupgradeneeded = () => {
       const db = request.result
       if (!db.objectStoreNames.contains('campaigns')) db.createObjectStore('campaigns', { keyPath: 'id' })
@@ -14,7 +15,7 @@ function openDatabase(): Promise<IDBDatabase> {
         if (!item) return
         const migrated = draftSchema.safeParse(item.value)
         if (!migrated.success) { request.transaction!.abort(); return }
-        item.update(migrated.data)
+        item.update({ ...migrated.data, content: migrated.data.content && identifyContent(migrated.data.content) })
         item.continue()
       }
     }
@@ -70,7 +71,7 @@ function changeCampaign(id: string, expected: Draft | undefined, change: (store:
 }
 
 export function putCampaign(draft: Draft, expected?: Draft) {
-  return changeCampaign(draft.id, expected, store => store.put(draft))
+  return changeCampaign(draft.id, expected, store => store.put({ ...draft, content: draft.content && identifyContent(draft.content) }))
 }
 
 export function readCampaign(id: string) {
@@ -132,7 +133,7 @@ export function restoreCampaigns(backup: Backup) {
       const request = store.getKey(campaign.id)
       request.onsuccess = () => {
         const copy = request.result === undefined ? campaign : { ...campaign, id: crypto.randomUUID() }
-        store.add(copy)
+        store.add({ ...copy, content: copy.content && identifyContent(copy.content) })
       }
     }
     transaction.objectStore('settings').put(backup.preferences, 'preferences')

@@ -1,5 +1,18 @@
 # Roteiro por fases
 
+## Finalização 13.1 e Evolução 14
+
+- 13.1: diagnóstico real controlado com Brave Web/Images, extração `alt` corrigida, pesquisa adaptativa e revisão de 114 notícias. Os 12 slides pareados mantiveram 10 imagens corretas, dois vazios e cobertura de 83,3%. Código validado localmente; publicação autorizada pelo proprietário mediante CI do mesmo commit e workflow protegido.
+- 14: piloto local de inteligência visual multimodal, partindo do CLIP, OCR, Web Workers, deduplicação e memória existentes. Análise visual complementa a prova documental, com medição fria/quente, corpus independente e cancelamento. Só será ativado por padrão se demonstrar benefício sem regressão de precisão, segurança, memória ou latência. A publicação requer autorização específica posterior.
+
+## Evolução 13 — estabilidade e relevância
+
+- 13.1: identidade opcional no JSON v1, migração local e reconciliação conservadora, com preservação de decisões da peça.
+- 13.2: redistribuição das consultas para pendentes, diagnósticos e recuperação; a meta de 90% de cobertura permanece em aberto, conforme medição em VISUAL_BENCHMARK.md.
+- 13.3: revisão editorial, fotos, atalhos, codec e diagnósticos separados por responsabilidade, sem troca de stack.
+- 13.4: ordenação editorial do Radar, relações entre pautas, interesses e preferências locais redefiníveis. Não representa previsão de viralização.
+- Implementação local; publicação depende de autorização do proprietário.
+
 ## Visual Intelligence Engine
 
 - Fase A introduz contexto opcional no JSON v1, extração direta, adaptadores Brave e Openverse, acervo de campanha compartilhado, alocação em segundo plano e continuidade entre Expressa e Studio. A publicação segue o workflow protegido após a configuração do Worker.

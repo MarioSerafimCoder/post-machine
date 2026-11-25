@@ -86,3 +86,13 @@ describe('contrato editorial', () => {
     expect(backupSchema.safeParse({ ...backup, campaigns: [...backup.campaigns, ...backup.campaigns] }).success).toBe(false)
   })
 })
+
+
+it('aceita IDs opcionais v1 e descarta IDs inválidos ou repetidos sem rejeitar o conteúdo', () => {
+  const base = { schemaVersion: 1, campaign: { title: 'Teste', objective: 'Informar', audience: '', tone: 'Direto', format: 'carousel', caption: '', cta: '' }, sources: [],
+    slides: [{ order: 1, role: 'content', title: 'A', body: '', imageBrief: '', layoutType: 'editorial' }] }
+  expect(importContent(JSON.stringify({ ...base, slides: [{ ...base.slides[0], id: 'slide-1' }] })).slides[0].id).toBe('slide-1')
+  expect(importContent(JSON.stringify({ ...base, slides: [{ ...base.slides[0], id: {} }] })).slides[0].id).toBeUndefined()
+  const slides = importContent(JSON.stringify({ ...base, slides: [{ ...base.slides[0], id: 'igual' }, { ...base.slides[0], order: 2, id: 'igual' }] })).slides
+  expect(slides.every(slide => slide.id === undefined)).toBe(true)
+})

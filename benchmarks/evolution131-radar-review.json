@@ -1,0 +1,804 @@
+{
+  "method": "Revisão editorial de título, resumo e tags; 2 = trabalho/processo/cultura visual direto, 1 = contexto de mercado/criatividade/cinema, 0 = comércio/finanças/audiência sem análise visual. Não representa verificação factual integral do artigo.",
+  "at": "2026-11-25T17:27:21.384Z",
+  "labels": [
+    {
+      "id": "4e7b33b71106a38ef92b903b0a74cbcf",
+      "title": "\"The measure of GTA 6's success won't be the launch\": Now the game is out, how can Rockstar keep up the hype?",
+      "url": "https://www.creativebloq.com/news/the-measure-of-gta-6s-success-wont-be-the-launch-now-the-game-is-out-how-can-rockstar-keep-up-the-hype",
+      "grade": 2,
+      "baselineRank": 1
+    },
+    {
+      "id": "4c8f1d42023c1a0678f6136aa5bc1a49",
+      "title": "Hering transforma o medo de errar no amigo secreto em campanha de Natal",
+      "url": "https://www.b9.com.br/hering-transforma-o-medo-de-errar-no-amigo-secreto-em-campanha-de-natal/",
+      "grade": 2,
+      "baselineRank": 2
+    },
+    {
+      "id": "f1e5503c26b5e6c9dac332bd1f6f1b1a",
+      "title": "Advertising Is a Top Priority for Best Buy’s New CEO",
+      "url": "https://www.adweek.com/commerce/advertising-is-a-top-priority-for-best-buys-new-ceo/",
+      "grade": 0,
+      "baselineRank": 3
+    },
+    {
+      "id": "40656eac1b084faa39f024e8d9cf080e",
+      "title": "Maria Francesca Melis on embracing imperfection and the secret of successful brand collaborations",
+      "url": "https://www.creativeboom.com/inspiration/maria-francesca-melis-on-embracing-imperfection-and-the-secret-of-successful-brand-collaborations/",
+      "grade": 2,
+      "baselineRank": 4
+    },
+    {
+      "id": "beb5e87f25c345181da4adecb3872099",
+      "title": "GTA 6: a maior campanha do ano sem vender espaço de mídia",
+      "url": "https://updateordie.com/2026/11/24/gta-6-a-maior-campanha-do-ano-e-de-uma-marca-que-nao-vende-anuncio/",
+      "grade": 2,
+      "baselineRank": 5
+    },
+    {
+      "id": "2d17ee7dbef7bdb524719f4453db4229",
+      "title": "How YouTube, LEGO, Pokémon, and McDonald's are winning with Gen Alpha",
+      "url": "https://www.creativebloq.com/inspiration/how-youtube-lego-pokemon-and-mcdonalds-are-winning-with-gen-alpha",
+      "grade": 1,
+      "baselineRank": 6
+    },
+    {
+      "id": "d26afe758de3bb34fe9c598951aa1363",
+      "title": "The Aflac Duck Finally Meets Its Match in Ben Affleck",
+      "url": "https://www.adweek.com/creativity/the-aflac-duck-finally-meets-its-match-in-ben-affleck/",
+      "grade": 2,
+      "baselineRank": 7
+    },
+    {
+      "id": "3bdb6fe0911c6dab86ee203b157160f0",
+      "title": "Rebranding do Cubo Itaú é premiado no Latin American Design Awards 2026",
+      "url": "https://designculture.com.br/rebranding-do-cubo-itau-e-premiado-no-latin-american-design-awards-2026/",
+      "grade": 2,
+      "baselineRank": 8
+    },
+    {
+      "id": "4ad091b5e0f43ef6d791928dfbc184e0",
+      "title": "Macaulay Culkin fica sozinho no McDonald’s e revive Kevin em campanha de Natal",
+      "url": "https://www.b9.com.br/macaulay-culkin-mcdonalds-esqueceram-de-mim-natal-2026/",
+      "grade": 2,
+      "baselineRank": 9
+    },
+    {
+      "id": "9a58fb78325927cb205a9a9bf13d30bc",
+      "title": "Robert Pattinson's James Bond will be different – should the brands be different too?",
+      "url": "https://www.creativebloq.com/news/robert-pattinsons-james-bond-will-be-different-should-the-brands-be-different-too",
+      "grade": 1,
+      "baselineRank": 10
+    },
+    {
+      "id": "026159fbc59748ae91c52ad374de054a",
+      "title": "U.S. Soccer Extends Its Long-Running Partnership with AT&T",
+      "url": "https://www.adweek.com/brand-marketing/us-soccer-extends-its-long-running-partnership-with-att/",
+      "grade": 1,
+      "baselineRank": 11
+    },
+    {
+      "id": "3ddec6314a8ae44651f29173ee01582f",
+      "title": "Donna Fredin switched from design to illustration, now she's drawing fun, awkward characters that capture life’s strange moments",
+      "url": "https://www.creativeboom.com/inspiration/donna-fredin-switched-from-design-to-illustration-now-shes-drawing-fun-awkward-characters-that-capture-lifes-strange-moments/",
+      "grade": 2,
+      "baselineRank": 12
+    },
+    {
+      "id": "9c84a060cc089c199b73428d397e37b3",
+      "title": "Na era dos vídeos curtos, uma marca ainda consegue falar com todo mundo?",
+      "url": "https://updateordie.com/2026/11/25/na-era-dos-videos-curtos-uma-marca-ainda-consegue-falar-com-todo-mundo/",
+      "grade": 1,
+      "baselineRank": 13
+    },
+    {
+      "id": "1a4b8599602e609cc1e74d2ea640d26c",
+      "title": "These Black Friday laptops are perfect for graphic designers who work on the move",
+      "url": "https://www.creativebloq.com/deals/black-friday-laptop-picks",
+      "grade": 0,
+      "baselineRank": 14
+    },
+    {
+      "id": "2a035cd8ccefb4cbda8b610d15ba32e8",
+      "title": "In Waves review – love, grief and surfing at heart of profoundly moving animated tale",
+      "url": "https://www.theguardian.com/film/2026/nov/25/in-waves-review-love-grief-and-surfing-at-heart-of-profoundly-moving-animated-tale",
+      "grade": 2,
+      "baselineRank": 15
+    },
+    {
+      "id": "f3f238b5a576269044587632c4245e3c",
+      "title": "Election Advertising Drove 10% of Viewers to Seek Ad-Free Options",
+      "url": "https://www.adweek.com/convergent-tv/election-advertising-drove-10-of-viewers-to-seek-ad-free-options/",
+      "grade": 0,
+      "baselineRank": 16
+    },
+    {
+      "id": "625db915b0da751f6ed8bcb1677539a9",
+      "title": "McDonald’s traz Macaulay Culkin de volta ao Natal",
+      "url": "https://updateordie.com/2026/11/17/mcdonalds-traz-macaulay-culkin-de-volta-ao-natal/",
+      "grade": 2,
+      "baselineRank": 17
+    },
+    {
+      "id": "d4120a2a8181fbd8d7d2297da33e549b",
+      "title": "It took designers 20 years to bring this font back from the dead",
+      "url": "https://www.creativebloq.com/news/it-took-designers-20-years-to-bring-this-font-back-from-the-dead",
+      "grade": 2,
+      "baselineRank": 18
+    },
+    {
+      "id": "6053b64856c6b2eae9a6fd3f52400e66",
+      "title": "FutureBrand redesenha marca global com um “F” modular criado em São Paulo",
+      "url": "https://www.b9.com.br/futurebrand-nova-identidade-global-sao-paulo/",
+      "grade": 2,
+      "baselineRank": 19
+    },
+    {
+      "id": "efdc8cc826d5ca82dc370ff66e2b1546",
+      "title": "Julie Legrand finds poetry in coffee pots, shells and other things you see every day",
+      "url": "https://www.creativeboom.com/inspiration/julie-legrand-finds-poetry-in-coffee-pots-shells-and-other-things-you-see-every-day/",
+      "grade": 2,
+      "baselineRank": 20
+    },
+    {
+      "id": "731b8c1f94ef0573e094d19e1e1c16dd",
+      "title": "Meta lembra que óculos que gravam atrapalham menos os momentos mais importantes",
+      "url": "https://updateordie.com/2026/11/23/meta-usa-peca-de-natal-para-vender-oculos/",
+      "grade": 2,
+      "baselineRank": 21
+    },
+    {
+      "id": "a7f11abf965358bee4f96f18a213c73c",
+      "title": "Motion North 2027 reveals speakers for two days of talks, workshops and more",
+      "url": "https://www.creativebloq.com/news/motion-north-2027-reveals-speakers-for-two-days-of-talks-workshops-and-more",
+      "grade": 2,
+      "baselineRank": 22
+    },
+    {
+      "id": "4e673bc30d3bf1a974345873c9f6ccdd",
+      "title": "No Natal do Google Pixel, o Fantasma do Natal Passado cai na triagem de chamadas",
+      "url": "https://www.b9.com.br/google-pixel-11-natal-scrooge-unscrooged-diane-morgan/",
+      "grade": 2,
+      "baselineRank": 23
+    },
+    {
+      "id": "8309588c20e1138eb4c3bfafefc001fc",
+      "title": "Amazon is reportedly in talks to end Muse AI shopping block",
+      "url": "https://www.theverge.com/tech/1042071/meta-amazon-muse-ai-shopping-discussions",
+      "grade": 0,
+      "baselineRank": 24
+    },
+    {
+      "id": "31235ae4cfd5cca2f1984cb756417ae8",
+      "title": "Havaianas celebra os ‘Pares Originais do Brasil’",
+      "url": "https://updateordie.com/2026/11/23/havaianas-celebra-os-pares-originais-do-brasil/",
+      "grade": 2,
+      "baselineRank": 25
+    },
+    {
+      "id": "9054471fe50c8c53ef856062b70c3bf7",
+      "title": "A simple logo redesign has become Australia's latest culture war – why that's bad news for designers",
+      "url": "https://www.creativebloq.com/news/sydneys-logo-controversy-shows-how-politics-can-get-in-the-way-of-good-design",
+      "grade": 2,
+      "baselineRank": 26
+    },
+    {
+      "id": "25c4f17e5a3cb54315e9322ce571107e",
+      "title": "Chevrolet leva o Natal da família no porta-malas em filme sobre dois irmãos",
+      "url": "https://www.b9.com.br/chevrolet-natal-2026-always-there-irmaos/",
+      "grade": 2,
+      "baselineRank": 27
+    },
+    {
+      "id": "bd67e04d9c5d20620a87d799fd015ab4",
+      "title": "Why are football clubs launching Christmas campaigns (and do John Lewis and M&S have anything to worry about?)",
+      "url": "https://www.creativeboom.com/insight/why-are-football-clubs-launching-christmas-campaigns-and-do-john-lewis-and-ms-have-anything-to-worry-about/",
+      "grade": 1,
+      "baselineRank": 28
+    },
+    {
+      "id": "db47abd2653f7955c3c5d1ce7ee4bf32",
+      "title": "Seguros Unimed leva campanha de segurança ao cinema",
+      "url": "https://updateordie.com/2026/11/16/seguros-unimed-leva-campanha-de-seguranca-ao-cinema/",
+      "grade": 2,
+      "baselineRank": 29
+    },
+    {
+      "id": "a3b346f05751cdf753a680c066f25259",
+      "title": "Holiday Ads Arrive Earlier, With Retailers Getting a Head Start",
+      "url": "https://www.adweek.com/convergent-tv/holiday-ads-arrive-earlier-with-retailers-getting-a-head-start/",
+      "grade": 1,
+      "baselineRank": 30
+    },
+    {
+      "id": "6af3aacd50d186b9fd407fed1dd27438",
+      "title": "Nova campanha da Heinz quer libertar receitas da “maionese de sempre”",
+      "url": "https://www.b9.com.br/heinz-maionese-culinaria-gaiola-nao-volta-atras/",
+      "grade": 2,
+      "baselineRank": 31
+    },
+    {
+      "id": "16560232b54af418477dbe84225ea8b9",
+      "title": "Birds, browser windows and broken connections: inside Gigi Borgese’s drawings",
+      "url": "https://www.creativeboom.com/inspiration/birds-browser-windows-and-broken-connections-inside-gigi-borgeses-drawings/",
+      "grade": 2,
+      "baselineRank": 32
+    },
+    {
+      "id": "3a823a916557b920bea6167c3b30f99b",
+      "title": "A solidão também tem uma estética",
+      "url": "https://updateordie.com/2026/11/23/a-solidao-tambem-tem-uma-estetica/",
+      "grade": 2,
+      "baselineRank": 33
+    },
+    {
+      "id": "2deb329f7d4587c566b578c8e939a836",
+      "title": "A Bravo Star Decks the Bathroom Halls in Goodwipes’ First Holiday Ad",
+      "url": "https://www.adweek.com/brand-marketing/a-bravo-star-decks-the-bathroom-halls-in-goodwipes-first-holiday-ad/",
+      "grade": 2,
+      "baselineRank": 34
+    },
+    {
+      "id": "c4747f6f0be73801d1bbb0b361e98524",
+      "title": "Rexona transforma pressões do cotidiano feminino em “suores invisíveis” na nova campanha",
+      "url": "https://www.b9.com.br/rexona-suores-invisiveis-mulheres-juntas-pra-qualquer-suor/",
+      "grade": 2,
+      "baselineRank": 35
+    },
+    {
+      "id": "4f94d8786210c9402a2c3ddba915bb9a",
+      "title": "Why Camille Walala is transforming a metro station with 30,000 hand-made tiles inspired by basketball",
+      "url": "https://www.creativeboom.com/news/camille-walala-is-covering-a-lyon-metro-station-in-30000-hand-made-tiles/",
+      "grade": 2,
+      "baselineRank": 36
+    },
+    {
+      "id": "be0fd6daeb9bfdd60ebb42d73a22f93e",
+      "title": "Gusto defende que sonhar pequeno é o novo sonho grande",
+      "url": "https://updateordie.com/2026/11/13/gusto-defende-que-sonhar-pequeno-e-o-novo-sonho-grande/",
+      "grade": 2,
+      "baselineRank": 37
+    },
+    {
+      "id": "b805af1baf2ce48b07659281c7b56a01",
+      "title": "Lyft Is Testing a Prominent New Ad Placement",
+      "url": "https://www.adweek.com/commerce/lyft-is-testing-a-prominent-new-ad-placement/",
+      "grade": 1,
+      "baselineRank": 38
+    },
+    {
+      "id": "05c6241246075091486deae91640f003",
+      "title": "Amazon disfarça Schwarzenegger de Papai Noel para finalmente deixá-lo anônimo",
+      "url": "https://www.b9.com.br/amazon-disfarca-schwarzenegger-de-papai-noel-para-finalmente-deixa-lo-anonimo/",
+      "grade": 2,
+      "baselineRank": 39
+    },
+    {
+      "id": "00f9d040697fdf911b4ace8468016eac",
+      "title": "Carling’s new identity is a badge of belonging inspired by its football ties",
+      "url": "https://www.creativeboom.com/news/carlings-new-identity-is-a-badge-of-belonging-inspired-by-football-clubs/",
+      "grade": 2,
+      "baselineRank": 40
+    },
+    {
+      "id": "acfc98fcfe4c0c13efbde656ff663eea",
+      "title": "Amazon “Here for All of It”: os novos Alexa Tablets",
+      "url": "https://updateordie.com/2026/11/12/amazon-lanca-alexa-tablets-com-filme-de-ilusoes-praticas/",
+      "grade": 2,
+      "baselineRank": 41
+    },
+    {
+      "id": "705008878fa623bfff9ce14165500abf",
+      "title": "AI Agent Traffic to Surge 150x This Cyber Week, Driven Mostly by Meta Muse",
+      "url": "https://www.adweek.com/commerce/ai-agent-traffic-to-surge-150x-this-cyber-week-driven-mostly-by-meta-muse/",
+      "grade": 0,
+      "baselineRank": 42
+    },
+    {
+      "id": "d4881c36fd6aa0689086756175a126f0",
+      "title": "Havaianas põe os pares do Brasil no ritmo de “Carolina”",
+      "url": "https://www.b9.com.br/havaianas-pares-originais-brasil-carolina/",
+      "grade": 2,
+      "baselineRank": 43
+    },
+    {
+      "id": "de5c9e1ea22434560577f647f7fcd8e4",
+      "title": "Show, don’t tell: Father explains what it does, with a film that lets the coastline do the talking",
+      "url": "https://www.creativeboom.com/inspiration/show-dont-tell-father-explains-what-it-does-with-a-film-that-lets-the-dungeness-coastline-do-the-talking/",
+      "grade": 2,
+      "baselineRank": 44
+    },
+    {
+      "id": "ca29484d3ed24484a0152824ca3128a1",
+      "title": "Cinemark exibe curta “Celular” feito com IA",
+      "url": "https://updateordie.com/2026/11/18/cinemark-exibe-curta-celular-feito-com-ia/",
+      "grade": 2,
+      "baselineRank": 45
+    },
+    {
+      "id": "349592c1e10a6b5fb05364be5d3fb0bc",
+      "title": "Soaring GLP-1 Use Is Changing the Thanksgiving Table",
+      "url": "https://www.adweek.com/commerce/soaring-glp-1-use-is-changing-the-thanksgiving-table/",
+      "grade": 0,
+      "baselineRank": 46
+    },
+    {
+      "id": "1e988a6ff02c6c9be12cc1e1af03ea93",
+      "title": "How Playstation nailed its iconic startup screen",
+      "url": "https://www.creativebloq.com/news/how-playstation-nailed-its-iconic-startup-screen",
+      "grade": 2,
+      "baselineRank": 47
+    },
+    {
+      "id": "d7cefcfa7dff773cfac69f23c3028ff1",
+      "title": "&Walsh takes a bite out of the moon for Insomnia Cookies",
+      "url": "https://www.creativeboom.com/news/walsh-takes-a-bite-out-of-the-moon-for-insomnia-cookies/",
+      "grade": 2,
+      "baselineRank": 48
+    },
+    {
+      "id": "708976e95ecc2503c16aeb9e911f0992",
+      "title": "ANONIMA.ag leva Prata no El Ojo com Contrafluxo",
+      "url": "https://updateordie.com/2026/11/17/anonima-ag-leva-prata-no-el-ojo-com-contrafluxo/",
+      "grade": 2,
+      "baselineRank": 49
+    },
+    {
+      "id": "28cf27344daf9e4a4f9fdd226e590e80",
+      "title": "6 Brands Going Big at the 2026 Macy’s Thanksgiving Day Parade: Planters, Levi’s and More",
+      "url": "https://www.adweek.com/brand-marketing/6-brands-going-big-at-the-2026-macys-thanksgiving-day-parade-planters-levis-and-more/",
+      "grade": 1,
+      "baselineRank": 50
+    },
+    {
+      "id": "13e6981fa49d13397001a5b4859e8b23",
+      "title": "“Artificial”, filme sobre a OpenAI, ganha pôster com defeitos de IA feitos por um humano",
+      "url": "https://www.b9.com.br/artificial-poster-erros-ia-feitos-a-mao/",
+      "grade": 2,
+      "baselineRank": 51
+    },
+    {
+      "id": "dcf6618df971f4764fdd27c18ed13cd9",
+      "title": "This artist specialises in emotion-filled ethereal visuals",
+      "url": "https://www.creativebloq.com/features/this-artist-specialises-in-emotional-characters-and-ethereal-scenes",
+      "grade": 2,
+      "baselineRank": 52
+    },
+    {
+      "id": "e96192950814c4900a37b8d889680bba",
+      "title": "Amazon Prime põe Schwarzenegger incógnito de Papai Noel",
+      "url": "https://updateordie.com/2026/11/17/amazon-prime-poe-schwarzenegger-incognito-de-papai-noel/",
+      "grade": 2,
+      "baselineRank": 53
+    },
+    {
+      "id": "bfa10b79b24bcb2c3d245d3220b5811e",
+      "title": "Why GTA 6 is the year’s biggest campaign for a brand that refuses to sell ad space",
+      "url": "https://www.creativeboom.com/insight/why-gta-6-is-the-years-biggest-campaign-for-a-brand-that-refuses-to-sell-ad-space/",
+      "grade": 1,
+      "baselineRank": 54
+    },
+    {
+      "id": "040061829f39755f7dd170c9572031e6",
+      "title": "JOVS Recruits an Advisory Board to Back Its Beauty Tech",
+      "url": "https://www.adweek.com/brand-marketing/jovs-recruits-an-advisory-board-to-back-its-beauty-tech/",
+      "grade": 0,
+      "baselineRank": 55
+    },
+    {
+      "id": "1423be4e676d1eedfe74bd587f0b95c3",
+      "title": "Honda interrompe duelo de ficção científica para decidir entre City Sedan e Hatchback",
+      "url": "https://www.b9.com.br/honda-city-2027-sedan-hatchback-ficcao-cientifica/",
+      "grade": 2,
+      "baselineRank": 56
+    },
+    {
+      "id": "5896c9e40dfaec92d1ec25758d78ac03",
+      "title": "M&S leva Papai Noel para viver como gente comum",
+      "url": "https://updateordie.com/2026/11/12/ms-leva-papai-noel-para-viver-como-gente-comum/",
+      "grade": 2,
+      "baselineRank": 57
+    },
+    {
+      "id": "437027c08dcb8ed10b53305c8b5b0180",
+      "title": "Visa has a new look by Base Design. So what’s actually changed?",
+      "url": "https://www.creativeboom.com/news/visa-has-a-new-look-by-base-design-so-whats-actually-changed/",
+      "grade": 2,
+      "baselineRank": 58
+    },
+    {
+      "id": "b9d166f1b94e44bbe2104c811731d432",
+      "title": "Inflation, AI, and Tech Outages Will Reshape Holiday Shopping",
+      "url": "https://www.adweek.com/commerce/inflation-ai-and-tech-outages-will-reshape-holiday-shopping/",
+      "grade": 0,
+      "baselineRank": 59
+    },
+    {
+      "id": "a0f9e7b7da9c5f1dacd57aa517c6bb44",
+      "title": "Lilly monta “Banca dos Absurdos” para revisitar a gordofobia das revistas",
+      "url": "https://www.b9.com.br/lilly-banca-dos-absurdos-gordofobia-revistas/",
+      "grade": 2,
+      "baselineRank": 60
+    },
+    {
+      "id": "5e0a62806aa0f69ad207c483f67e502d",
+      "title": "Nova maionese Heinz: sem volta atrás",
+      "url": "https://updateordie.com/2026/11/12/nova-maionese-heinz-sem-volta-atras/",
+      "grade": 2,
+      "baselineRank": 61
+    },
+    {
+      "id": "f583067a980e3dd36ba9796b51caae91",
+      "title": "Booms & Shakes: who’s moved where in November, from Neville Brody to Uber’s creative leader",
+      "url": "https://www.creativeboom.com/news/booms-shakes-novembers-biggest-creative-industry-moves-from-neville-brody-to-apples-agency/",
+      "grade": 1,
+      "baselineRank": 62
+    },
+    {
+      "id": "b74f9358d766cd10c9221c86830ebecd",
+      "title": "The RX Assistant Wants to Help Pharmaceutical Brands Use AI to Reach Patients",
+      "url": "https://www.adweek.com/brand-marketing/the-rx-assistant-wants-to-help-pharmaceutical-brands-use-ai-to-reach-patients/",
+      "grade": 0,
+      "baselineRank": 63
+    },
+    {
+      "id": "bf7606b1953e9e25694a40573d117de5",
+      "title": "Vivo troca dinheiro de GTA Online por saldo real no Vivo Pay",
+      "url": "https://www.b9.com.br/vivo-pay-gta-online-dinheiro-real/",
+      "grade": 2,
+      "baselineRank": 64
+    },
+    {
+      "id": "eef36e445faa20f023436bedd3e95204",
+      "title": "Lima Duarte estrela 96 anos do Banco Bmg",
+      "url": "https://updateordie.com/2026/11/11/lima-duarte-estrela-96-anos-do-banco-bmg/",
+      "grade": 2,
+      "baselineRank": 65
+    },
+    {
+      "id": "061c50bb3923825a2501dd481f2c894d",
+      "title": "Yungbld gives startup haircare brand Vollie a look that’s premium, but never precious",
+      "url": "https://www.creativeboom.com/news/yungbld-gives-haircare-brand-vollie-a-look-thats-premium-but-never-precious/",
+      "grade": 2,
+      "baselineRank": 66
+    },
+    {
+      "id": "779a74354144740cd4f42353b9f634de",
+      "title": "Hearst Magazines Launches a Creator Studio Built Like a Talent Agency",
+      "url": "https://www.adweek.com/media/hearst-creator-studios-talent-agency-magazines/",
+      "grade": 1,
+      "baselineRank": 67
+    },
+    {
+      "id": "1ee92402de225cb78000e81452051ea3",
+      "title": "CeraVe vira o “hidratante oficial de Arrakis” em parceria com “Duna: Parte Três”",
+      "url": "https://www.b9.com.br/cerave-duna-parte-tres-hidratante-oficial-arrakis/",
+      "grade": 2,
+      "baselineRank": 68
+    },
+    {
+      "id": "e599925c72fbd19ba70284c9f4d910ca",
+      "title": "O trajeto importa mais que o destino no Natal da Amazon",
+      "url": "https://updateordie.com/2026/11/11/amazon-aposta-na-jornada-em-filme-de-natal/",
+      "grade": 2,
+      "baselineRank": 69
+    },
+    {
+      "id": "8d43be16af6826c9363d6d2d668efd78",
+      "title": "Atmospheric computer game invites you to unwind in the world of Brutalist architecture",
+      "url": "https://www.creativeboom.com/inspiration/atmospheric-computer-game-invites-you-to-unwind-in-the-world-of-brutalist-architecture/",
+      "grade": 2,
+      "baselineRank": 70
+    },
+    {
+      "id": "f279cf13aaf189d492b20d295b6d34a0",
+      "title": "Newsletter Perfectly Imperfect, on Track for $5 Million Next Year, Launches an Agency",
+      "url": "https://www.adweek.com/media/perfectly-imperfect-agency-dating-app-newsletters/",
+      "grade": 1,
+      "baselineRank": 71
+    },
+    {
+      "id": "adb207c01463ce4f4f0b71c006fc8bb3",
+      "title": "Joaquin Phoenix usa óculos com IA para conversar com monstros em filme da Gentle Monster",
+      "url": "https://www.b9.com.br/gentle-monster-joaquin-phoenix-jonathan-glazer-oculos-ia/",
+      "grade": 2,
+      "baselineRank": 72
+    },
+    {
+      "id": "02ff0df863cd2d30b995c5bfc7f2033e",
+      "title": "NYT proíbe fotógrafos de usar Photoshop 2027",
+      "url": "https://updateordie.com/2026/11/24/nyt-proibe-fotografos-de-usar-photoshop-2027/",
+      "grade": 2,
+      "baselineRank": 73
+    },
+    {
+      "id": "7df106e37b7c84e4941412606650988f",
+      "title": "What’s the answer to a sea of lookalike AI brands? A fossilised typewriter, a flight delay and hand-drawn cave art",
+      "url": "https://www.creativeboom.com/news/whats-the-answer-to-a-sea-of-lookalike-ai-brands-a-fossilised-typewriter-a-flight-delay-and-some-hand-drawn-cave-art-of-course/",
+      "grade": 2,
+      "baselineRank": 74
+    },
+    {
+      "id": "3562fe47d5c7eb65c6c28256da1fbbd2",
+      "title": "Empreendimento Minthis Resort / Woods Bagot",
+      "url": "https://www.archdaily.com.br/pt/1170971/empreendimento-minthis-resort-woods-bagot",
+      "grade": 1,
+      "baselineRank": 75
+    },
+    {
+      "id": "a994f3285099e56da00ff70e3c2272ac",
+      "title": "GWM transforma o caos da vida familiar em aventura para vender linha Haval",
+      "url": "https://www.b9.com.br/gwm-haval-bring-on-more-caos-familia-thinkerbell/",
+      "grade": 2,
+      "baselineRank": 76
+    },
+    {
+      "id": "b517ab21e48e74471ee3e166b134d897",
+      "title": "Invincible: teaser da 5ª temporada chega",
+      "url": "https://updateordie.com/2026/11/24/invincible-teaser-da-5a-temporada-chega/",
+      "grade": 1,
+      "baselineRank": 77
+    },
+    {
+      "id": "c1cceb3db47b28ab9f8f12ae578edc33",
+      "title": "This year’s holiday ads have one thing in common, and it’s good news for creatives",
+      "url": "https://www.creativeboom.com/insight/this-years-holiday-ads-have-one-thing-in-common-and-its-good-news-for-creatives/",
+      "grade": 2,
+      "baselineRank": 78
+    },
+    {
+      "id": "2f5d8dc8786eb53d1556af320ae17e1b",
+      "title": "Arnold Schwarzenegger Finally Lands the Role of Santa in Amazon’s Holiday Ad",
+      "url": "https://www.adweek.com/commerce/arnold-schwarzenegger-finally-lands-the-role-of-santa-in-amazons-holiday-ad/",
+      "grade": 2,
+      "baselineRank": 79
+    },
+    {
+      "id": "1813627288317cec18b94db52285989a",
+      "title": "Depois do primeiro passo, Johnnie Walker celebra os muitos recomeços de Ney Matogrosso",
+      "url": "https://www.b9.com.br/johnnie-walker-ney-matogrosso-turne-85-anos-ousadia/",
+      "grade": 2,
+      "baselineRank": 80
+    },
+    {
+      "id": "69762823ba877489295c2f398493c893",
+      "title": "Netflix lança novo trailer de Ray Gunn",
+      "url": "https://updateordie.com/2026/11/13/netflix-lanca-novo-trailer-de-ray-gunn/",
+      "grade": 1,
+      "baselineRank": 81
+    },
+    {
+      "id": "37883c116eaa2d436e99b4d3289fb59f",
+      "title": "Luke McConkey on spreading a pandemic of joy and working with Uniqlo",
+      "url": "https://www.creativeboom.com/insight/luke-mcconkey-on-spreading-a-pandemic-of-joy-and-working-with-uniqlo/",
+      "grade": 2,
+      "baselineRank": 82
+    },
+    {
+      "id": "170533be22c8cf2d34d757d57fa17464",
+      "title": "Home Depot, ESPN Among 2026 Brand Hall of Fame Inductees",
+      "url": "https://www.adweek.com/brand-marketing/home-depot-espn-among-2026-brand-hall-of-fame-inductees/",
+      "grade": 1,
+      "baselineRank": 83
+    },
+    {
+      "id": "e4517c0eb34d0ec16541db3876b249b5",
+      "title": "Mudar tudo é fácil. A Design Culture escolheu o difícil",
+      "url": "https://designculture.com.br/mudar-tudo-e-facil-a-design-culture-escolheu-o-dificil/",
+      "grade": 2,
+      "baselineRank": 84
+    },
+    {
+      "id": "d62377b77e8ad9b5e708c1e67b5c2045",
+      "title": "wade and leta shape human-powered kinetic landscape for play in shanghai sculpture park",
+      "url": "https://www.designboom.com/art/wade-leta-human-powered-kinetic-landscape-play-shanghai-sculpture-park-catching-feelings/",
+      "grade": 2,
+      "baselineRank": 85
+    },
+    {
+      "id": "4b6cd224dfdf4d6d0e380357fff9a822",
+      "title": "Turner Duckworth dips Maker’s Mark’s new identity in red wax",
+      "url": "https://www.creativeboom.com/news/turner-duckworth-dips-makers-marks-new-identity-in-red-wax/",
+      "grade": 2,
+      "baselineRank": 86
+    },
+    {
+      "id": "116084a55ef02f728ad89e605e1e6693",
+      "title": "Velocity Over Volume: Archer Roose Wines on Building Brand Loyalty in a Competitive Market",
+      "url": "https://www.adweek.com/brand-marketing/velocity-over-volume-archer-roose-wines-on-building-brand-loyalty-in-a-competitive-market/",
+      "grade": 1,
+      "baselineRank": 87
+    },
+    {
+      "id": "a145c214d37a85891bc35e2751ff6d40",
+      "title": "Câmara dá passo para definir a profissão de designer e reconhecer projetos como obra intelectual",
+      "url": "https://designculture.com.br/camara-da-passo-para-definir-a-profissao-de-designer-e-reconhecer-projetos-como-obra-intelectual/",
+      "grade": 1,
+      "baselineRank": 88
+    },
+    {
+      "id": "eedafd5f318b1fcf664355d93d68fdb0",
+      "title": "This clever art frame makes your images look like real prints – and today you save £77",
+      "url": "https://www.creativebloq.com/deals/this-clever-art-frame-makes-your-images-look-like-real-prints-and-today-you-save-gbp77",
+      "grade": 0,
+      "baselineRank": 89
+    },
+    {
+      "id": "5ceb350f78752f6fbc06a94580eee6d5",
+      "title": "It’s official: creatives are using AI daily, but most aren’t making extra money from it",
+      "url": "https://www.creativeboom.com/insight/its-official-creatives-are-using-ai-daily-but-theyre-not-making-extra-money/",
+      "grade": 1,
+      "baselineRank": 90
+    },
+    {
+      "id": "3a9a9dddfbe0751d7508b4631f6f6f76",
+      "title": "Brandweek 2026: Why Gopuff Would ‘Rather Be Debated Than Ignored’ ft. Tyler Stewart",
+      "url": "https://www.adweek.com/brand-marketing/brandweek-2026-why-gopuff-would-rather-be-debated-than-ignored-ft-tyler-stewart/",
+      "grade": 1,
+      "baselineRank": 91
+    },
+    {
+      "id": "ff4d63959f5c65f3355646b2f234f784",
+      "title": "AMG leva formato das mostras brasileiras de arquitetura para Miami durante a semana da Art Week no Design District",
+      "url": "https://designculture.com.br/amg-leva-formato-das-mostras-brasileiras-de-arquitetura-para-miami-durante-a-semana-da-art-week-no-design-district/",
+      "grade": 1,
+      "baselineRank": 92
+    },
+    {
+      "id": "588f8a0b5cdde48d038a1f41a2f6f0d0",
+      "title": "I built a powerful new web design tool that focuses on craft, not automation – try a live demo now",
+      "url": "https://www.creativebloq.com/inspiration/i-built-a-powerful-new-web-design-tool-that-focuses-on-craft-not-automation-try-a-live-demo-now",
+      "grade": 2,
+      "baselineRank": 93
+    },
+    {
+      "id": "c26c26ebbc7fda83006a2d6bb02a5d97",
+      "title": "‘It’s going to be scary’: a week on from Adobe MAX 2026, creatives get honest about the future",
+      "url": "https://www.creativeboom.com/insight/its-going-to-be-scary-a-week-on-from-adobe-max-creatives-get-honest-about-the-future/",
+      "grade": 1,
+      "baselineRank": 94
+    },
+    {
+      "id": "91fd9383460260a810c9c993384f636e",
+      "title": "Beyond Points and Perks: How Sephora Makes 46 Million Members Feel Known",
+      "url": "https://www.adweek.com/brand-marketing/beyond-points-and-perks-how-sephora-makes-46-million-members-feel-known/",
+      "grade": 1,
+      "baselineRank": 95
+    },
+    {
+      "id": "d0e2d2841a9fa920a886bc03fbc7555f",
+      "title": "Hexed review – Disney’s witchy caper is a wicked disappointment",
+      "url": "https://www.theguardian.com/film/2026/nov/24/hexed-movie-review-disney",
+      "grade": 1,
+      "baselineRank": 96
+    },
+    {
+      "id": "29ff74d93dcd991dc19490460cb0a905",
+      "title": "I trusted Adobe Firefly because it was the safe AI option, now I'm not so sure",
+      "url": "https://www.creativebloq.com/news/i-trusted-adobe-firefly-because-it-was-the-safe-ai-option-now-im-not-so-sure",
+      "grade": 1,
+      "baselineRank": 97
+    },
+    {
+      "id": "d4d6ce262f014c2f60c954e396ddeccf",
+      "title": "Meet the strange and wonderful creatures of María Valeria Pazos’ Anima Mundi",
+      "url": "https://www.creativeboom.com/inspiration/meet-the-strange-and-wonderful-creatures-of-maria-valeria-pazos-anima-mundi/",
+      "grade": 2,
+      "baselineRank": 98
+    },
+    {
+      "id": "2669a577cff35db4ddf559703551d1a8",
+      "title": "Pamela Anderson on How Skincare Brand Sonsie’s First Holiday Ad Reflects Her World",
+      "url": "https://www.adweek.com/brand-marketing/pamela-anderson-on-how-skincare-brand-sonsies-first-holiday-ad-reflects-her-world/",
+      "grade": 2,
+      "baselineRank": 99
+    },
+    {
+      "id": "8ca41faf0ad039a3dce64e4f3f77349b",
+      "title": "Damien Chazelle transforma Sabrina Carpenter em personagem da Nouvelle Vague para Johnnie Walker",
+      "url": "https://www.b9.com.br/johnnie-walker-sabrina-carpenter-damien-chazelle-nouvelle-vague/",
+      "grade": 2,
+      "baselineRank": 100
+    },
+    {
+      "id": "c4d64ea1a6a48aabf8109e639503cd30",
+      "title": "The Gatto trailer is dividing opinion over Pixar's new painterly style",
+      "url": "https://www.creativebloq.com/news/the-gatto-trailer-is-dividing-opinion-over-pixars-new-painterly-style",
+      "grade": 2,
+      "baselineRank": 101
+    },
+    {
+      "id": "fedc0ce9cb6876ea3fe449dd0c31a897",
+      "title": "Studio Kiln builds a shape-shifting character for weight loss app Reset",
+      "url": "https://www.creativeboom.com/news/studio-kiln-builds-a-shape-shifting-character-for-weight-loss-app-reset/",
+      "grade": 2,
+      "baselineRank": 102
+    },
+    {
+      "id": "0765b36a86956f22f5aec5abf3e788b8",
+      "title": "Ads of the Week: 13 Campaigns That Caught Our Eye, From Disney to Maybelline",
+      "url": "https://www.adweek.com/creativity/ads-of-the-week-12-campaigns-that-caught-our-eye-from-disney-to-maybelline/",
+      "grade": 2,
+      "baselineRank": 103
+    },
+    {
+      "id": "bf3827f45647fd3654e4aefa827a4765",
+      "title": "Apple transforma MacBook em voto de confiança no filme de Natal 2026",
+      "url": "https://www.b9.com.br/apple-natal-2026-the-dreamer-macbook-neo/",
+      "grade": 2,
+      "baselineRank": 104
+    },
+    {
+      "id": "69f2737c079d4a64f78cb67d684f8b00",
+      "title": "Suggestive animation Beat Cancer Off finds the humour in a serious topic",
+      "url": "https://www.creativeboom.com/inspiration/suggestive-animation-beat-cancer-off-finds-the-humour-in-a-serious-topic/",
+      "grade": 2,
+      "baselineRank": 105
+    },
+    {
+      "id": "adc2245b260ba8eefb2f3be0e9f3c806",
+      "title": "Max Cameron's subversive cigarette packs roast the wilder claims of AI hype",
+      "url": "https://www.creativeboom.com/news/max-cameron-roasts-the-arrogance-of-ai-tech-bros-with-subversive-cigarette-packaging/",
+      "grade": 2,
+      "baselineRank": 106
+    },
+    {
+      "id": "19a4ec2090b9c55d0dc377e438b5beb3",
+      "title": "Target’s New CMO Wants the Brand To Get Its Edge Back",
+      "url": "https://www.adweek.com/commerce/targets-new-cmo-wants-the-brand-to-get-its-edge-back/",
+      "grade": 1,
+      "baselineRank": 107
+    },
+    {
+      "id": "a19a21cef08004449c378442ea572826",
+      "title": "Amazon faz presentes ficarem pelo caminho em filme de Natal ao som dos Beatles",
+      "url": "https://www.b9.com.br/amazon-natal-2026-joy-delivered-beatles/",
+      "grade": 2,
+      "baselineRank": 108
+    },
+    {
+      "id": "ba431286975e2321461e0676d4db6eb5",
+      "title": "5 Questions For…CNBC’s Carl Quintanilla on Nvidia CEO’s Shocking Departure",
+      "url": "https://www.adweek.com/tvnewser/5-questions-forcnbcs-carl-quintanilla-on-nvidias-ceo-shocking-departure/",
+      "grade": 0,
+      "baselineRank": 109
+    },
+    {
+      "id": "15f6be0e84963f285f7adaa010ca80c9",
+      "title": "What 50 years in business has taught Springetts about building brands that thrive",
+      "url": "https://www.creativeboom.com/insight/what-50-years-in-business-has-taught-springetts-about-building-brands-that-thrive/",
+      "grade": 1,
+      "baselineRank": 110
+    },
+    {
+      "id": "cb553fdfc3e49d97e2c591a926d0cfd0",
+      "title": "Week of Nov 2 Cable News Ratings: Midterm Elections Bring in Viewers",
+      "url": "https://www.adweek.com/tvnewser/week-of-nov-2-2026-cable-news-ratings-midterm-elections-bring-in-viewers/",
+      "grade": 0,
+      "baselineRank": 111
+    },
+    {
+      "id": "4eb61c643ce5a95d83a64a29a3ce4f91",
+      "title": "Adobe celebra criatividade humana enquanto transforma Firefly em estúdio cada vez mais autônomo",
+      "url": "https://www.b9.com.br/adobe-made-to-create-firefly-agentes-ia-criatividade-humana/",
+      "grade": 2,
+      "baselineRank": 112
+    },
+    {
+      "id": "d18609de5f94fbccf26ee8d6bf65c6f2",
+      "title": "Week of Nov. 2 Morning News Ratings: Today Wins with Nearly 3 Million Viewers",
+      "url": "https://www.adweek.com/tvnewser/week-of-nov-2-2026-morning-ratings/",
+      "grade": 0,
+      "baselineRank": 113
+    },
+    {
+      "id": "266631df2405938609353bd5408dfa4f",
+      "title": "Tanmay Saxena on leaving a banking job to make surreal photographs about life's stranger moments",
+      "url": "https://www.creativeboom.com/inspiration/tanmay-saxena-on-leaving-a-banking-job-to-make-surreal-photographs-about-lifes-stranger-moments/",
+      "grade": 2,
+      "baselineRank": 114
+    }
+  ]
+}

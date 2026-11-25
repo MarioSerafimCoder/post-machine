@@ -24,3 +24,16 @@ test('respeita o layout textual importado e conserva vínculos manuais das peça
   expect(reconcileExpressSlides(slides, [{ ...fresh, imageId: 'foto', imageLocked: true }], () => 'outra')[0])
     .toMatchObject({ key: 'nova', imageId: 'foto', imageLocked: true })
 })
+
+
+test('identidade explícita preserva decisões após reordenação e alteração de todo o texto', () => {
+  const old: ExpressSlide = { key: 'permanente', id: 'permanente', title: 'Antes', body: 'Texto', imageBrief: 'Foto antiga',
+    imageId: 'foto', imageLocked: true, composition: 3, framing: 'contain', focalPoint: { x: .2, y: .7 }, discardedVisuals: ['url:a'], visualDecision: 'approved' }
+  const [added, updated] = reconcileExpressSlides([{ id: 'novo', title: 'Nova', body: '' },
+    { id: 'permanente', title: 'Outro título', body: 'Outro texto', imageBrief: 'Outro contexto' }], [old], () => crypto.randomUUID())
+  expect(added.imageId).toBeUndefined()
+  expect(updated).toMatchObject({ key: old.key, id: old.id, imageId: old.imageId, imageLocked: true,
+    composition: 3, framing: 'contain', focalPoint: old.focalPoint, discardedVisuals: old.discardedVisuals,
+    visualDecision: 'approved', needsImageReview: true })
+  expect(reconcileExpressSlides([{ id: 'diferente', title: old.title, body: old.body }], [old], () => 'gerado')[0].imageId).toBeUndefined()
+})
