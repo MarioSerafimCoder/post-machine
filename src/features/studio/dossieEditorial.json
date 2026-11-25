@@ -1,0 +1,82 @@
+[
+  {
+    "role": "cover", "background": "#060609",
+    "objects": [
+      {"type":"Rect","originX":"left","originY":"top","left":0,"top":0,"width":1080,"height":628,"strokeWidth":0,"fill":"#394154","templateRole":"image","semantic":"imageFrame"},
+      {"type":"Rect","left":0,"top":0,"width":1080,"originX":"left","originY":"top","strokeWidth":0,"height":632,"semantic":"editorialGradient","templateRole":"decoration","fill":{"type":"linear","gradientUnits":"pixels","coords":{"x1":0,"y1":0,"x2":0,"y2":632},"colorStops":[{"offset":0,"color":"rgba(0,0,0,0.36)"},{"offset":0.7,"color":"rgba(0,0,0,0)"},{"offset":1,"color":"rgba(0,0,0,1)"}]}},
+      {"type":"Textbox","left":45,"top":41,"width":440,"originX":"left","originY":"top","strokeWidth":0,"text":"Caderno de criação","fontSize":20,"fontFamily":"Inter","fill":"#FFFFFF","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":654,"top":41,"width":241,"originX":"left","originY":"top","strokeWidth":0,"text":"Estúdio editorial","fontSize":20,"fontFamily":"Inter","fill":"#FFFFFF","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":894,"top":41,"width":140,"originX":"left","originY":"top","strokeWidth":0,"text":"Edição 01","fontSize":20,"fontFamily":"Inter","fill":"#FFFFFF","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed","textAlign":"right"},
+      {"type":"Textbox","left":90,"top":575,"width":900,"originX":"left","originY":"top","strokeWidth":0,"text":"ESTÚDIO EDITORIAL","fontSize":23,"fontFamily":"Inter","fill":"#FFFBC8","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed","textAlign":"center"},
+      {"type":"Textbox","left":60,"top":679,"width":960,"originX":"left","originY":"top","strokeWidth":0,"text":"O QUE FAZ UMA\nIMAGEM VIRAR","fontSize":108,"fontFamily":"Impact","fill":"#FFFFFF","fontWeight":600,"charSpacing":-15,"lineHeight":0.99,"templateRole":"title","semantic":"title","textAlign":"center"},
+      {"type":"Textbox","left":54,"top":945,"width":972,"originX":"left","originY":"top","strokeWidth":0,"text":"REFERÊNCIA?","fontSize":127,"fontFamily":"Impact","fill":"#FF4000","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"subtitle","semantic":"subtitle","textAlign":"center"},
+      {"type":"Textbox","left":90,"top":1197,"width":900,"originX":"left","originY":"top","strokeWidth":0,"text":"→  Um olhar sobre as escolhas por trás de uma capa","fontSize":29,"fontFamily":"Inter","fill":"#FFFFFF","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"body","semantic":"body","textAlign":"center"}
+    ]
+  },
+  {
+    "role": "content", "background": "#F5F5F5",
+    "objects": [
+      {"type":"Textbox","left":45,"top":41,"width":440,"originX":"left","originY":"top","strokeWidth":0,"text":"Caderno de criação","fontSize":20,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":654,"top":41,"width":241,"originX":"left","originY":"top","strokeWidth":0,"text":"Estúdio editorial","fontSize":20,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":894,"top":41,"width":140,"originX":"left","originY":"top","strokeWidth":0,"text":"Edição 01","fontSize":20,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed","textAlign":"right"},
+      {"type":"Textbox","left":45,"top":132,"width":982,"originX":"left","originY":"top","strokeWidth":0,"text":"Uma capa começa com uma escolha.","fontSize":58,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"title","semantic":"title","styles":[{"start":20,"end":34,"style":{"fill":"#FF4000"}}]},
+      {"type":"Rect","left":45,"top":306,"width":990,"originX":"left","originY":"top","strokeWidth":0,"height":1,"fill":"#A6A6AA","templateRole":"decoration"},
+      {"type":"Textbox","left":45,"top":334,"width":974,"originX":"left","originY":"top","strokeWidth":0,"text":"Antes da primeira linha, o enquadramento já orienta o olhar. A margem, a luz e a escala decidem onde a leitura começa.","fontSize":58,"fontFamily":"Inter","fill":"#080718","fontWeight":400,"charSpacing":-52,"lineHeight":1.02,"templateRole":"body","semantic":"body"},
+      {"type":"Rect","left":45,"top":720,"width":990,"originX":"left","originY":"top","strokeWidth":0,"height":1,"fill":"#A6A6AA","templateRole":"decoration"},
+      {"type":"Textbox","left":45,"top":1001,"width":900,"originX":"left","originY":"top","strokeWidth":0,"text":"O que observar","fontSize":38,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"subtitle","semantic":"subtitle","underline":true},
+      {"type":"Textbox","left":45,"top":1100,"width":975,"originX":"left","originY":"top","strokeWidth":0,"text":"→ Onde o olhar entra.\n→ O que ganha destaque.\n→ Quanto espaço sobra para o texto.","fontSize":38,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"}
+    ]
+  },
+  {
+    "role": "content", "background": "#080718",
+    "objects": [
+      {"type":"Textbox","left":45,"top":41,"width":440,"originX":"left","originY":"top","strokeWidth":0,"text":"Caderno de criação","fontSize":20,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":654,"top":41,"width":241,"originX":"left","originY":"top","strokeWidth":0,"text":"Estúdio editorial","fontSize":20,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":894,"top":41,"width":140,"originX":"left","originY":"top","strokeWidth":0,"text":"Edição 01","fontSize":20,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed","textAlign":"right"},
+      {"type":"Textbox","left":45,"top":124,"width":980,"originX":"left","originY":"top","strokeWidth":0,"text":"De onde vem\na força da capa?","fontSize":90,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"title","semantic":"title"},
+      {"type":"Rect","left":45,"top":351,"width":990,"originX":"left","originY":"top","strokeWidth":0,"height":1,"fill":"#54515E","templateRole":"decoration"},
+      {"type":"Textbox","left":45,"top":746,"width":980,"originX":"left","originY":"top","strokeWidth":0,"text":"Observe o encontro entre o rosto e a lente. O gesto ocupa o primeiro plano. O fundo silencioso deixa espaço para a manchete.","fontSize":54,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"body","semantic":"body"},
+      {"type":"Textbox","left":45,"top":1150,"width":965,"originX":"left","originY":"top","strokeWidth":0,"text":"Uma escolha de cada vez.\nUm ponto claro de atenção.","fontSize":48,"fontFamily":"Inter","fill":"#FFFBC8","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"subtitle","semantic":"subtitle"}
+    ]
+  },
+  {
+    "role": "content", "background": "#F5F5F5",
+    "objects": [
+      {"type":"Textbox","left":45,"top":41,"width":440,"originX":"left","originY":"top","strokeWidth":0,"text":"Caderno de criação","fontSize":20,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":654,"top":41,"width":241,"originX":"left","originY":"top","strokeWidth":0,"text":"Estúdio editorial","fontSize":20,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":894,"top":41,"width":140,"originX":"left","originY":"top","strokeWidth":0,"text":"Edição 01","fontSize":20,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed","textAlign":"right"},
+      {"type":"Textbox","left":36,"top":134,"width":998,"originX":"left","originY":"top","strokeWidth":0,"text":"O que pesa\nna leitura?","fontSize":91,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"title","semantic":"title","styles":[{"start":6,"end":10,"style":{"fill":"#FF4000"}}]},
+      {"type":"Rect","originX":"left","originY":"top","left":36,"top":387,"width":998,"height":423,"strokeWidth":0,"fill":"#D8D7D4","templateRole":"image","semantic":"imageFrame"},
+      {"type":"Textbox","left":36,"top":891,"width":997,"originX":"left","originY":"top","strokeWidth":0,"text":"×  Muitas chamadas na mesma página\n×  Linhas longas em corpo pequeno\n×  Contrastes que disputam atenção\n×  Cortes que escondem o assunto","fontSize":40,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"body","semantic":"body","styles":[{"start":0,"end":1,"style":{"fill":"#ED190C"}},{"start":34,"end":35,"style":{"fill":"#ED190C"}},{"start":67,"end":68,"style":{"fill":"#ED190C"}},{"start":101,"end":102,"style":{"fill":"#ED190C"}}]},
+      {"type":"Textbox","left":36,"top":1192,"width":990,"originX":"left","originY":"top","strokeWidth":0,"text":"Teste a página em miniatura.\nO primeiro plano ainda aparece?","fontSize":38,"fontFamily":"Inter","fill":"#686873","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"subtitle","semantic":"subtitle"}
+    ]
+  },
+  {
+    "role": "content", "background": "#080718",
+    "objects": [
+      {"type":"Textbox","left":45,"top":41,"width":440,"originX":"left","originY":"top","strokeWidth":0,"text":"Caderno de criação","fontSize":20,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":654,"top":41,"width":241,"originX":"left","originY":"top","strokeWidth":0,"text":"Estúdio editorial","fontSize":20,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":894,"top":41,"width":140,"originX":"left","originY":"top","strokeWidth":0,"text":"Edição 01","fontSize":20,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed","textAlign":"right"},
+      {"type":"Textbox","left":45,"top":110,"width":994,"originX":"left","originY":"top","strokeWidth":0,"text":"As camadas\nde um retrato.","fontSize":91,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"title","semantic":"title","styles":[{"start":3,"end":10,"style":{"fill":"#FFFBC8"}}]},
+      {"type":"Rect","originX":"left","originY":"top","left":56,"top":351,"width":968,"height":356,"strokeWidth":0,"fill":"#594342","templateRole":"image","semantic":"imageFrame"},
+      {"type":"Textbox","left":56,"top":762,"width":970,"originX":"left","originY":"top","strokeWidth":0,"text":"Três decisões para observar","fontSize":36,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"subtitle","semantic":"subtitle","underline":true},
+      {"type":"Textbox","left":56,"top":850,"width":965,"originX":"left","originY":"top","strokeWidth":0,"text":"→ Corte. Os olhos podem ficar fora do quadro.\n→ Cor. O fundo aproxima pele e figurino.\n→ Escala. Um detalhe vira o centro da cena.","fontSize":36,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"body","semantic":"body"},
+      {"type":"Textbox","left":56,"top":1162,"width":960,"originX":"left","originY":"top","strokeWidth":0,"text":"Experimente dois cortes da mesma foto.\nCompare o que cada um faz aparecer.","fontSize":37,"fontFamily":"Inter","fill":"#FFFBC8","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"}
+    ]
+  },
+  {
+    "role": "cta", "background": "#FF4000",
+    "objects": [
+      {"type":"Textbox","left":45,"top":41,"width":440,"originX":"left","originY":"top","strokeWidth":0,"text":"Caderno de criação","fontSize":20,"fontFamily":"Inter","fill":"#FFFFFF","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":654,"top":41,"width":241,"originX":"left","originY":"top","strokeWidth":0,"text":"Estúdio editorial","fontSize":20,"fontFamily":"Inter","fill":"#FFFFFF","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":894,"top":41,"width":140,"originX":"left","originY":"top","strokeWidth":0,"text":"Edição 01","fontSize":20,"fontFamily":"Inter","fill":"#FFFFFF","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed","textAlign":"right"},
+      {"type":"Textbox","left":45,"top":109,"width":991,"originX":"left","originY":"top","strokeWidth":0,"text":"O detalhe que\nmuda o conjunto.","fontSize":91,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"title","semantic":"title","styles":[{"start":2,"end":9,"style":{"fill":"#080718"}}]},
+      {"type":"Rect","left":46,"top":424,"width":988,"originX":"left","originY":"top","strokeWidth":0,"height":382,"fill":"#FFFFFF","templateRole":"decoration"},
+      {"type":"Rect","left":46,"top":424,"width":988,"originX":"left","originY":"top","strokeWidth":0,"height":382,"fill":"#FFFFFF","templateRole":"image","semantic":"imageFrame"},
+      {"type":"Textbox","left":87,"top":496,"width":890,"originX":"left","originY":"top","strokeWidth":0,"text":"Estudo de composição","fontSize":62,"fontFamily":"Inter","fill":"#080718","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":90,"top":622,"width":880,"originX":"left","originY":"top","strokeWidth":0,"text":"Fotografia  /  Tipografia  /  Ritmo","fontSize":34,"fontFamily":"Inter","fill":"#605E67","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"fixed","semantic":"fixed"},
+      {"type":"Textbox","left":45,"top":939,"width":990,"originX":"left","originY":"top","strokeWidth":0,"text":"Comece por um detalhe. Escolha o recorte, aproxime o assunto e deixe a tipografia responder à imagem.","fontSize":41,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"body","semantic":"body"},
+      {"type":"Textbox","left":45,"top":1140,"width":990,"originX":"left","originY":"top","strokeWidth":0,"text":"Guarde a capa e compare as duas versões.","fontSize":42,"fontFamily":"Inter","fill":"#F5F5F5","fontWeight":600,"charSpacing":-52,"lineHeight":1.02,"templateRole":"cta","semantic":"cta","underline":true}
+    ]
+  }
+]

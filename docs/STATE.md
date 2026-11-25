@@ -566,3 +566,7 @@ Windows, Intel i5-9400F, Node 24.18.0, Chromium do Playwright e build Vite servi
 - Revisão desktop em 1024 × 768, 1280 × 800, 1440 × 900 e 1920 × 1080. Os PNGs de exemplo foram inspecionados em 1080 × 1350, 1080 × 1080 e 1080 × 1920, com texto longo e forma translúcida. As verificações automatizadas também conferiram pixels sem guias, dimensões do ZIP, fonte local, imagens e `creditos.txt`. O foco novo mediu contraste de 6,17:1 sobre o fundo principal e de 5,63:1 sobre o fundo de seleção nas cores avaliadas.
 - A [publicação](https://github.com/MarioSerafimCoder/post-machine/actions/runs/43737361339) do commit `348b088` promoveu a versão `43dd78c5-4ecf-4bd4-b40b-1eec45c5ebca` do Worker existente a 100%. Visitantes anônimos receberam HTTP 302 para o Cloudflare Access antes e depois. O navegador autenticado recebeu o mesmo bundle e o mesmo `collectedAt` do artefato, de `2026-11-15T16:46:56.144Z`, com 404 notícias no snapshot.
 - Em produção, a referência de teste mostrou as contagens reais do YouTube observadas às 13h20 e reaproveitadas do cache. Um projeto salvo na Fase 5.3 reabriu no Studio, passou pela Auditoria e gerou PNG de 1080 × 1350. O deploy reutilizou os recursos existentes e o custo operacional adicional foi R$ 0.
+
+## Dossiê Editorial no Studio
+
+O menu Novo projeto abre uma cópia local editável das seis composições em 1080 × 1350 px. Os quadros públicos substituem os uploads. A abertura do sexto slide, a renomeação e a reabertura da cópia foram verificadas no navegador a 1280 e 1440 px.
