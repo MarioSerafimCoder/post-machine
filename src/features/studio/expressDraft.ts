@@ -1,6 +1,7 @@
 import type { Content, Draft } from '../campaigns/contract'
 import { abortTransaction, transaction } from './database'
 import type { CollectionSlide } from './collections'
+import type { Input } from './factory/planning'
 import type { Format } from './model'
 import type { VisualDecision, VisualMatch } from '../images/automaticSearch'
 import type { FocalPoint } from './vision/signals'
@@ -107,7 +108,7 @@ export async function storeExpressDraft(slot: string, draft: ExpressDraft | unde
   return revision
 }
 
-export function reconcileExpressSlides(values: CollectionSlide[], previous: ExpressSlide[], newKey: () => string): ExpressSlide[] {
+export function reconcileExpressSlides(values: Input[], previous: ExpressSlide[], newKey: () => string): ExpressSlide[] {
   const signature = (slide: CollectionSlide) => JSON.stringify([slide.role ?? '', slide.title.trim(), slide.body.trim(), slide.imageBrief?.trim() ?? ''])
   const matches = new Map<string, ExpressSlide[]>()
   for (const slide of previous) {
@@ -123,9 +124,12 @@ export function reconcileExpressSlides(values: CollectionSlide[], previous: Expr
     const id = signature(slide)
     const candidates = matches.get(id)
     const match = candidates?.length === 1 && counts.get(id) === 1 ? candidates[0] : undefined
-    return { ...slide, key: match?.key ?? newKey(), imageId: match?.imageId, framing: match?.framing ?? slide.framing,
+    const importedImageId = slide.imageId === null ? null : undefined
+    const imageId = match?.imageId !== undefined ? match.imageId : importedImageId
+    return { ...slide, key: match?.key ?? newKey(), imageId, framing: match?.framing ?? slide.framing,
       ...(match?.focalPoint ? { focalPoint: match.focalPoint } : {}), ...(match?.ignoreVisual ? { ignoreVisual: true } : {}),
       imageLocked: match?.imageLocked, searchRevision: match?.searchRevision, discardedVisuals: match?.discardedVisuals,
+      visualDecision: match?.visualDecision,
     }
   })
 }

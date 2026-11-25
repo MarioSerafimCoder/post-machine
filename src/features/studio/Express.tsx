@@ -12,7 +12,7 @@ import { collections, type CollectionSlide, collectionBrand, prepareCollectionIm
 import { CollectionGallery } from './CollectionGallery'
 import { bodyLimit, fromStructured, parseExpress, titleLimit } from './expressContent'
 import { fabricate, planFactoryImages, recompose, type Fabrication, type FactoryInput, type Proposal } from './factory/fabricate'
-import { divideBody } from './factory/planning'
+import { divideBody, type Input } from './factory/planning'
 import { readImage } from './images'
 import { dimensions, formatNames, type Brand, type Format, type Project } from './model'
 import { ProposalReview } from './factory/ProposalReview'
@@ -239,7 +239,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     setStatus(photo ? `${photo.name} vinculada ao slide ${index + 1}.` :
       id === null ? `Slide ${index + 1} definido sem imagem.` : `Slide ${index + 1} voltou à distribuição automática.`)
   }
-  function organize(values: CollectionSlide[]) {
+  function organize(values: Input[]) {
     showSlides()
     setSlides(previous => reconcileExpressSlides(values, previous, key))
   }

@@ -1,5 +1,11 @@
 # Estado real — 25/11/2026
 
+## Revisão de estabilidade da Produção Expressa e da exportação
+
+- A organização do conteúdo importado preserva o layout somente texto em slides novos. Quando uma peça é reconhecida após reordenação, mantém o vínculo da foto e o registro da decisão manual. Peças ambíguas continuam sem herdar vínculos manuais.
+- Os créditos de exportação respeitam a visibilidade dos grupos em todos os níveis. As fotos de grupos ocultos continuam disponíveis no acervo local.
+- Os três casos foram reproduzidos antes da correção. Lint, build, simulação do deploy e 158 testes unitários passaram. O Playwright aprovou 164 cenários nos perfis de 1280 e 1440 px, com 12 omitidos pela configuração. A primeira rodada unitária excedeu o limite de cinco segundos na fabricação de 20 slides durante a execução simultânea das suítes. A suíte completa passou isoladamente com o mesmo limite.
+
 ## Fase 12 — Homologação e estabilidade
 
 - Em `91e3ba5`, o diagnóstico fez cinco consultas Brave Images e recebeu 60 URLs diretas em cinco respostas HTTP 200. O classificador rejeitou 56 e marcou quatro como relacionadas. Dois WebP da Creative Boom passaram pelo download e pela assinatura raster. Os dois candidatos de Gatto ficaram bloqueados pela origem. A rodada usou a franquia gratuita e confirmou que o termo australiano saiu inteiro. [Diagnóstico](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45607465793).

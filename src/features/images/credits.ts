@@ -1,10 +1,11 @@
 import type { Project } from '../studio/model'
 import { creditProvider, imageCreditSchema, licenseName, licenseTerms, type ImageCredit } from './contract'
 
-export function* imageObjects(objects: Record<string, unknown>[]): Generator<Record<string, unknown>> {
+export function* imageObjects(objects: Record<string, unknown>[], visibleOnly = false): Generator<Record<string, unknown>> {
   for (const object of objects) {
+    if (visibleOnly && (object.visible === false || object.opacity === 0)) continue
     if (String(object.type).toLowerCase() === 'image') yield object
-    if (Array.isArray(object.objects)) yield* imageObjects(object.objects)
+    if (Array.isArray(object.objects)) yield* imageObjects(object.objects, visibleOnly)
   }
 }
 
@@ -31,8 +32,7 @@ export function projectCredits(project: Project, current?: number) {
   const entries = new Map<string, { credit: ImageCredit; slides: number[] }>()
   for (const [index, slide] of project.slides.entries()) {
     if (current !== undefined && current !== index) continue
-    for (const object of imageObjects(slide.scene.objects)) {
-      if (object.visible === false || object.opacity === 0) continue
+    for (const object of imageObjects(slide.scene.objects, true)) {
       const parsed = imageCreditSchema.safeParse(object.imageCredit)
       if (!parsed.success) continue
       const credit = parsed.data

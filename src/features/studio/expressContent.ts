@@ -1,5 +1,6 @@
 import { importContent, maxImport, maxSlides, type Briefing, type Content } from '../campaigns/contract'
 import type { CollectionSlide } from './collections'
+import type { Input } from './factory/planning'
 import { textLayout } from '../images/visualContext'
 
 export const titleLimit = 500
@@ -22,7 +23,7 @@ function explicitIntent(layout: string): CollectionSlide['intent'] {
   return undefined
 }
 
-export function parseExpress(input: string): { slides: CollectionSlide[]; structured?: Content } {
+export function parseExpress(input: string): { slides: Input[]; structured?: Content } {
   const text = input.replace(/\r\n?/g, '\n').trim()
     .replace(/^```(?:json|md|markdown|txt|text)?[ \t]*\n([\s\S]*?)\n```$/i, '$1').trim()
   if (!text) throw Error('Cole o conteúdo antes de organizar os slides.')
