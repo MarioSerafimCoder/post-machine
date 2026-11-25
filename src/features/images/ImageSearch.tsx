@@ -1,10 +1,130 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { licenseName, licenses, licenseTerms, toCredit, type ImageCredit, type ImageResult } from './contract'
 import { automaticOriginal, fetchOriginal, searchImages, SearchLimit, thumbnailUrl, type Search } from './openverse'
 import { creditText } from './credits'
+import type { AutomaticImage, VisualMatch, VisualRequest } from './automaticSearch'
+import { importVisualUrl, rememberManualVisual, visualAlternatives } from './searchOrchestrator'
 import './images.css'
 
-export type InsertImage = (file: File, credit?: ImageCredit, signal?: AbortSignal) => Promise<void>
+export type InsertImage = (file: File, credit?: ImageCredit, signal?: AbortSignal, match?: VisualMatch) => Promise<void>
+
+export function StudioImageSearch({ initialTerm, request, used, insert }: {
+  initialTerm: string; request?: VisualRequest; used: ReadonlySet<string>; insert: InsertImage
+}) {
+  const [term, setTerm] = useState(initialTerm)
+  const [url, setUrl] = useState('')
+  const [openverse, setOpenverse] = useState(false)
+  const [found, setFound] = useState<AutomaticImage[]>([])
+  const [alternatives, setAlternatives] = useState<{ key: string; images: AutomaticImage[] }>()
+  const [searching, setSearching] = useState(false)
+  const [inserting, setInserting] = useState(false)
+  const [searchNotice, setSearchNotice] = useState('')
+  const [notice, setNotice] = useState('')
+  const [error, setError] = useState('')
+  const search = useRef<AbortController>(null)
+  const insertion = useRef<AbortController>(null)
+  const signature = request && JSON.stringify([request.key, request.signature, [...used]])
+  const readContext = useEffectEvent(() => ({ request, used }))
+  useEffect(() => {
+    if (!signature) return
+    const { request, used } = readContext()
+    if (!request) return
+    const controller = new AbortController()
+    void visualAlternatives(request, used, controller.signal).then(({ results }) => {
+      if (!controller.signal.aborted) setAlternatives({ key: signature, images: results })
+    }).catch(() => undefined)
+    return () => controller.abort()
+  }, [signature])
+  useEffect(() => () => { search.current?.abort(); insertion.current?.abort() }, [])
+
+  async function run() {
+    const query = term.trim()
+    if (!request || query.length < 2) return
+    search.current?.abort()
+    const controller = new AbortController()
+    search.current = controller
+    setSearching(true); setSearchNotice(''); setFound([])
+    try {
+      const { results, searched } = await visualAlternatives(request, used, controller.signal, query)
+      if (controller.signal.aborted) return
+      setFound(results)
+      setSearchNotice(!searched ? 'A busca contextual está indisponível. Você pode usar o Openverse ou importar uma imagem.'
+        : results.length === 0 ? 'A busca não encontrou imagens adequadas para este slide.' : '')
+    } catch {
+      if (!controller.signal.aborted) setSearchNotice('A busca contextual falhou. Tente novamente.')
+    } finally {
+      if (search.current === controller && !controller.signal.aborted) setSearching(false)
+    }
+  }
+
+  async function apply(input: AutomaticImage | File | string) {
+    if (insertion.current) return
+    const controller = new AbortController()
+    insertion.current = controller
+    const signal = controller.signal
+    setInserting(true); setNotice(''); setError('')
+    try {
+      if (typeof input === 'string') {
+        const { file, credit } = await importVisualUrl(input, signal)
+        await insert(file, credit, signal)
+        setUrl('')
+      } else if (input instanceof File) {
+        await insert(input, undefined, signal)
+      } else {
+        await insert(input.file, input.object.imageCredit as ImageCredit, signal, input.match)
+        if (request) rememberManualVisual(request, input)
+        setFound(prior => prior.filter(image => image.id !== input.id))
+      }
+      if (!signal.aborted) setNotice('Imagem aplicada ao slide.')
+    } catch (cause) {
+      if (!signal.aborted) setError(cause instanceof Error ? cause.message : 'Não foi possível aplicar a imagem.')
+    } finally {
+      insertion.current = null
+      if (!signal.aborted) setInserting(false)
+    }
+  }
+
+  const local = alternatives?.key === signature ? alternatives?.images ?? [] : []
+  const results = [...local, ...found.filter(image => !local.some(item => item.id === image.id))]
+    .filter(image => !image.keys.some(key => used.has(key)))
+    .sort((left, right) => Number(right.match.classification === 'confirmed') - Number(left.match.classification === 'confirmed'))
+    .slice(0, 8)
+  return <section className="image-workspace studio-image-search" aria-label="Pesquisa de imagens do slide">
+    {!!results.length && <div className="image-gallery" aria-label="Alternativas para este slide">
+      {results.map(image => {
+        const credit = image.object.imageCredit as ImageCredit
+        return <article key={image.id} className="image-card">
+          <img src={String(image.object.src)} alt={credit.title || 'Imagem da fonte'} loading="lazy" />
+          <strong>{credit.title || credit.source || 'Imagem da fonte'}</strong>
+          <small>{image.match.classification === 'confirmed' ? 'Material documental' : 'Confira a relação com a pauta'}</small>
+          <small>{credit.license ? licenseName(credit.license) : 'Licença não informada'} · {String(image.object.width)} × {String(image.object.height)} px</small>
+          {credit.sourcePage && <a href={credit.sourcePage} target="_blank" rel="noreferrer">Conferir fonte</a>}
+          <button type="button" disabled={inserting} onClick={() => void apply(image)}>Aplicar ao slide</button>
+        </article>
+      })}
+    </div>}
+    <form className="image-filters" onSubmit={event => { event.preventDefault(); void run() }}>
+      <label>Consulta visual<input id="studio-image-query" required minLength={2} maxLength={240} value={term} onChange={event => setTerm(event.target.value)} /></label>
+      <button type="submit" disabled={!request || searching}>Pesquisar imagens relacionadas</button>
+      {searching && <button type="button" onClick={() => { search.current?.abort(); setSearching(false) }}>Cancelar busca</button>}
+    </form>
+    {searching && <p role="status">Pesquisando imagens relacionadas…</p>}
+    {searchNotice && <p role="status">{searchNotice}</p>}
+    <form className="image-filters" onSubmit={event => { event.preventDefault(); void apply(url) }}>
+      <label>URL da imagem<input type="url" required maxLength={2048} value={url} onChange={event => setUrl(event.target.value)} /></label>
+      <button type="submit" disabled={inserting}>Importar URL</button>
+    </form>
+    <div className="image-actions">
+      <button type="button" aria-expanded={openverse} onClick={() => setOpenverse(value => !value)}>Pesquisar no Openverse</button>
+      <label>Importar arquivo<input type="file" disabled={inserting} accept="image/png,image/jpeg,image/webp" onChange={event => {
+        const file = event.target.files?.[0]; event.target.value = ''; if (file) void apply(file)
+      }} /></label>
+    </div>
+    {openverse && <ImageSearch initialTerm={term.slice(0, 160)} insert={insert} />}
+    {(inserting || notice) && <p role="status">{inserting ? 'Validando a imagem…' : notice}</p>}
+    {error && <p role="alert">{error}</p>}
+  </section>
+}
 
 function Preview({ image }: { image: ImageResult }) {
   const [failed, setFailed] = useState(false)

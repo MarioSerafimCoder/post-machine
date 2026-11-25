@@ -37,7 +37,9 @@ Os títulos, favoritos e propostas ficam no documento local. No Studio, **Projet
 
 ## Pesquisar imagens e gerar créditos
 
-No Studio, abra **Imagens → Pesquisar imagens** ou use **Buscar imagem para este slide** para preencher o termo com o briefing ou título. Confira a página original e a licença no painel de detalhes. Quando o provedor não permitir a importação direta, baixe o original e use **Importar arquivo com estes créditos**. As imagens salvas aparecem em **Imagens utilizadas**.
+O prompt editorial pede materiais documentais para cada slide. Ao colar o JSON v1, o Studio abre enquanto a busca confere as páginas e prepara os originais. Imagens documentais aparecem à medida que ficam prontas.
+
+No Studio, abra **Imagens → Pesquisar imagens** ou **Substituir imagem**. Confira as alternativas já encontradas e use a consulta preenchida para procurar mais imagens relacionadas. Cada cartão indica a fonte e a licença disponível. O painel também permite pesquisar no Openverse, importar uma URL HTTPS de um provedor aceito ou enviar um arquivo. As imagens escolhidas manualmente ficam protegidas da busca automática.
 
 Em **Mais ações → Gerar créditos do projeto**, copie ou baixe as atribuições. O ZIP das artes inclui `creditos.txt` quando houver metadados de imagens. Confira as condições da fonte antes de publicar, especialmente em imagens adaptadas.
 

@@ -15,15 +15,20 @@ export function researchUrl(value: string, base?: string) {
 }
 
 const phrase = z.string().trim().min(1).max(240).regex(/^[^\p{Cc}]+$/u)
-const urls = z.array(z.string().trim().refine(value => !!researchUrl(value), 'Use uma URL HTTPS pública.')).max(8)
+const publicUrl = z.string().trim().refine(value => !!researchUrl(value), 'Use uma URL HTTPS pública.')
+const urls = z.array(publicUrl).max(8)
+const visualCandidates = z.array(z.object({
+  imageUrl: publicUrl, sourceUrl: publicUrl, description: phrase,
+})).max(6)
 const queries = z.array(phrase).max(6)
 export const campaignVisualSchema = z.object({
   subject: phrase.optional(), entities: z.array(phrase).max(16).optional(), campaignName: phrase.optional(),
   year: z.number().int().min(1800).max(2100).optional(), mediaType: phrase.optional(), searchQueries: queries.optional(),
-  preferredSources: urls.optional(), excludedSubjects: z.array(phrase).max(16).optional(),
+  preferredSources: urls.optional(), excludedSubjects: z.array(phrase).max(16).optional(), visualCandidates: visualCandidates.optional(),
 })
 export const slideVisualSchema = z.object({
   visualIntent: phrase.optional(), searchQueries: queries.optional(), preferredSourceUrls: urls.optional(), imageType: phrase.optional(),
+  visualCandidates: visualCandidates.optional(),
 })
 export type CampaignVisual = z.infer<typeof campaignVisualSchema>
 export type SlideVisual = z.infer<typeof slideVisualSchema>
@@ -74,8 +79,8 @@ export function campaignContext(input: {
   const { article, title, caption, visual, slides } = input
   const candidates: Source[] = [
     ...(article ? [{ title: article.title, url: article.url, publishedAt: article.publishedAt }] : []),
-    ...visual?.preferredSources?.map(url => ({ title: '', url })) ?? [],
     ...input.sources ?? [],
+    ...visual?.preferredSources?.map(url => ({ title: '', url })) ?? [],
     ...slides.flatMap(slide => slide.visualContext?.preferredSourceUrls?.map(url => ({ title: '', url })) ?? []),
   ]
   const sources = candidates.flatMap(source => {
@@ -97,6 +102,8 @@ export function campaignContext(input: {
     subject, names, year, sources, query, campaignName: visual?.campaignName ?? entitiesIn(subject).find(name => /\d/.test(name) && words(name).length > 2),
     language: article?.language, sourceImage: article?.imageUrl,
     excluded: visual?.excludedSubjects ?? [], extraQueries: visual?.searchQueries?.slice(1) ?? [],
+    visualCandidates: visual?.visualCandidates ?? [],
+    slideCandidates: slides.flatMap(slide => slide.visualContext?.visualCandidates ?? []),
     terms: words(mainText), primary: words([visual?.campaignName, subject].filter(Boolean).join(' ')),
     scope: visualDigest([article, input.sources, visual, title, sources.map(source => source.url)]),
     context: visualDigest([caption, mainText, slides.map(slide => slide.visualContext)]),

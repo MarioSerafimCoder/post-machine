@@ -30,6 +30,7 @@ type Env = {
 const commonHeaders = { 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer' }
 const json = (data: unknown, status = 200, headers?: HeadersInit) => Response.json(data, { status, headers: { ...commonHeaders, ...headers } })
 const pageInput = z.object({ url: z.string().max(2048), image: z.string().max(2048).optional(),
+  preferredImages: z.array(z.string().max(2048)).max(3).optional(),
   title: z.string().max(500).optional(), primary: z.boolean().optional() }).strict()
 const queryInput = z.object({ kind: z.enum(['web', 'images']), query: z.string().trim().min(2).max(240),
   language: z.enum(['en', 'pt']).optional(), anchors: z.array(z.string().max(160)).max(8).optional() }).strict()
@@ -84,11 +85,12 @@ async function download(url: URL, hosts: string, signal: AbortSignal) {
     : json({ error: 'invalid_image' }, 422)
 }
 
-async function candidates(images: Extracted[], person: string, env: Env, key: string) {
+async function candidates(images: Extracted[], person: string, env: Env, key: string, preferred = new Set<string>()) {
   const hosts = hostsFor(env)
   const order = { figure: 6, structured: 5, poster: 4, body: 3, social: 2, feed: 1, search: 0 }
   const seen = new Set<string>()
-  const eligible = images.sort((a, b) => order[b.evidence] - order[a.evidence]).filter(image => {
+  const priority = (image: Extracted) => order[image.evidence] + (image.evidence !== 'feed' && preferred.has(image.url) ? 10 : 0)
+  const eligible = images.sort((a, b) => priority(b) - priority(a)).filter(image => {
     if (seen.has(image.url) || !externalUrl(image.url, hosts) || !researchUrl(image.page)) return false
     seen.add(image.url)
     return true
@@ -167,7 +169,8 @@ export default {
           browserEnabled(finalPage.hostname, env) ? await issueTicket(finalPage.href, person, key, 'render') : undefined
         const channelTicket = input.primary && audiovisualEnabled(env) && extraction.channelId &&
           await issueTicket(extraction.channelId, person, key, 'channel') || undefined
-        return json({ candidates: await candidates(images, person, env, key), renderTicket, channelTicket,
+        const preferred = new Set(input.preferredImages?.flatMap(raw => externalUrl(raw, hosts)?.href ?? []) ?? [])
+        return json({ candidates: await candidates(images, person, env, key, preferred), renderTicket, channelTicket,
           audiovisualAvailable: input.primary && !extraction.blocked && audiovisualEnabled(env) ? true : undefined })
       }
       if (env.BRAVE_VISUAL_ZERO_SPEND !== 'confirmed' || !env.BRAVE_SEARCH_API_KEY) return json({ state: 'disabled', candidates: [] })

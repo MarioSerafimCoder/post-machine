@@ -1,9 +1,9 @@
 import { ContextHeader, ContextRail, type ContextTool } from '../../components/ContextRail'
-import { ImageSearch } from '../images/ImageSearch'
+import { StudioImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
 import { editorialImageQuery } from '../images/editorialQuery'
 import type { ImageCredit } from '../images/contract'
-import { creditKeys, rememberRejectedVisual } from '../images/automaticSearch'
+import { creditKeys, rememberRejectedVisual, type VisualMatch } from '../images/automaticSearch'
 import { HeadlinePanel } from '../headlines/HeadlinePanel'
 import { campaignHeadlineContext } from '../headlines/context'
 import { readCampaign } from '../campaigns/storage'
@@ -148,7 +148,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const canvas = useRef<Canvas | null>(null)
   const canvasSlide = useRef<string | undefined>(undefined)
   const [readyCanvas, setReadyCanvas] = useState<Canvas | null>(null)
-  const snapshotCanvas = useCallback((record: boolean, textTarget?: Textbox) => {
+  const snapshotCanvas = useCallback((record: boolean, textTarget?: Textbox, manualMatch?: VisualMatch) => {
     if (!canvas.current) return
     const scene = sceneOf(canvas.current)
     setProject(p => p && ({ ...p, updatedAt: new Date().toISOString(), slides: p.slides.map((s, i) => {
@@ -156,14 +156,17 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       const edited = imageWasEdited(s.scene, scene)
       const before = frameImage(s.scene)
       const after = frameImage(scene)
-      const swapped = before?.src !== after?.src
-      const visualChoice = s.visualChoice && edited ? {
-        ...s.visualChoice, match: swapped ? undefined : s.visualChoice.match, signature: undefined,
+      const swapped = before?.src !== after?.src ||
+        (before?.imageCredit as ImageCredit | undefined)?.sourceId !== (after?.imageCredit as ImageCredit | undefined)?.sourceId
+      const visualChoice = edited && (before || after) ? {
+        ...s.visualChoice, match: manualMatch ?? (swapped ? undefined : s.visualChoice?.match), signature: undefined,
         ...(swapped && before ? {
           decision: after ? 'replaced' as const : 'rejected' as const,
-          discarded: rememberRejectedVisual(s.visualChoice.discarded, before.imageCredit as ImageCredit | undefined, s.visualChoice.match),
+          discarded: rememberRejectedVisual(s.visualChoice?.discarded, before.imageCredit as ImageCredit | undefined, s.visualChoice?.match),
+        } : swapped && after ? {
+          decision: 'approved' as const,
         } : {}),
-        mode: after ? s.visualChoice.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const,
+        mode: after ? s.visualChoice?.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const,
       } : s.visualChoice
       return { ...s, visualChoice, scene: { ...scene, ...(!edited && s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } }
     }) }), record, false, textTarget && { target: textTarget, slide: currentRef.current })
@@ -447,21 +450,26 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       up: `Slide movido para a posição ${next + 1}.`, down: `Slide movido para a posição ${next + 1}.`,
     }[action], id: crypto.randomUUID() })
   }
-  function openImages(tab: 'search' | 'library', useBrief = false, index = current) {
+  function openImages(tab: 'search' | 'library', index = current) {
     const slide = project?.slides[index]
-    if (!slide) return
-    const term = useBrief ? editorialImageQuery(slide.imageBrief, semantics(slide.scene).title) : ''
+    if (!project || !slide) return
+    const request = tab === 'search' ? frameRequest(project, slide, undefined, true) : undefined
+    const term = slide.visualContext?.searchQueries?.[0] || request?.imageQueries[0] ||
+      editorialImageQuery(slide.imageBrief, semantics(slide.scene).title)
     setPanel('Imagens')
     setImagePanel(value => ({ tab, slideId: slide.id, term, request: (value?.request ?? 0) + 1 }))
   }
-  async function insertImage(file: File, credit?: ImageCredit, signal?: AbortSignal) {
+  async function insertImage(file: File, credit?: ImageCredit, signal?: AbortSignal, match?: VisualMatch) {
     const target = readyCanvas
     const slideId = project?.slides[current]?.id
+    const frameKey = project && project.id + '/' + slideId
     const activeObject = selectedObject
     const visualChoice = project?.slides[current]?.visualChoice
     if (visualChoice?.mode === 'locked') throw Error('Destrave a imagem do slide antes de substituí-la.')
-    const selected = activeObject ?? (visualChoice && target?.getObjects().find(object => object instanceof FabricImage && object.semantic === 'image'))
-    const stillOnSlide = () => target && canvas.current === target && getCurrent()?.slides[currentRef.current]?.id === slideId &&
+    const selected = activeObject instanceof FabricImage || activeObject && templateRole(activeObject) === 'image' ? activeObject :
+      target?.getObjects().find(object => object instanceof FabricImage && object.semantic === 'image')
+    const stillOnSlide = () => target && canvas.current === target && canvasSlide.current === frameKey &&
+      getCurrent()?.slides[currentRef.current]?.id === slideId &&
       target.getActiveObject() === activeObject && getCurrent()?.slides[currentRef.current]?.visualChoice?.mode !== 'locked'
     if (!stillOnSlide() || !target) throw Error('Aguarde o canvas até carregar.')
     const image = await readImage(file)
@@ -474,11 +482,16 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       const index = target.getObjects().indexOf(selected)
       if (index < 0) { image.dispose(); throw Error('Selecione a imagem diretamente na camada para substituí-la.') }
       image.scaleToWidth(selected.getScaledWidth())
-      cropImage(image, selected.getScaledWidth() / selected.getScaledHeight())
+      const original = selected.getOriginalSize()
+      cropImage(image, selected.getScaledWidth() / selected.getScaledHeight(), {
+        x: (selected.cropX + selected.width / 2) / original.width,
+        y: (selected.cropY + selected.height / 2) / original.height,
+      })
       image.set({ semantic: selected.semantic, templateRole: selected.templateRole, left: selected.left, top: selected.top, angle: selected.angle,
         originX: selected.originX, originY: selected.originY, flipX: selected.flipX, flipY: selected.flipY })
       target.remove(selected)
       target.insertAt(index, image)
+      selected.dispose()
     } else {
       image.semantic = 'image'
       const frame = selected && templateRole(selected) === 'image' && !selected.group ? selected :
@@ -497,8 +510,9 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     image.setCoords()
     target.setActiveObject(image)
     target.requestRenderAll()
-    changed()
+    snapshotCanvas(true, undefined, match)
     setError('')
+    await flush()
   }
   async function upload(file?: File) {
     if (file) try { await insertImage(file) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Falha ao abrir imagem.') }
@@ -594,7 +608,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     insight: missingIndex >= 0 ? {
       id: 'studio:photo', title: `Escolha uma imagem para o slide ${missingIndex + 1}`, assessment: 'verified',
       detail: 'A busca terminou sem uma imagem adequada. Você pode escolher uma foto ou manter o slide sem imagem.',
-      actions: [{ label: 'Escolher imagem', run: () => { chooseSlide(missingIndex); openImages('search', true, missingIndex) } }],
+      actions: [{ label: 'Escolher imagem', run: () => { chooseSlide(missingIndex); openImages('search', missingIndex) } }],
     } : {
       id: 'studio:review', title: 'Revise o carrossel antes de exportar', assessment: 'heuristic',
       detail: `${project.slides.length} ${project.slides.length === 1 ? 'slide disponível' : 'slides disponíveis'} no editor.`,
@@ -789,7 +803,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       changeCaption={caption => setProject(value => value && { ...value, caption, updatedAt: new Date().toISOString() })}
       locate={focusFinding} close={() => { setExportProjectId(undefined); exportToggle.current?.focus({ preventScroll:true }) }} />}
     {panel === 'Imagens' && imagePanel?.slideId === project.slides[current].id && (imagePanel.tab === 'search'
-      ? <ImageSearch key={imagePanel.request} initialTerm={imagePanel.term} insert={insertImage} />
+      ? <StudioImageSearch key={imagePanel.request} initialTerm={imagePanel.term} insert={insertImage}
+        request={frameRequest(project, project.slides[current], undefined, true)} used={projectImageSources} />
       : <ImageLibrary key={imagePanel.request} flush={flush} insert={insertImage} />)}
     {selectedTitle && headlineTarget === selectedTitle && <div className="studio-headlines"><HeadlinePanel title={selectedTitle.text} stored={selectedTitle.headlines}
       assistant={active ? { area: 'studio', scope: campaign ? campaignScope(campaign) : project.id, id: project.slides[current].id } : undefined}
@@ -844,8 +859,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         </>}
       </div>}
       <div className="image-tabs" role="group" aria-label="Origem da imagem">
-        <button aria-pressed={imagePanel?.tab === 'search' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('search')}>Pesquisar imagens</button>
-        <button onClick={() => openImages('search', true)}>Buscar imagem para este slide</button>
+        <button aria-pressed={imagePanel?.tab === 'search' && imagePanel.slideId === project.slides[current].id}
+          onClick={() => openImages('search')} disabled={project.slides[current].visualChoice?.mode === 'locked'}>
+          {frameImage(project.slides[current].scene) ? 'Substituir imagem' : 'Pesquisar imagens'}
+        </button>
         <button aria-pressed={imagePanel?.tab === 'library' && imagePanel.slideId === project.slides[current].id} onClick={() => openImages('library')}>Imagens utilizadas</button>
         {imagePanel && <button onClick={() => setImagePanel(undefined)}>Fechar painel de imagens</button>}
       </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input id="studio-image-upload" type="file" accept="image/png,image/jpeg,image/webp" disabled={!readyCanvas} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
@@ -860,7 +877,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
           readyCanvas.requestRenderAll(); refresh(n => n + 1)
         }}>{i + 1} · {label}{!o.visible && ' (oculta)'}</button>
       }).reverse()}
-    </aside><Properties brand={project.brand} format={project.format} canvas={readyCanvas} changed={changed} endTextSession={endTextSession} textChanged={target => snapshotCanvas(true, target)} replaceImage={() => { setPanel('Imagens'); requestAnimationFrame(() => document.getElementById('studio-image-upload')?.focus()) }}>
+    </aside><Properties brand={project.brand} format={project.format} canvas={readyCanvas} changed={changed} endTextSession={endTextSession} textChanged={target => snapshotCanvas(true, target)}
+      replaceImage={project.slides[current].visualChoice?.mode === 'locked' ? undefined : () => { openImages('search'); requestAnimationFrame(() => document.getElementById('studio-image-query')?.focus()) }}>
     {selectedTitle && <button type="button" className="button button-outline" aria-expanded={headlineTarget === selectedTitle} onClick={() => setHeadlineTarget(headlineTarget === selectedTitle ? undefined : selectedTitle)}>Melhorar título</button>}
     </Properties></div>
       <div className="studio-canvas-workspace" ref={assistantAnchor}>
@@ -869,7 +887,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       <Slides locatePhoto={(index, operation) => {
         chooseSlide(index)
         setPanel('Imagens')
-        if (operation === 'empty') openImages('search', true, index)
+        if (operation === 'empty') openImages('search', index)
         else if (operation === 'error') {
           const failed = new Set(frameTargets.filter(item => autoSearch.status(item) === 'error').map(item => item.key))
           setProject(latest => latest && ({ ...latest, slides: latest.slides.map(slide =>

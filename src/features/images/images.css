@@ -12,3 +12,7 @@
 .image-details h3 { margin: 0; }
 .image-details input { max-width: 100%; }
 .image-workspace textarea { width: 100%; }
+.studio-image-search > .image-filters { align-items: end; }
+.studio-image-search > .image-filters label { flex: 1 1 220px; min-width: 0; }
+.studio-image-search > .image-actions label { display: grid; gap: 4px; min-width: 0; }
+.studio-image-search input { max-width: 100%; min-width: 0; }

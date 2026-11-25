@@ -2,7 +2,7 @@ import { FabricImage, Rect, type Canvas } from 'fabric'
 import { requestFor, type AutomaticImage, type VisualChoice } from '../images/automaticSearch'
 import { campaignContext } from '../images/visualContext'
 import { imageForFrame } from './collections'
-import type { Project, Scene, VisualSlide } from './model'
+import { dimensions, type Project, type Scene, type VisualSlide } from './model'
 import { semantics } from './templates'
 
 export function frameImage(scene: Scene) {
@@ -30,16 +30,18 @@ function slideCopy(slide: VisualSlide) {
     visualContext: slide.visualContext }
 }
 
-export function frameRequest(project: Project, slide: VisualSlide, research = projectVisualContext(project)) {
+export function frameRequest(project: Project, slide: VisualSlide, research = projectVisualContext(project), manual = false) {
   const reserved = frame(slide.scene)
-  if (!reserved) return
-  const ratio = (Number(reserved.width) * Number(reserved.scaleX ?? 1)) / (Number(reserved.height) * Number(reserved.scaleY ?? 1))
+  const [width, height] = dimensions[project.format]
+  const ratio = reserved
+    ? (Number(reserved.width) * Number(reserved.scaleX ?? 1)) / (Number(reserved.height) * Number(reserved.scaleY ?? 1))
+    : manual ? width / height : 0
   if (!Number.isFinite(ratio) || ratio <= 0) return
   const index = project.slides.findIndex(item => item.id === slide.id)
   const copy = research.slides[index]
   if (!copy) return
   const neighbors = research.slides.slice(Math.max(0, index - 1), index + 2).filter(item => item !== copy)
-  return requestFor(project.id + '/' + slide.id, copy, research.context, ratio, slide.visualChoice?.revision, neighbors, slide.visualChoice?.discarded)
+  return requestFor(project.id + '/' + slide.id, copy, research.context, ratio, slide.visualChoice?.revision, neighbors, slide.visualChoice?.discarded, manual)
 }
 
 export function rewriteVisualFrame(slide: VisualSlide, choice: VisualChoice, suggestion?: AutomaticImage, hidePlaceholder = choice.mode === 'none'): VisualSlide {
@@ -68,7 +70,7 @@ export function imageWasEdited(previous: Scene, next: Scene) {
   const before = frameImage(previous)
   const after = frameImage(next)
   return ['src', 'left', 'top', 'scaleX', 'scaleY', 'cropX', 'cropY', 'width', 'height', 'angle', 'visible']
-    .some(key => before?.[key] !== after?.[key])
+    .some(key => before?.[key] !== after?.[key]) || JSON.stringify(before?.imageCredit) !== JSON.stringify(after?.imageCredit)
 }
 
 export function updateCanvasVisual(canvas: Canvas, next: Scene, suggestion?: AutomaticImage) {
@@ -79,7 +81,9 @@ export function updateCanvasVisual(canvas: Canvas, next: Scene, suggestion?: Aut
   const picture = frameImage(next)
   if (!frame || (suggestion && !picture)) return false
   current.set({ semantic: frame.semantic as string, visible: frame.visible !== false })
-  canvas.remove(...objects.filter(object => ['imageHint', 'imageDecoration'].includes(object.semantic ?? '')))
+  const replaced = objects.filter(object => ['image', 'imageHint', 'imageDecoration'].includes(object.semantic ?? ''))
+  canvas.remove(...replaced)
+  replaced.forEach(object => object.dispose())
   if (suggestion && picture) {
     const properties = { ...picture }
     delete properties.type

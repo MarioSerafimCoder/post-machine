@@ -2,11 +2,11 @@ import { documentaryResponse, documentaryPrefix, type DocumentaryAsset } from '.
 import { type ImageCredit, licenseTerms, toCredit } from './contract'
 import { automaticOriginal, fetchExternalImage, fetchOriginal, searchImages } from './openverse'
 import { canonicalImage, creditKeys, documentaryId, evaluateCandidate, evaluateCatalog, prepareImage, prioritizedImageQueries, similarImage,
-  type AutomaticImage, type VisualRelevance, type VisualRequest, type VisualStatus } from './automaticSearch'
+  requestFor, type AutomaticImage, type VisualRelevance, type VisualRequest, type VisualStatus } from './automaticSearch'
 import { narrativeAssignment } from './visualAllocation'
 import { refineVisualFit, useOcr, useSemantics } from './visualEnrichment'
 import { readVisualMemory, rememberVisual, type RememberedVisual } from './visualMemory'
-import { audiovisualIntent, researchUrl } from './visualContext'
+import { audiovisualIntent, campaignContext, phraseKey, researchUrl, words, type CampaignContext } from './visualContext'
 
 type Candidate = {
   credit: ImageCredit; document?: DocumentaryAsset; metadata?: string; illustrated?: boolean
@@ -22,7 +22,9 @@ const transferGrace = 850
 const pools = new Map<string, Pool>()
 type Job = { controller: AbortController; users: number; task: Promise<unknown>; expires: number; abortTimer?: ReturnType<typeof setTimeout> }
 type Pool = { jobs: Map<string, Job>; usedUntil: number; candidates: Map<string, Candidate>; prepared: Map<string, AutomaticImage>;
-  bytes: number; options: Map<string, string[]>; braveQueries: Set<string>; complement?: Discovery }
+  bytes: number; options: Map<string, string[]>; braveQueries: Set<string>; complement?: Discovery; downloads: Set<Promise<unknown>> }
+let braveQueue = Promise.resolve()
+let nextBraveAt = 0
 
 function poolFor(key: string) {
   const now = Date.now()
@@ -31,7 +33,8 @@ function poolFor(key: string) {
   if (!pool) {
     const idle = [...pools].find(([, item]) => ![...item.jobs.values()].some(job => job.users > 0))
     if (pools.size >= poolSize && idle) pools.delete(idle[0])
-    pool = { jobs: new Map(), usedUntil: now, candidates: new Map(), prepared: new Map(), bytes: 0, options: new Map(), braveQueries: new Set() }
+    pool = { jobs: new Map(), usedUntil: now, candidates: new Map(), prepared: new Map(), bytes: 0, options: new Map(),
+      braveQueries: new Set(), downloads: new Set() }
   }
   pools.delete(key)
   pools.set(key, pool)
@@ -115,10 +118,20 @@ export async function importVisualUrl(raw: string, signal: AbortSignal) {
 }
 
 interface SearchProvider<T> { name: string; discover(input: T, signal: AbortSignal): Promise<Discovery> }
-type PageQuery = { url: string; title?: string; image?: string; primary: boolean }
+type PageQuery = { url: string; title?: string; image?: string; primary: boolean; preferredImages?: string[] }
 type BraveQuery = { kind: 'web' | 'images'; query: string; language?: string; anchors: string[] }
 const originalPage: SearchProvider<PageQuery> = { name: 'source', discover: (input, signal) => lookup('page', input, signal) }
-const brave: SearchProvider<BraveQuery> = { name: 'brave', discover: (input, signal) => lookup('brave', input, signal) }
+const brave: SearchProvider<BraveQuery> = { name: 'brave', discover(input, signal) {
+  const job = braveQueue.then(async () => {
+    await pause(Math.max(0, nextBraveAt - Date.now()), signal)
+    signal.throwIfAborted()
+    if (workerBlockedUntil > Date.now() || braveBlockedUntil > Date.now()) return empty
+    nextBraveAt = Date.now() + 1050
+    return lookup('brave', input, signal)
+  })
+  braveQueue = job.then(() => undefined, () => undefined)
+  return job
+} }
 let workerBlockedUntil = 0
 let braveBlockedUntil = 0
 async function lookup(route: 'page' | 'brave' | 'complement', input: object, signal: AbortSignal): Promise<Discovery> {
@@ -175,11 +188,9 @@ function collect(pool: Pool, found: Candidate[]) {
     if (before?.remembered || (before?.document && (!candidate.document || candidate.document.evidence === 'search' && before.document.evidence !== 'search'))) continue
     const prior = before?.document
     const current = candidate.document
-    // A rendition can have fewer fields than the very same asset in a figure.
-    // Keep the caption from the shared publication when it adds direct evidence.
-    const caption = prior?.page === current?.page ? prior?.caption : undefined
-    pool.candidates.set(key, current && !current.caption && caption
-      ? fromDocument({ ...current, caption }) : candidate)
+    // Keep a captioned rendition when later versions from the same page carry less evidence.
+    if (prior?.caption && prior.page === current?.page && !current.caption) continue
+    pool.candidates.set(key, candidate)
   }
   while (pool.candidates.size > 90) pool.candidates.delete(pool.candidates.keys().next().value!)
 }
@@ -210,10 +221,26 @@ function catalog(request: VisualRequest, pool: Pool, signal: AbortSignal, query:
   }, count => count ? resultsLifetime : negativeLifetime)
 }
 
-function relevance(candidate: Candidate, request: VisualRequest) {
-  if (!candidate.document) return evaluateCatalog(candidate.credit, candidate.metadata ?? '', request, !!candidate.illustrated)
-  const relevance = evaluateCandidate(candidate.document, request)
-  return 'rejected' in relevance ? undefined : relevance
+function relevance(candidate: Candidate, request: VisualRequest, manual = false) {
+  if (!candidate.document) {
+    const metadata = candidate.metadata ?? ''
+    const fit = evaluateCatalog(candidate.credit, metadata, request, !!candidate.illustrated)
+    if (fit?.match.classification !== 'support') return fit
+    if (request.campaign.sources.length || request.campaign.campaignName || candidate.illustrated) return
+    const object = words(request.copy.visualContext?.visualIntent || request.copy.imageBrief || request.copy.title)
+    const asset = ' ' + phraseKey(metadata) + ' '
+    return object.length >= 2 && object.every(term => asset.includes(' ' + term + ' ')) ? fit : undefined
+  }
+  const asset = candidate.document
+  const isCited = (hint: CampaignContext['visualCandidates'][number]) =>
+    asset.evidence !== 'search' && asset.evidence !== 'feed' &&
+    researchUrl(hint.sourceUrl)?.href === asset.page && researchUrl(hint.imageUrl)?.href === asset.url
+  const slideCandidates = request.copy.visualContext?.visualCandidates
+  const slideHint = slideCandidates?.some(isCited)
+  const cited = !!slideHint || (!slideCandidates?.length || manual) && request.campaign.visualCandidates.some(isCited)
+  const fit = evaluateCandidate(asset, request, { cited, requireIntent: !manual && !!slideCandidates?.length })
+  if ('rejected' in fit) return
+  return { ...fit, score: fit.score + (slideHint && fit.match.classification === 'confirmed' ? 26 : cited ? 6 : 0) }
 }
 function rememberOption(pool: Pool, key: string, chosen: string) {
   const prior = pool.options.get(key) ?? []
@@ -226,28 +253,97 @@ function preparedImage(pool: Pool, candidate: Candidate, signal: AbortSignal, co
   const ready = pool.prepared.get(id)
   if (ready) return Promise.resolve(ready)
   return pooled(pool, 'load:' + id, signal, async inner => {
-    const bounded = AbortSignal.any([inner, AbortSignal.timeout(6000)])
-    const file = await candidate.download(bounded).catch(async cause => {
-      if (!confirmed || !candidate.document || bounded.aborted ||
-          !(cause instanceof TypeError || (cause instanceof VisualDownloadError && cause.retryable))) throw cause
-      await pause(180, bounded)
-      bounded.throwIfAborted()
-      return candidate.download(bounded)
-    })
-    const image = await prepareImage(file, candidate.credit, bounded)
-    const size = file.size + String(image.object.src).length * 2
-    if (size <= maxPreparedBytes) {
-      for (const [key, prior] of pool.prepared) {
-        if (pool.bytes + size <= maxPreparedBytes) break
-        pool.prepared.delete(key)
-        pool.bytes -= prior.file.size + String(prior.object.src).length * 2
-        pool.jobs.delete('load:' + key)
-      }
-      pool.prepared.set(id, image)
-      pool.bytes += size
+    while (pool.downloads.size >= 3) {
+      inner.throwIfAborted()
+      await Promise.race(pool.downloads)
     }
-    return image
+    inner.throwIfAborted()
+    const task = load()
+    const settled = task.then(() => undefined, () => undefined)
+    pool.downloads.add(settled)
+    try { return await task } finally { pool.downloads.delete(settled) }
+
+    async function load() {
+      const bounded = AbortSignal.any([inner, AbortSignal.timeout(6000)])
+      const file = await candidate.download(bounded).catch(async cause => {
+        if (!confirmed || !candidate.document || bounded.aborted ||
+            !(cause instanceof TypeError || (cause instanceof VisualDownloadError && cause.retryable))) throw cause
+        await pause(180, bounded)
+        bounded.throwIfAborted()
+        return candidate.download(bounded)
+      })
+      const image = await prepareImage(file, candidate.credit, bounded)
+      const size = file.size + String(image.object.src).length * 2
+      if (size <= maxPreparedBytes) {
+        for (const [key, prior] of pool.prepared) {
+          if (pool.bytes + size <= maxPreparedBytes) break
+          pool.prepared.delete(key)
+          pool.bytes -= prior.file.size + String(prior.object.src).length * 2
+          pool.jobs.delete('load:' + key)
+        }
+        pool.prepared.set(id, image)
+        pool.bytes += size
+      }
+      return image
+    }
   }, () => 4000)
+}
+
+const scopeOf = (request: VisualRequest) => request.key.split('/')[0] + ':' + request.campaign.scope
+
+async function localVisuals(pool: Pool, scope: string, signal: AbortSignal) {
+  const memory = await pooled(pool, 'memory', signal, () => readVisualMemory(scope)).catch(() => [])
+  collect(pool, memory.map(item => fromDocument({ ...item.asset, ticket: '' }, item)))
+}
+
+function searchBrave(pool: Pool, campaign: CampaignContext, kind: BraveQuery['kind'], query: string, signal: AbortSignal) {
+  return discover(pool, brave, kind + ':' + phraseKey(query), { kind, query,
+    language: campaign.language === 'en' || campaign.language === 'pt' ? campaign.language : undefined,
+    anchors: campaign.names.filter(name => name.length <= 160).slice(0, 8) }, signal)
+}
+
+export async function visualAlternatives(request: VisualRequest, used: ReadonlySet<string>, signal: AbortSignal, query?: string) {
+  const scope = scopeOf(request)
+  const pool = poolFor(scope)
+  const deadline = AbortSignal.any([signal, AbortSignal.timeout(14_000)])
+  const copy = query && !request.campaign.subject ? { title: query, role: 'cover' } : undefined
+  const target = copy && requestFor(request.key, copy, campaignContext({ title: copy.title, slides: [copy] }), request.ratio)
+  const context = target || request
+  await localVisuals(pool, scope, deadline)
+  const discovery = query ? await searchBrave(pool, request.campaign, 'images', query, deadline).catch(() => empty) : undefined
+  const searched = new Set(discovery?.candidates.map(asset => documentaryId(asset)))
+  const ranked = [...pool.candidates.values()].flatMap(candidate => {
+    if (creditKeys(candidate.credit).some(key => used.has(key) || request.discarded.has(key))) return []
+    const fit = relevance(candidate, context, true)
+    if (!fit || fit.match.classification === 'support') return []
+    return [{ candidate, ...fit, fresh: searched.has(candidate.credit.sourceId) }]
+  }).sort((left, right) => Number(right.match.classification === 'confirmed') - Number(left.match.classification === 'confirmed') ||
+    Number(right.fresh) - Number(left.fresh) || right.score - left.score)
+  const distinct = new Set(used)
+  const results: AutomaticImage[] = []
+  for (let offset = 0; offset < Math.min(9, ranked.length) && results.length < 6 && !deadline.aborted; offset += 3) {
+    const images = await Promise.allSettled(ranked.slice(offset, offset + 3).map(async ({ candidate, match }) => {
+      const image = await preparedImage(pool, candidate, deadline, match.classification === 'confirmed')
+      return { ...image, match: { ...match, fingerprint: image.fingerprint, fingerprintVertical: image.fingerprintVertical, fileHash: image.fileHash } }
+    }))
+    for (const result of images) {
+      if (result.status !== 'fulfilled' || results.length >= 6) continue
+      const image = result.value
+      if (image.keys.some(key => distinct.has(key) || request.discarded.has(key)) ||
+          image.fingerprint && (similarImage(image.fingerprint, distinct, image.fingerprintVertical) ||
+            similarImage(image.fingerprint, request.discarded, image.fingerprintVertical))) continue
+      image.keys.forEach(key => distinct.add(key))
+      results.push(image)
+    }
+  }
+  return { results, searched: discovery?.state === 'ok' || !!discovery?.candidates.length }
+}
+
+export function rememberManualVisual(request: VisualRequest, image: AutomaticImage) {
+  const scope = scopeOf(request)
+  const source = image.object.imageCredit as ImageCredit
+  const asset = source.originalUrl && pools.get(scope)?.candidates.get(canonicalImage(source.originalUrl))?.document
+  if (asset) void rememberVisual(scope, asset, source, image.file).catch(() => undefined)
 }
 
 type Events = { image: (request: VisualRequest, image: AutomaticImage, provisional: boolean) => void; finish: (request: VisualRequest, status: VisualStatus) => void;
@@ -255,8 +351,7 @@ type Events = { image: (request: VisualRequest, image: AutomaticImage, provision
 export async function investigateVisuals(requests: VisualRequest[], config: Events, signal: AbortSignal) {
   if (!requests.length) return
   const campaign = requests[0].campaign
-  const project = requests[0].key.split('/')[0]
-  const scope = project + ':' + campaign.scope
+  const scope = scopeOf(requests[0])
   const pool = poolFor(scope)
   const initial = performance.now()
   const fast = AbortSignal.any([signal, AbortSignal.timeout(14_000)])
@@ -371,37 +466,58 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     return allocation
   }
 
-  const sourceWork = async (source: typeof campaign.sources[number], index: number) => {
+  const hints = [...campaign.slideCandidates, ...campaign.visualCandidates]
+  const sourceWork = async (source: typeof campaign.sources[number]) => {
     try {
-      const first = index === 0
+      const first = source.url === campaign.sources[0]?.url
+      const limit = first && campaign.sourceImage ? 2700 : 4400
+      const preferredImages: string[] = []
+      let length = 0
+      for (const hint of hints) {
+        const image = researchUrl(hint.imageUrl)?.href
+        if (!image || researchUrl(hint.sourceUrl)?.href !== source.url || preferredImages.includes(image) || length + image.length > limit) continue
+        preferredImages.push(image)
+        length += image.length
+        if (preferredImages.length === 3) break
+      }
       sourceChecks++
-      const discovery = await discover(pool, originalPage, source.url, { url: source.url, title: source.title || undefined,
-        image: first ? campaign.sourceImage : undefined, primary: first }, fast)
+      const discovery = await discover(pool, originalPage, JSON.stringify([source.url, preferredImages]), { url: source.url, title: source.title || undefined,
+        image: first ? campaign.sourceImage : undefined, primary: first,
+        preferredImages: preferredImages.length ? preferredImages : undefined }, fast)
       if (first) pool.complement = discovery
       await allocate(false, fast)
     } catch { if (!fast.aborted) failed = true }
   }
   const braveWork = async (kind: BraveQuery['kind'], query: string, phase: AbortSignal) => {
     if (phase.aborted || workerBlockedUntil > Date.now() || braveBlockedUntil > Date.now() || !remaining.size) return
-    const key = kind + ':' + query
+    const key = kind + ':' + phraseKey(query)
     if (!pool.braveQueries.has(key) && pool.braveQueries.size >= 5) return
     pool.braveQueries.add(key)
     try {
       braveChecks++
-      await discover(pool, brave, key, { kind, query,
-        language: campaign.language === 'en' || campaign.language === 'pt' ? campaign.language : undefined,
-        anchors: campaign.names.filter(name => name.length <= 160).slice(0, 8) }, phase)
+      await searchBrave(pool, campaign, kind, query, phase)
       await allocate(false, phase)
     } catch { if (!phase.aborted) failed = true }
   }
 
   try {
-    const memory = await pooled(pool, 'memory', fast, () => readVisualMemory(scope)).catch(() => [])
-    collect(pool, memory.map(item => fromDocument({ ...item.asset, ticket: '' }, item)))
+    await localVisuals(pool, scope, fast)
     await allocate(false, fast)
+    const hinted = [
+      ...[...remaining].flatMap(request => request.copy.visualContext?.visualCandidates?.map(hint => hint.sourceUrl) ?? []),
+      ...campaign.visualCandidates.map(hint => hint.sourceUrl),
+      ...[...remaining].flatMap(request => request.copy.visualContext?.preferredSourceUrls ?? []),
+    ].flatMap(raw => {
+      const url = researchUrl(raw)?.href
+      return url ? [{ url, title: '' }] : []
+    })
+    const firstPages = [...new Map(hinted.map(source => [source.url, source])).values()].slice(0, 2)
+    if (remaining.size && firstPages.length) await Promise.all(firstPages.map(source => sourceWork(
+      campaign.sources.find(item => item.url === source.url) ?? source)))
     if (remaining.size && campaign.sources.length) {
-      await sourceWork(campaign.sources[0], 0)
-      if (remaining.size) await Promise.all(campaign.sources.slice(1, 3).map((source, index) => sourceWork(source, index + 1)))
+      const sources = campaign.sources.filter(source => !firstPages.some(page => page.url === source.url)).slice(0, 3)
+      if (sources.length) await sourceWork(sources[0])
+      if (remaining.size) await Promise.all(sources.slice(1).map(sourceWork))
     }
     if (campaign.query && remaining.size && !fast.aborted) {
       const started = Date.now()

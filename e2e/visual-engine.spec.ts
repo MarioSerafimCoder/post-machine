@@ -15,10 +15,76 @@ function poster(version: number) {
   for (let index = 0; index < 9; index++) {
     draw.fillStyle = index % 2 ? '#ca322a' : '#214242'
     if (version === 1) draw.fillRect(35 + index * 92, 100 + index * 30, 45, 305)
-    else draw.fillRect(410 - index * 32, index * 69, 480 - index * 31, 30)
+    else if (version === 2) draw.fillRect(410 - index * 32, index * 69, 480 - index * 31, 30)
+    else { draw.beginPath(); draw.arc(75 + index * 84, index % 2 ? 215 : 460, 45 + index * 3, 0, Math.PI * 2); draw.fill() }
   }
   return canvas.toBuffer('image/png')
 }
+
+test('valida a referência importada, pesquisa no Studio e mantém a substituição no backup', async ({ page }) => {
+  const hint = { imageUrl: documentary[0].url, sourceUrl: source, description: 'Still do filme de Natal da GEICO.' }
+  const alternative = { ...documentary[0], evidence: 'figure', title: 'Outro still do filme',
+    caption: campaignName + ' — still alternativo do filme', url: 'https://www.geico.com/public/images/test/alternate.png', ticket: 'alternate' }
+  let imageQueries = 0
+  const downloadTickets: string[] = []
+  await page.route('**/api/visual/page', route => {
+    expect(route.request().postDataJSON().preferredImages).toEqual([hint.imageUrl])
+    return route.fulfill({ json: { candidates: [documentary[0]] } })
+  })
+  await page.route('**/api/visual/brave', route => {
+    imageQueries++
+    expect(route.request().postDataJSON()).toMatchObject({ kind: 'images', query: 'GEICO How 15% Saved Christmas film still' })
+    return route.fulfill({ json: { state: 'ok', candidates: [alternative] } })
+  })
+  await page.route('**/api/visual/download', route => {
+    const { ticket } = route.request().postDataJSON()
+    downloadTickets.push(ticket)
+    return route.fulfill({ contentType: 'image/png', body: poster(ticket === 'alternate' ? 3 : 1) })
+  })
+  const data = { schemaVersion: 1, campaign: { title, audience: '', objective: 'Informar', tone: 'Profissional',
+    format: 'carousel', caption: '', cta: '', visualContext: { subject: 'GEICO apresenta ' + campaignName,
+      campaignName, entities: ['GEICO'], visualCandidates: [hint] } },
+  sources: [{ url: source, title: 'GEICO — comunicado de ' + campaignName }],
+  slides: [
+    { order: 1, role: 'cover', title, body: 'Um curta de Natal realizado em stop motion.', imageBrief: 'Still do filme',
+      layoutType: 'photo', visualContext: { visualCandidates: [hint], searchQueries: ['GEICO How 15% Saved Christmas film still'] } },
+    { order: 2, role: 'content', title: 'Como foi feito', body: 'A técnica é parte da narrativa.', imageBrief: 'Somente texto', layoutType: 'textual' },
+    { order: 3, role: 'cta', title: 'Veja o curta', body: 'Confira a peça na página da campanha.', imageBrief: 'Somente texto', layoutType: 'textual' },
+  ] }
+  await page.goto('/#/inicio')
+  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify(data))
+  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
+  const studio = page.getByRole('region', { name: editor })
+  await expect(studio.getByRole('button', { name: 'Slide 1', exact: true })).toHaveAttribute('aria-description', /Imagem encontrada/)
+  expect(imageQueries).toBe(0)
+  await studio.getByRole('button', { name: 'Imagens', exact: true }).click()
+  await studio.getByRole('button', { name: 'Substituir imagem', exact: true }).click()
+  await expect(studio.getByLabel('Consulta visual')).toHaveValue('GEICO How 15% Saved Christmas film still')
+  await studio.getByRole('button', { name: 'Pesquisar imagens relacionadas' }).click()
+  await expect(studio.getByRole('link', { name: 'Conferir fonte' })).toHaveAttribute('href', source)
+  await studio.getByRole('button', { name: 'Aplicar ao slide' }).click()
+  await expect(studio.getByText('Imagem aplicada ao slide.')).toBeVisible()
+  await expect(studio.getByText('Confirmado manualmente', { exact: true })).toBeVisible()
+  await studio.getByRole('button', { name: 'Travar imagem' }).click()
+  await expect(studio.getByRole('group', { name: 'Origem da imagem' }).getByRole('button', { name: 'Substituir imagem' })).toBeDisabled()
+  const saved = page.waitForEvent('download')
+  await studio.getByRole('button', { name: 'Baixar backup ZIP', exact: true }).click()
+  const zip = await JSZip.loadAsync(await readFile(await (await saved).path()))
+  const project = JSON.parse(await zip.file('project.json')!.async('string'))
+  expect(project.importedContent.campaign.visualContext.visualCandidates).toEqual([hint])
+  expect(project.slides[0].visualContext.visualCandidates).toEqual([hint])
+  expect(project.slides[0].visualChoice).toMatchObject({ mode: 'locked', decision: 'replaced', match: { classification: 'confirmed' } })
+  expect(project.slides[0].scene.objects.filter((object: { semantic: string }) => object.semantic === 'image'))
+    .toMatchObject([{ imageCredit: { originalUrl: alternative.url } }])
+  await expect(studio.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Abrir ' + title, exact: true }).click()
+  await studio.getByRole('button', { name: 'Imagens', exact: true }).click()
+  await expect(studio.getByRole('button', { name: 'Destravar imagem', exact: true })).toBeVisible()
+  expect(imageQueries).toBe(1)
+  expect(downloadTickets).toEqual(['official-cover', 'alternate'])
+})
 const documentary = [
   { url: 'https://www.geico.com/public/images/aboutgeico/GEICO_15_Percent_Saved_Christmas.jpg', page: source,
     provider: 'official', evidence: 'structured', ticket: 'official-cover', title: 'GEICO — ' + campaignName,

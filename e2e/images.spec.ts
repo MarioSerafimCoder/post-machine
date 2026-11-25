@@ -50,8 +50,9 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await page.route('https://live.staticflickr.com/fixture-0.png', route => route.fulfill({ contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: bytes }))
   await page.route('https://live.staticflickr.com/fixture-1.png', route => route.abort('failed'))
   await page.getByRole('button', { name: 'Imagens', exact: true }).click()
-  await page.getByRole('button', { name: 'Buscar imagem para este slide' }).click()
-  await expect(page.getByLabel('Termo de pesquisa')).toHaveValue('Fachadas e pátios')
+  await page.getByRole('button', { name: 'Pesquisar imagens', exact: true }).click()
+  await expect(page.getByLabel('Consulta visual')).toHaveValue(/Fachadas e pátios/i)
+  await page.getByRole('button', { name: 'Pesquisar no Openverse' }).click()
   await page.getByLabel('Fonte do Openverse', { exact: true }).selectOption('flickr')
   await page.getByRole('button', { name: 'Pesquisar', exact: true }).click()
   await expect(page.getByText('Miniatura indisponível', { exact: true })).toBeVisible()
@@ -160,6 +161,7 @@ test('Openverse mostra falha de rede, permite tentar novamente e explica HTTP 42
   await page.getByRole('button', { name: 'Criar projeto vazio' }).click()
   await page.getByRole('button', { name: 'Imagens', exact: true }).click()
   await page.getByRole('button', { name: 'Pesquisar imagens', exact: true }).click()
+  await page.getByRole('button', { name: 'Pesquisar no Openverse' }).click()
   const panel = page.getByRole('region', { name: 'Pesquisa de imagens no Openverse' })
   let requests = 0
   await page.route('https://api.openverse.org/v1/images/?*', route => {

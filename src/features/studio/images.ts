@@ -12,12 +12,14 @@ export async function readImage(file: File) {
   if (img.width * img.height > 40_000_000 || img.width < 32 || img.height < 32) { img.dispose(); throw Error('Use imagens entre 32 px e 40 megapixels.') }
   return img
 }
-export function cropImage(image: FabricImage, ratio: number) {
+export function cropImage(image: FabricImage, ratio: number, focus = { x: .5, y: .5 }) {
   const original = image.getOriginalSize()
   const w = Math.min(original.width, original.height * ratio)
   const h = w / ratio
   const displayed = image.getScaledWidth()
-  image.set({ cropX: (original.width - w) / 2, cropY: (original.height - h) / 2, width: w, height: h, scaleX: displayed / w, scaleY: displayed / w })
+  const position = (size: number, crop: number, anchor: number) => Math.max(0, Math.min(size - crop, size * anchor - crop / 2))
+  image.set({ cropX: position(original.width, w, focus.x), cropY: position(original.height, h, focus.y),
+    width: w, height: h, scaleX: displayed / w, scaleY: displayed / w })
   image.setCoords()
 }
 

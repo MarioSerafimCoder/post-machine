@@ -17,12 +17,15 @@ describe('contrato editorial', () => {
       year: 2026, mediaType: 'Filme', searchQueries: ['GEICO How 15% Saved Christmas'], preferredSources: ['https://www.geico.com/about/'],
       excludedSubjects: ['Natal genérico'] }
     const slideVisual = { visualIntent: 'Still da campanha', searchQueries: ['How 15% Saved Christmas still'],
-      preferredSourceUrls: ['https://www.geico.com/about/'], imageType: 'Still' }
+      preferredSourceUrls: ['https://www.geico.com/about/'], imageType: 'Still', visualCandidates: [{
+        imageUrl: 'https://www.geico.com/still.jpg', sourceUrl: 'https://www.geico.com/about/', description: 'Still do filme com os bonecos.',
+      }] }
     const extended = { ...legacy, campaign: { ...legacy.campaign, visualContext: visual },
       slides: [{ ...legacy.slides[0], visualContext: slideVisual }] }
     expect(importContent(JSON.stringify(extended))).toEqual(extended)
     expect(() => importContent(JSON.stringify({ ...extended, campaign: { ...extended.campaign,
       visualContext: { ...visual, preferredSources: ['https://192.168.1.1/'] } } }))).toThrow()
+    expect(() => importContent(JSON.stringify(extended).replace('https://www.geico.com/still.jpg', 'https://127.0.0.1/private.jpg'))).toThrow()
   })
 
   it('inclui o briefing, a fonte, regras factuais e a sequência no prompt', () => {
@@ -30,6 +33,8 @@ describe('contrato editorial', () => {
     expect(prompt).toContain(article.url)
     expect(prompt).toContain('Designers')
     expect(prompt).toContain('Separe fatos verificáveis, interpretações e opiniões')
+    expect(prompt).toContain('Jamais invente URLs')
+    expect(prompt).toContain('visualCandidates')
     expect(prompt.match(/"order":/g)).toHaveLength(3)
   })
 

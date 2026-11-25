@@ -60,7 +60,7 @@ test('menus e formulários mantêm textos contidos e alinhados no desktop', asyn
   await page.getByText('Propriedades avançadas', { exact: true }).click()
   await inspect(page, info, 'propriedades-texto')
   await button('Imagens').click()
-  await button('Buscar imagem para este slide').click()
+  await button('Pesquisar imagens').click()
   await inspect(page, info, 'pesquisa-imagens')
   await page.getByText('Mais ações', { exact: true }).click()
   await inspect(page, info, 'menu-studio')

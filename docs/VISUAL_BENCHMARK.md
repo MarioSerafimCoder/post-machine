@@ -1,5 +1,40 @@
 # Benchmark do motor visual
 
+## Consolidação visual 2/2 — 25/11/2026
+
+Dez pautas públicas inéditas nos dois corpus do repositório, com três slides fotográficos cada, foram importadas e abertas no Studio em Chromium a 1280 e 1440 px. Os originais foram baixados das páginas públicas. A revisão por miniaturas definiu antes do replay quais arquivos correspondiam ao objeto de cada slide. As duas versões receberam os mesmos metadados, arquivos e atrasos de rede capturados. O JSON novo acrescentou 22 sugestões por slide, elaboradas manualmente a partir das fontes para testar o contrato que o prompt pede ao ChatGPT. Brave e Openverse responderam por interceptação local, sem consultas reais nessa comparação. Os tempos partem da entrada do JSON.
+
+| Medida automática | `1a1a76c` | Consolidação 2/2 |
+| --- | ---: | ---: |
+| Slides corretos / total | 9/30 (30,0%) | 15/30 (50,0%) |
+| Precisão entre imagens aplicadas | 9/16 (56,3%) | 15/15 (100%) |
+| Incorretos / vazios | 7 / 14 | 0 / 15 |
+| Enquadramentos que exigiriam intervenção para completar os 30 | 21 | 15 |
+| Editor utilizável | 1,08–1,98 s | 1,10–1,98 s |
+| Primeira imagem, mediana e máximo | 2,49 / 2,76 s, 8 pautas | 2,62 / 2,85 s, 7 pautas |
+| Pesquisa total, mediana e máximo | 2,76 / 3,32 s | 2,76 / 3,62 s |
+| Pedidos automáticos a Brave interceptados localmente | 7 | 7 |
+| Exportação ZIP e reabertura | 10/10 | 10/10 |
+
+Na nova versão, os 22 candidatos permaneceram no projeto e 15 foram aplicados ao slide correspondente. A busca manual foi acionada nos dez projetos. Quatro intervenções com os respectivos originais locais foram executadas, persistiram após reabrir e elevaram a cobertura observada a 19/30. O ensaio dirigido também verificou a substituição com resultado contextual, a procedência e os campos do backup nas duas larguras. A meta de cobertura acima de 85% ficou pendente.
+
+| Pauta e fonte | Área | Corretos antes → depois, de 3 |
+| --- | --- | ---: |
+| [Carling](https://www.creativeboom.com/news/carlings-new-identity-is-a-badge-of-belonging-inspired-by-football-clubs/) | Identidade visual | 2 → 2 |
+| [Zero](https://www.creativeboom.com/news/whats-the-answer-to-a-sea-of-lookalike-ai-brands-a-fossilised-typewriter-a-flight-delay-and-some-hand-drawn-cave-art-of-course/) | Branding | 0 → 3 |
+| [Insomnia Cookies](https://www.creativeboom.com/news/walsh-takes-a-bite-out-of-the-moon-for-insomnia-cookies/) | Branding | 2 → 3 |
+| [Hering](https://www.b9.com.br/hering-transforma-o-medo-de-errar-no-amigo-secreto-em-campanha-de-natal/) | Publicidade | 1 → 1 |
+| [Pares Originais do Brasil](https://updateordie.com/2026/11/23/havaianas-celebra-os-pares-originais-do-brasil/) | Publicidade | 0 → 0 |
+| [Pennsylvania Horticultural Society](https://www.creativebloq.com/news/this-beautiful-logo-design-was-created-to-grow-like-nature) | Identidade visual | 0 → 2 |
+| [Vendôme Nouveau](https://www.creativebloq.com/news/it-took-designers-20-years-to-bring-this-font-back-from-the-dead) | Design gráfico | 1 → 1 |
+| [Flachet](https://www.creativeboom.com/news/camille-walala-is-covering-a-lyon-metro-station-in-30000-hand-made-tiles/) | Design gráfico | 3 → 3 |
+| [Pets at Home](https://www.creativebloq.com/news/how-pets-at-homes-vibrant-new-family-solves-the-biggest-challenge-of-designing-sub-brands) | Identidade visual | 0 → 0 |
+| [Loewe](https://www.b9.com.br/loewe-tim-burton-estranho-mundo-de-jack-campanha/) | Publicidade | 0 → 0 |
+
+Separadamente, o diagnóstico autenticado rodou cinco consultas reais Brave Images em `1a1a76c`. As cinco retornaram HTTP 200 e 60 URLs no total. A classificação marcou 58 como rejeitadas e duas de Gatto como relacionadas. Os dois originais estavam em hosts bloqueados, portanto houve zero downloads elegíveis nesse diagnóstico. A análise dos termos revelou um prefixo numérico isolado e uma palavra quebrada ao mover o nome da pauta. O código agora preserva as fronteiras de palavra e prioriza a consulta explícita do slide. Essa correção foi testada localmente. A conta manteve a configuração pré-paga existente, sem recarga acionada pela tarefa. [Execução do diagnóstico](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45602149607).
+
+O replay de regressão, executado à parte, manteve 32 corretas, 0 incorretas e 12 slides vazios em 44. Os resultados dos dez carrosséis são exploratórios e dependem das fontes e sugestões desse ensaio.
+
 ## Consolidação Brave Images — 24/11/2026
 
 O replay local de regressão continua em **32/32 imagens corretas, 0 incorretas e 12/44 slides vazios**. Os 12 vazios permanecem nos detalhes de Minthis e GWM, nas capas de PlayStation, Gusto, Ray Gunn, da artista entrevistada, da identidade australiana, de Gatto, da comunidade esportiva e de Julien Gobled, e nos dois slides da Caixa. O erro histórico da Fase A em `15f6be0:slide1` (outra peça do mesmo estúdio) fica como regressão negativa; o motor atual rejeita essa atribuição.

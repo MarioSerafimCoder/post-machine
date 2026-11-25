@@ -102,4 +102,16 @@ describe('inteligência visual documental', () => {
     expect(['http://example.com/image', 'https://127.0.0.1/a', 'https://user@example.com/a', 'https://local.test/a']
       .map(url => !!researchUrl(url))).toEqual([false, false, false, false])
   })
+  it('mantém palavras inteiras ao combinar o objeto visual com a pauta', () => {
+    const copy = { title: 'Nova marca', imageBrief: 'The redesigned Australian logo', role: 'cover' }
+    const context = campaignContext({ title: "Australia’s latest culture war", visual: { entities: ['Australia'] }, slides: [copy] })
+    expect(requestFor('project/cover', copy, context, .8)?.imageQueries[0]).toBe('Australia The redesigned Australian logo')
+  })
+  it('cobra evidência do objeto para alternativas a uma referência visual do slide', () => {
+    const copy = { ...request.copy, visualContext: { visualIntent: 'Bonecos na oficina' } }
+    const target = { ...request, copy }
+    expect(evaluateCandidate(film, target, { cited: false, requireIntent: true })).toMatchObject({ rejected: true })
+    expect(evaluateCandidate({ ...film, caption: film.caption + ' bonecos na oficina' }, target, { cited: false, requireIntent: true }))
+      .toMatchObject({ match: { classification: 'confirmed' } })
+  })
 })

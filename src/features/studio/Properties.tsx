@@ -9,7 +9,7 @@ import { align, duplicate, groupSelection } from './objects'
 import { availableTemplateRoles, templateRole, templateRoles } from './authorTemplate'
 
 export function Properties({ canvas, changed, textChanged, endTextSession, brand, format, replaceImage, children }: {
-  brand: Brand; format: Format; canvas: Canvas | null; changed: () => void; textChanged: (target: Textbox) => void; endTextSession: () => void; replaceImage: () => void; children?: ReactNode
+  brand: Brand; format: Format; canvas: Canvas | null; changed: () => void; textChanged: (target: Textbox) => void; endTextSession: () => void; replaceImage?: () => void; children?: ReactNode
 }) {
   const textSelection = useRef<{ object: Textbox; value: string; start: number; end: number }>(null)
   const textField = useRef<HTMLTextAreaElement>(null)
@@ -111,7 +111,7 @@ export function Properties({ canvas, changed, textChanged, endTextSession, brand
       </div>
     </>}
     {image && <>
-      <button onClick={replaceImage}>Substituir imagem</button>
+      <button onClick={replaceImage} disabled={!replaceImage}>Substituir imagem</button>
       <div className="studio-actions">
         <button onClick={() => act(() => cropImage(image,1))}>Recortar quadrado</button>
         <button onClick={() => act(() => cropImage(image,4/3))}>Recortar 4:3</button>

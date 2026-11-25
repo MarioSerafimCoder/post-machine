@@ -1,4 +1,12 @@
-# Estado real — 24/11/2026
+# Estado real — 25/11/2026
+
+## Consolidação visual 2/2
+
+- O prompt externo pede investigação documental por slide, fontes primárias, consultas no idioma original e URLs já conferidas. O JSON v1 guarda as sugestões opcionais na campanha e nos slides, inclusive em montagem, armazenamento e backup. O Worker confirma a presença das imagens nas páginas autorizadas e valida os originais. O Studio abre enquanto o acervo, as fontes e a consulta de lacunas são processados.
+- A troca de imagem mostra opções da campanha e procura alternativas na Brave Images com a consulta do slide. O Openverse, a URL validada e o arquivo local continuam disponíveis. A substituição fica no histórico visual e reaproveita o enquadramento e a camada. Aprovações e travas protegem o slide das buscas automáticas.
+- Em dez carrosséis inéditos de três slides, a precisão passou de 9/16 para 15/15 e a cobertura correta de 9/30 para 15/30. A amostra nova registrou 15 vazios, zero incorretas e quatro inserções locais preservadas. O maior tempo de abertura foi 1,98 s. A primeira foto chegou em mediana de 2,62 s nos sete projetos preenchidos, e a busca toda levou no máximo 3,62 s no replay. O corpus de regressão manteve 32/32 corretas e 12/44 vazias. A meta de cobertura permanece pendente. [Método e resultados](VISUAL_BENCHMARK.md#consolidação-visual-22--25112026).
+- O diagnóstico real recebeu cinco respostas HTTP 200 da Brave Images. Duas imagens foram classificadas como relacionadas e estavam em hosts fora da lista de saídas. Nenhum original foi elegível para download. O painel mostrou US$ 4,93 em crédito concedido, zero em crédito comprado e recarga automática desligada. Custo adicional de R$ 0. [Diagnóstico](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45602149607).
+- Validação local com lint, 155 testes unitários, build, smoke do HTMLRewriter e dry-run aprovados. Dos 176 cenários E2E, 162 passaram na rodada completa e 12 foram omitidos pela configuração. Os dois cenários de apoio fotográfico específico passaram na execução dirigida após a correção, a 1280 e 1440 px. A publicação protegida depende do CI do mesmo commit. [CI](https://github.com/MarioSerafimCoder/post-machine/actions/workflows/ci.yml) e [deploy](https://github.com/MarioSerafimCoder/post-machine/actions/workflows/deploy.yml).
 
 ## Consolidação Brave Images
 
