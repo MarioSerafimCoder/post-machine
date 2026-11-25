@@ -1,5 +1,17 @@
 # Arquitetura e decisões
 
+## Template Editorial 03 — jornada editorial local
+
+- `editorial03.ts` acrescenta sete cenas Fabric no retrato nativo 1080 × 1350: capa com fotografia arredondada e degradê, apresentação, dupla fotográfica sobre azul-marinho, matriz de quatro quadrantes, relato sobre fotografia, coluna lateral e ciclo com cinco etapas. Textos e formas permanecem elementos independentes. Ícones geométricos originais usam somente linhas e círculos já suportados pelo editor.
+- A família usa a instalação local existente, com chave própria, sem alterar as duas anteriores. O bundle contém frames e textos de exemplo neutros. Fotografias dos anexos, recortes e backups preenchidos ficam fora do repositório. O backup fotográfico mantém créditos de origem manual e licença desconhecida; os cantos arredondados são máscaras vetoriais editáveis, sem redesenhar a fotografia.
+- Reutiliza Inter e as dependências existentes. Não introduz serviços, código de terceiros ou custos. Em 25/11, o proprietário autorizou a publicação do lote pelo workflow protegido existente.
+
+## Template Editorial 02 — preparação local
+
+- `editorial02.ts` constrói cinco cenas Fabric editáveis no formato nativo 1080 × 1350. A biblioteca instala a família uma vez por navegador pelo mecanismo de templates autorais; renomear, editar e excluir continuam usando o armazenamento existente.
+- A composição adapta as referências visuais fornecidas pelo proprietário, sem copiar código. Fotos, uploads e a assinatura do perfil de referência não são distribuídos no bundle. O template usa frames substituíveis, identidade neutra e um diagrama explicitamente ilustrativo, sem métricas inventadas. Prévias e backup com os recortes fotográficos permanecem fora do repositório, exclusivamente locais.
+- Sem dependências, fontes, licenças de código ou serviços adicionais. Publicação em lote autorizada pelo proprietário em 25/11, sem incluir os anexos fotográficos.
+
 ## Visual Intelligence Engine — Fase A
 
 - O contrato editorial v1 aceita `campaign.visualContext` e `slides[].visualContext`. O campo opcional `visualCandidates` contém até seis objetos com `imageUrl`, `sourceUrl` e `description` por contexto. A descrição é preservada na importação e no backup. O motor usa a evidência da página para classificar a imagem. O conteúdo editorial fica no navegador.

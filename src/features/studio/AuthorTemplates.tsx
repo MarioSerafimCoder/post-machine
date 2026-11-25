@@ -5,6 +5,8 @@ import { loadFonts } from './fonts'
 import { emptySlide, newProject, dimensions, formatNames, type Format, type Project } from './model'
 import { backupAuthorTemplate, listAuthorTemplates, loadAuthorTemplate, readAuthorTemplateBackup, saveAuthorTemplate, updateAuthorTemplate } from './storage'
 import editorialSlides from './dossieEditorial.json'
+import { createEditorial02 } from './editorial02'
+import { createEditorial03 } from './editorial03'
 import { transaction } from './database'
 import { StudioDialog } from './StudioDialog'
 import { CollectionGallery } from './CollectionGallery'
@@ -19,25 +21,18 @@ async function templateThumbnail(design: Project) {
   return (await renderScene(design.slides[0].scene, width, height, { scale: .24 })).blob
 }
 
-async function installEditorialTemplate() {
+async function installTemplate(key: string, familyId: string, create: () => Project, description: string) {
   const install = async () => {
-    const key = 'editorial-template-v1'
     const installed = await transaction(['settings'], 'readonly', tx => {
       const request = tx.objectStore('settings').get(key)
       return () => request.result === true
     })
     if (installed) return
-    const familyId = 'fe849b0a-8a9c-4f7b-b52b-ec8d56c230c5'
     const existing = await listAuthorTemplates()
     if (!existing.some(item => item.familyId === familyId)) {
-      const design = newProject('portrait')
-      design.name = 'Editorial 01'
-      design.brand = { ...design.brand, margin: 45, primary: '#080718', secondary: '#FF4000', background: '#F5F5F5' }
-      design.slides = editorialSlides.map(({ role, background, objects }) => ({
-        ...emptySlide(), role, layout: 'editorial', scene: { background, objects: structuredClone(objects) },
-      }))
+      const design = create()
       await saveAuthorTemplate({ schemaVersion: 1, name: design.name,
-        description: 'Carrossel com seis composições e quadros de imagem editáveis.',
+        description,
         category: 'Editorial', brandMode: 'linked', familyId }, design, await templateThumbnail(design))
     }
     await transaction(['settings'], 'readwrite', tx => {
@@ -45,7 +40,23 @@ async function installEditorialTemplate() {
       return () => undefined
     })
   }
-  return navigator.locks ? navigator.locks.request('post-machine-editorial-template', install) : install()
+  return navigator.locks ? navigator.locks.request(`post-machine-${key}`, install) : install()
+}
+
+async function installEditorialTemplates() {
+  await installTemplate('editorial-template-v1', 'fe849b0a-8a9c-4f7b-b52b-ec8d56c230c5', () => {
+    const design = newProject('portrait')
+    design.name = 'Editorial 01'
+    design.brand = { ...design.brand, margin: 45, primary: '#080718', secondary: '#FF4000', background: '#F5F5F5' }
+    design.slides = editorialSlides.map(({ role, background, objects }) => ({
+      ...emptySlide(), role, layout: 'editorial', scene: { background, objects: structuredClone(objects) },
+    }))
+    return design
+  }, 'Carrossel com seis composições e quadros de imagem editáveis.')
+  await installTemplate('editorial-02-template-v1', '398b286f-4c67-4f5b-a0e6-75864f5d0396', createEditorial02,
+    'Cinco composições: capa fotográfica, editorial escuro, comparação em laranja, editorial claro e lista. Fotografias substituíveis.')
+  await installTemplate('editorial-03-template-v1', '165371df-2330-4a2f-bfe4-7dacb3a14b79', createEditorial03,
+    'Sete composições: capa com degradê, apresentação, dupla de fotos, matriz de análise, relato fotográfico, coluna lateral e ciclo de cinco etapas.')
 }
 
 function Thumb({ item }: { item: TemplateSummary }) {
@@ -122,7 +133,7 @@ export function AuthorTemplates({ format, selected, use, edit, collectionGallery
   const [status, setStatus] = useState('')
   useEffect(() => {
     let alive = true
-    void installEditorialTemplate().then(() => listAuthorTemplates()).then(value => { if (alive) setItems(value) }, cause => { if (alive) setError(message(cause)) })
+    void installEditorialTemplates().then(() => listAuthorTemplates()).then(value => { if (alive) setItems(value) }, cause => { if (alive) setError(message(cause)) })
     return () => { alive = false }
   }, [])
   const categories = [...new Set(items?.map(item => item.category))]

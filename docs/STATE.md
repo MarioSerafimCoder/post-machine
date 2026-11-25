@@ -1,5 +1,26 @@
 # Estado real — 25/11/2026
 
+## Publicação do lote Editorial 02 e Editorial 03
+
+- O proprietário autorizou atualizar o repositório e publicar os dois templates. O lote reúne doze composições editáveis no formato 1080 × 1350 e preserva o Editorial 01. O bundle inclui somente código, textos de exemplo e frames substituíveis; fotografias, uploads e backups pessoais continuam fora do repositório público.
+- A preparação local passou por lint, 158 testes unitários e build. O empacotamento e a suíte desktop estão sendo conferidos novamente antes do envio. A publicação usará o workflow protegido existente, que exige CI aprovado para o mesmo commit e verifica o Cloudflare Access.
+
+## Editorial 03 · Jornada — somente local
+
+- Nova família na biblioteca com sete composições editáveis, adaptadas das referências de 3:4 para o retrato nativo 1080 × 1350: capa com foto arredondada e degradê preto contínuo; apresentação com foto superior; dupla fotográfica sobre azul-marinho; matriz de quatro quadrantes com destaque laranja; relato sobre foto; texto com foto vertical lateral; ciclo de cinco etapas com ícones geométricos originais e setas.
+- Instalação única por navegador, com chave própria e preservação das famílias anteriores. O código usa identidade neutra, textos de exemplo e campos de imagem substituíveis. Anexos e recortes permanecem fora dos arquivos versionados. Backups com e sem fotografias, sete PNGs, prévia e instruções estão em `../POSTS-templates-locais/editorial-03/`. O backup fotográfico guarda os créditos de origem manual e licença desconhecida, além das máscaras de cantos arredondados.
+- Os sete PNGs foram renderizados e inspecionados; a medição das caixas de texto não encontrou transbordamento. O backup preenchido foi lido novamente pelo importador e preservou os sete slides. Conferência dirigida em 1280 e 1440 px confirmou instalação única, abertura de todos os slides, edição, reabertura do texto salvo e exclusão persistente. Lint, 158 testes unitários e build aprovados. A suíte E2E completa registrou 163 aprovações, 12 omissões previstas e um timeout no fluxo de Headlines/Openverse do perfil 1280 px antes de abrir o Studio. O mesmo cenário passou na repetição isolada (12,6 s), sem alteração de código.
+- Sem commit, push ou deploy. Publicação em lote continua adiada a pedido do proprietário. Custo adicional R$ 0, sem dependências ou serviços novos.
+
+## Editorial 02 · Laranja — somente local
+
+- Ajuste da capa na cópia fotográfica local: o recorte agora preenche toda a arte, mantendo a proporção da foto. Antes a fotografia terminava em 930 px e expunha o fundo sólido nos 420 px inferiores. O degradê preto existente passa a escurecer a fotografia de maneira contínua até a base. Backup e prévias locais regenerados e inspecionados; sem transbordamento nas caixas de texto. Correção restrita aos artefatos locais, sem alteração do código do template ou nova publicação.
+
+- Novo template autoral na biblioteca com cinco slides editáveis: capa fotográfica com degradê e título centralizado, foto com texto em fundo escuro, comparação sobre laranja, foto com texto em fundo claro e lista com setas e divisórias. As referências de 3:4 foram adaptadas ao retrato nativo de 1080 × 1350 px. Textos, destaques, assinatura, barras e frames de imagem são editáveis. O gráfico de exemplo é identificado como ilustrativo, sem escala ou métricas inventadas.
+- A instalação usa a família própria e o armazenamento local existente. Preserva o Editorial 01, as edições e as exclusões. Os anexos não entram no código nem no bundle. Os dois backups (com frames vazios e com recortes fotográficos locais), a prévia e as instruções estão em `../POSTS-templates-locais/editorial-02/`, fora do repositório; os créditos da cópia fotográfica registram a origem como anexo e a licença desconhecida.
+- Lint, 158 testes unitários e build aprovados. `npm run test:e2e -- --workers=4`: 164 aprovações e 12 omissões previstas pela configuração. Verificação dirigida em 1280 e 1440 px confirmou instalação única, abertura dos cinco slides, edição, reabertura com o texto salvo e exclusão persistente. Os cinco PNGs foram inspecionados; a medição das caixas de texto não encontrou transbordamento.
+- Sem commit, push ou deploy nesta entrega. Publicação adiada pelo proprietário para um lote futuro de templates. Custo adicional R$ 0; nenhuma conta ou intervenção necessária para continuar criando localmente.
+
 ## Revisão de estabilidade da Produção Expressa e da exportação
 
 - A organização do conteúdo importado preserva o layout somente texto em slides novos. Quando uma peça é reconhecida após reordenação, mantém o vínculo da foto e o registro da decisão manual. Peças ambíguas continuam sem herdar vínculos manuais.
@@ -8,6 +29,7 @@
 
 ## Fase 12 — Homologação e estabilidade
 
+- A homologação autenticada foi concluída em produção no commit `84c0674`. O Radar exibiu 256 notícias. O Studio importou um JSON com três slides, aplicou as duas imagens documentais da HOW+HOW e salvou a edição do título. O ZIP conferido contém três PNGs de 1080 × 1350 px e créditos para as duas imagens, com a licença indicada como desconhecida. A reabertura preservou as imagens, o título editado e o estado de exportação. [Deploy protegido](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45609460259).
 - Em `91e3ba5`, o diagnóstico fez cinco consultas Brave Images e recebeu 60 URLs diretas em cinco respostas HTTP 200. O classificador rejeitou 56 e marcou quatro como relacionadas. Dois WebP da Creative Boom passaram pelo download e pela assinatura raster. Os dois candidatos de Gatto ficaram bloqueados pela origem. A rodada usou a franquia gratuita e confirmou que o termo australiano saiu inteiro. [Diagnóstico](https://github.com/MarioSerafimCoder/post-machine/actions/runs/45607465793).
 - No recorte dirigido, o caso da Havaianas tinha uma imagem principal no HTML que a extração não devolvia. As seis imagens retornadas pertenciam às recomendações da página e foram descartadas. Em Loewe, os arquivos acessíveis não tinham evidência suficiente para identificar o objeto específico dos slides da amostra. Em Gatto, houve candidatos relacionados barrados antes do download. Entre os arquivos elegíveis testados na Brave, não houve falha de download.
 - A página oficial da HOW+HOW e os originais da Pets Foundation e Pets Insurance passaram em extração, classificação, download e decodificação locais. O Worker admite a página exata do caso e apenas rasters no namespace da agência no Prismic. A exceção para marcas gráficas exige a legenda da submarca nessa página oficial. A busca mantém Access, verificação DNS, redirecionamentos controlados e limites de leitura. [Fonte da agência](https://how.studio/work/pets).
