@@ -88,7 +88,7 @@ test('protege edições simultâneas e permite editar, favoritar e duplicar', as
   await other.getByText('＋ Novo projeto', { exact: true }).click()
   await button(other, 'Usar template').click()
   for (const tab of [page, other]) {
-    const card = tab.getByRole('region', { name: 'Meus templates' }).getByRole('article')
+    const card = tab.getByRole('region', { name: 'Meus templates' }).getByRole('article').filter({ has: tab.getByRole('heading', { name: 'Caderno de direção', exact: true }) })
     await card.getByText('Gerenciar template').click()
     await card.getByRole('button', { name: 'Renomear' }).click()
   }

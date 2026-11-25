@@ -11,6 +11,7 @@ test('galeria renderiza capas diferentes e abre uma coleção de seis slides', a
   await expect(gallery.getByRole('article')).toHaveCount(11)
   const first = gallery.getByRole('article').first()
   const other = gallery.getByRole('article').nth(1)
+  await first.scrollIntoViewIfNeeded()
   await expect(first.getByRole('img')).toBeVisible()
   await expect(other.getByRole('img')).toBeVisible()
   expect(await first.getByRole('img').getAttribute('src')).not.toBe(await other.getByRole('img').getAttribute('src'))
