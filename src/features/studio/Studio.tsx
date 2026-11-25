@@ -54,7 +54,6 @@ import { ResponsePreview } from '../campaigns/ResponsePreview'
 import './collections.css'
 
 const Express = lazy(() => import('./Express').then(module => ({ default: module.Express })))
-const CollectionGallery = lazy(() => import('./CollectionGallery').then(module => ({ default: module.CollectionGallery })))
 const ProjectDesignOptions = lazy(() => import('./ProjectDesignOptions'))
 
 const studioTools: ContextTool[] = [
@@ -634,10 +633,9 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     <div className="studio-entry"><h2>Biblioteca de templates</h2><button className="button button-outline" disabled={starting} onClick={() => setEntry(undefined)}>Voltar aos projetos</button></div>
     {error && <p role="alert">{error}</p>}
     {starting && <p role="status">Salvando projeto…</p>}
-    <AuthorTemplates format={format} use={template => openCreated(copyTemplateDesign(template))} edit={editTemplate} />
-    <Suspense fallback={<p role="status">Abrindo a biblioteca…</p>}>
-      <CollectionGallery format={format} setFormat={setFormat} use={style => void createFromCollection(style)} />
-    </Suspense>
+    <AuthorTemplates format={format} use={template => openCreated(copyTemplateDesign(template))} edit={editTemplate}
+      collectionGallery={{ setFormat, use: style => void createFromCollection(style) }} />
+
   </section>
   if (!project) return <>{articleFeedback}<ProjectLibrary result={libraryResult} refresh={async () => setLibrary(await listProjects())}
     error={error} flush={flush} open={openProject} create={() => createEmptyProject()}

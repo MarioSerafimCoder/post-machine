@@ -117,3 +117,34 @@
 
 .collection-actions .button-delete-template { color: #fff; background: #b91c1c; border-color: #b91c1c; }
 .collection-actions .button-delete-template:hover { background: #991b1b; border-color: #991b1b; }
+
+/* Shared desktop template catalogue. */
+.unified-template-library { padding: 0; border: 0; background: transparent; gap: 16px; }
+.unified-template-library > header { align-items: center; }
+.unified-template-library > .collection-actions { align-items: center; }
+.unified-template-library > .collection-actions label { display: grid; gap: 5px; font-size: 12px; }
+.unified-template-library .collection-gallery > label { max-width: 300px; }
+.collection-grid > article { display: flex; flex-direction: column; padding: 12px; }
+.collection-grid .collection-card-copy { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.collection-card-copy :is(h3, h4) { font-size: 15px; font-weight: 650; line-height: 1.4; }
+.collection-grid .collection-card-copy > .collection-actions {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  padding-top: 12px; margin-top: auto;
+}
+.collection-grid .collection-card-copy > .collection-actions .button {
+  min-height: 34px; padding: 7px 9px; font-size: 12px; line-height: 18px;
+  border-radius: 6px; display: inline-flex; justify-content: center; align-items: center; white-space: nowrap;
+}
+.collection-grid .collection-card-copy > .collection-actions .button-dark { flex: 1; }
+.collection-grid .collection-card-copy > .collection-actions .button-delete-template {
+  flex: 0 0 34px; width: 34px; padding: 8px; color: #b91c1c;
+  background: #fff; border: 1px solid #efb8b8;
+}
+.collection-grid .collection-card-copy > .collection-actions .button-delete-template:hover {
+  background: #fef2f2; border-color: #b91c1c;
+}
+.collection-grid .button:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 3px; }
+.author-template-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.author-template-actions summary { font-size: 12px; color: var(--muted); }
+.collection-grid .author-template-actions { order: 1; margin-top: 8px; }
+.collection-grid .collection-card-copy > .collection-actions { order: 2; }

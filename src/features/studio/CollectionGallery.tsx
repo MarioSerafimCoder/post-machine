@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { collections, collectionBrand, composeCollection, compositionNames, demoSlides, type Collection } from './collections'
 import { renderScene } from './export'
 import { loadFonts } from './fonts'
@@ -48,8 +48,8 @@ function Thumbnail({ style, index, format }: { style: Collection; index: number;
   </div>
 }
 
-export function CollectionGallery({ selected, format, setFormat, use }: {
-  selected?: string; format: Format; setFormat: (format: Format) => void; use: (style: Collection) => void
+export function CollectionGallery({ selected, format, setFormat, use, children }: {
+  selected?: string; format: Format; setFormat: (format: Format) => void; use: (style: Collection) => void; children?: ReactNode
 }) {
   const [excluded, setExcluded] = useState<string[]>(() => {
     try {
@@ -82,13 +82,13 @@ export function CollectionGallery({ selected, format, setFormat, use }: {
       {Object.entries(formatNames).map(([key,name]) => <option key={key} value={key}>{name} · {dimensions[key as Format].join(' × ')}</option>)}
     </select></label>
     {error && <p role="alert">{error}</p>}
-    <div className="collection-grid">{collections.filter(style => !excluded.includes(style.id)).sort((a,b) => Number(!!b.premium) - Number(!!a.premium)).map(style => <article key={style.id} data-selected={style.id === selected}>
+    <div className="collection-grid">{children}{collections.filter(style => !excluded.includes(style.id)).sort((a,b) => Number(!!b.premium) - Number(!!a.premium)).map(style => <article key={style.id} data-selected={style.id === selected}>
       <Thumbnail key={format} style={style} index={0} format={format} />
       <div className="collection-card-copy">
         <h3>{style.name}</h3>{style.premium && <small className="collection-premium">Coleção premium</small>}<p>{style.style}</p><small>{style.formats.map(value => formatNames[value]).join(' · ')}</small>
         <div className="collection-actions"><button className="button button-outline" onClick={event => visualize(style,event.currentTarget)}>Visualizar</button>
           <button className="button button-dark" onClick={() => use(style)}>{style.id === selected ? 'Selecionada' : 'Usar coleção'}</button>
-          <button className="button button-delete-template" onClick={() => exclude(style)}>Excluir template</button></div>
+          <button className="button button-delete-template" aria-label="Excluir template" title="Excluir template" onClick={() => exclude(style)}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" /></svg></button></div>
       </div>
     </article>)}</div>
     <dialog ref={dialog} className="collection-dialog" aria-labelledby="collection-preview-title" onClose={() => {

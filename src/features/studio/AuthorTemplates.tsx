@@ -7,6 +7,8 @@ import { backupAuthorTemplate, listAuthorTemplates, loadAuthorTemplate, readAuth
 import editorialSlides from './dossieEditorial.json'
 import { transaction } from './database'
 import { StudioDialog } from './StudioDialog'
+import { CollectionGallery } from './CollectionGallery'
+import type { Collection } from './collections'
 import { AdaptLayoutDialog } from './AdaptLayoutDialog'
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : String(cause)
@@ -103,9 +105,10 @@ export function SaveTemplate({ project, previous, close, saved }: {
   </StudioDialog>
 }
 
-export function AuthorTemplates({ format, selected, use, edit }: {
+export function AuthorTemplates({ format, selected, use, edit, collectionGallery }: {
   format: Format; selected?: string; use: (template: AuthorTemplate) => void | Promise<void>;
   edit: (template: AuthorTemplate) => Promise<void>
+  collectionGallery?: { setFormat: (format: Format) => void; use: (style: Collection) => void }
 }) {
   const [items, setItems] = useState<TemplateSummary[]>()
   const [formatFilter, setFormatFilter] = useState<string>('')
@@ -138,8 +141,43 @@ export function AuthorTemplates({ format, selected, use, edit }: {
     } finally { setBusy(false) }
   }
   const selectTemplate = (item: TemplateSummary) => run(async () => { await use(await loadAuthorTemplate(item.id)); setPreview(undefined) })
-  return <section className="author-templates" aria-label="Meus templates">
-    <header><div><h3>Meus templates</h3><p className="muted">Composições salvas no Studio neste navegador.</p></div>
+  const templateCards = visible?.map(item => <article key={item.id} data-selected={selected === item.id}>
+      <Thumb item={item} />
+      <div className="collection-card-copy">
+        <h4>{item.name}</h4>
+        <p>{formatNames[item.format]} · {item.category}</p>
+        {item.description && <p>{item.description}</p>}
+        <div className="collection-actions">
+          <button className="button button-outline" aria-label={`Visualizar ${item.name}`} disabled={busy} onClick={() => setPreview(item)}>Visualizar</button>
+          <button className="button button-dark" aria-pressed={selected === item.id} disabled={busy} onClick={() => void selectTemplate(item)}>
+            {selected === item.id ? 'Selecionado' : 'Usar template'}
+          </button>
+            <button className="button button-delete-template" aria-label="Excluir template" title="Excluir template" disabled={busy} onClick={() => {
+              if (window.confirm(`Excluir o template “${item.name}”?`)) void run(() => updateAuthorTemplate(item, null), 'Template excluído.')
+            }}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" /></svg></button>
+        </div>
+        <details className="author-template-actions"><summary>Gerenciar template</summary>
+          <div className="collection-actions">
+            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => edit(await loadAuthorTemplate(item.id)))}>Editar no Studio</button>
+            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
+              setAdapt(await loadAuthorTemplate(item.id))
+            })}>Adaptar formato</button>
+            <button className="button button-outline" onClick={() => { setNewName(item.name); setRename(item) }} disabled={busy}>Renomear</button>
+            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
+              const original = await loadAuthorTemplate(item.id)
+              await saveAuthorTemplate({ ...original, name: `${original.name.slice(0, 90)} (cópia)`, familyId: crypto.randomUUID() }, original.design, original.thumbnail)
+            }, 'Template duplicado.')}>Duplicar</button>
+            <button className="button button-outline" aria-pressed={item.favorite} disabled={busy} onClick={() => void run(() => updateAuthorTemplate(item, { favorite: !item.favorite }), item.favorite ? 'Favorito removido.' : 'Template marcado como favorito.')}>Favorito</button>
+            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
+              download(await backupAuthorTemplate(item.id), `template-${item.id}.zip`)
+            }, 'Backup preparado.')}>Exportar backup</button>
+
+          </div>
+        </details>
+      </div>
+    </article>)
+  return <section className={collectionGallery ? "author-templates unified-template-library" : "author-templates"} aria-label="Meus templates">
+    <header><div><h3>{collectionGallery ? "Templates" : "Meus templates"}</h3>{!collectionGallery && <p className="muted">Composições salvas no Studio neste navegador.</p>}</div>
       <label className="button button-outline author-import">Importar backup de template<input className="sr-only" type="file" accept=".zip" disabled={busy} onChange={event => {
         const file = event.target.files?.[0]
         event.target.value = ''
@@ -165,41 +203,8 @@ export function AuthorTemplates({ format, selected, use, edit }: {
       </select></label>
     </div>}
     {items?.length && !visible?.length ? <p>Nenhum template corresponde aos filtros.</p> : null}
-    {!!visible?.length && <div className="collection-grid author-template-grid">{visible.map(item => <article key={item.id} data-selected={selected === item.id}>
-      <Thumb item={item} />
-      <div className="collection-card-copy">
-        <h4>{item.name}</h4>
-        <p>{formatNames[item.format]} · {item.category}</p>
-        {item.description && <p>{item.description}</p>}
-        <div className="collection-actions">
-          <button className="button button-outline" aria-label={`Visualizar ${item.name}`} disabled={busy} onClick={() => setPreview(item)}>Visualizar</button>
-          <button className="button button-dark" aria-pressed={selected === item.id} disabled={busy} onClick={() => void selectTemplate(item)}>
-            {selected === item.id ? 'Selecionado' : 'Usar template'}
-          </button>
-            <button className="button button-delete-template" disabled={busy} onClick={() => {
-              if (window.confirm(`Excluir o template “${item.name}”?`)) void run(() => updateAuthorTemplate(item, null), 'Template excluído.')
-            }}>Excluir template</button>
-        </div>
-        <details className="author-template-actions"><summary>Gerenciar template</summary>
-          <div className="collection-actions">
-            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => edit(await loadAuthorTemplate(item.id)))}>Editar no Studio</button>
-            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
-              setAdapt(await loadAuthorTemplate(item.id))
-            })}>Adaptar formato</button>
-            <button className="button button-outline" onClick={() => { setNewName(item.name); setRename(item) }} disabled={busy}>Renomear</button>
-            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
-              const original = await loadAuthorTemplate(item.id)
-              await saveAuthorTemplate({ ...original, name: `${original.name.slice(0, 90)} (cópia)`, familyId: crypto.randomUUID() }, original.design, original.thumbnail)
-            }, 'Template duplicado.')}>Duplicar</button>
-            <button className="button button-outline" aria-pressed={item.favorite} disabled={busy} onClick={() => void run(() => updateAuthorTemplate(item, { favorite: !item.favorite }), item.favorite ? 'Favorito removido.' : 'Template marcado como favorito.')}>Favorito</button>
-            <button className="button button-outline" disabled={busy} onClick={() => void run(async () => {
-              download(await backupAuthorTemplate(item.id), `template-${item.id}.zip`)
-            }, 'Backup preparado.')}>Exportar backup</button>
-
-          </div>
-        </details>
-      </div>
-    </article>)}</div>}
+    {collectionGallery ? <CollectionGallery format={format} setFormat={collectionGallery.setFormat} use={collectionGallery.use}>{templateCards}</CollectionGallery> :
+      <div className="collection-grid author-template-grid">{templateCards}</div>}
     {preview && <StudioDialog title={preview.name} close={() => setPreview(undefined)}>
       <Thumb item={preview} />
       <p>{formatNames[preview.format]} · {preview.category}</p>

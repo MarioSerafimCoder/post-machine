@@ -574,3 +574,7 @@ O menu Novo projeto abre uma cópia local editável das seis composições em 10
 ## Biblioteca de templates
 
 Editorial 01 integra Meus templates com seis slides editáveis. O atalho próprio foi removido. A biblioteca exibe Excluir template em vermelho nos cards de templates e coleções. A exclusão das coleções é persistida neste navegador. Verificados edição dos seis slides, exclusão persistente e botão vermelho a 1280 e 1440 px.
+
+## Grade unificada de templates
+
+Editorial 01 e coleções compartilham a mesma grade de quatro colunas no Studio. Cards com dimensões comuns e ações compactas alinhadas, com exclusão por lixeira vermelha identificada para leitores de tela. Verificação visual a 1280 e 1440 px.
