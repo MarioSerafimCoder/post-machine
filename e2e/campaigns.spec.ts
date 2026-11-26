@@ -31,6 +31,10 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   await expect(page.getByText('Prompt copiado.')).toBeVisible()
   const pastedPrompt = await page.evaluate(() => navigator.clipboard.readText())
   expect(pastedPrompt.replace(/\r\n/g, '\n')).toBe(await prompt.inputValue())
+  expect(pastedPrompt).toContain('slides[].visualContext.visualCandidates')
+  const copiedModel = JSON.parse(pastedPrompt.replace(/\r\n/g, '\n').trim().split('\n\n').at(-1)!)
+  expect(copiedModel.slides.map((slide: { order: number }) => slide.order)).toEqual([1, 2])
+  expect(copiedModel.slides[0].visualContext).toEqual({ visualCandidates: [] })
   await page.getByRole('button', { name: 'Colar resposta desta campanha' }).press('Enter')
   await expect(page.getByLabel('Conteúdo em JSON ou Markdown')).toBeFocused()
   await page.reload()
@@ -44,11 +48,14 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   await page.getByRole('button', { name: 'Importar conteúdo' }).click()
   await expect(page.getByRole('alert')).toContainText('schemaVersion')
   await input.fill(JSON.stringify({
-    schemaVersion: 1, campaign: { title: 'Campanha de teste', objective: 'Educar', audience: 'Diretores de arte',
+    ...copiedModel, campaign: { title: 'Campanha de teste', objective: 'Educar', audience: 'Diretores de arte',
       tone: 'Reflexivo', format: 'carousel', caption: 'Legenda', cta: 'Leia a fonte.' },
     sources: [], slides: [
-      { order: 1, role: 'cover', title: 'Capa inicial', body: '', imageBrief: '', layoutType: 'editorial' },
-      { order: 2, role: 'cta', title: 'Final', body: '', imageBrief: '', layoutType: 'editorial' },
+      { ...copiedModel.slides[0], title: 'Capa inicial', visualContext: { visualCandidates: [{
+        imageUrl: 'https://www.geico.com/frames/still.jpg', sourceUrl: 'https://www.geico.com/about/',
+        description: 'Still com os bonecos visíveis.',
+      }] } },
+      { ...copiedModel.slides[1], title: 'Final' },
     ],
   }))
   await page.getByRole('button', { name: 'Importar conteúdo' }).click()
@@ -101,12 +108,21 @@ test('importa Markdown de arquivo para post único', async ({ page }) => {
   await expect(page.getByLabel('Sugestão de imagem')).toHaveValue('Sugestão de imagem.')
 })
 
-test('importa a resposta do GPT com datas parciais ao salvar e abre o projeto editável no Studio', async ({ page }) => {
+test('importa a resposta do GPT de um post único com datas parciais e abre o Studio', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.goto('/#/radar')
   await page.getByRole('button', { name: 'Pautas e prompts', exact: true }).click()
   await page.getByRole('button', { name: 'Nova campanha', exact: true }).click()
   await page.getByRole('button', { name: 'Começar do zero', exact: true }).click()
   await page.getByRole('combobox', { name: 'Formato', exact: true }).selectOption('post')
+  await page.getByRole('button', { name: 'Gerar prompt para IA', exact: true }).click()
+  await page.getByRole('button', { name: 'Copiar prompt' }).click()
+  await expect(page.getByText('Prompt copiado.')).toBeVisible()
+  const prompt = await page.evaluate(() => navigator.clipboard.readText())
+  const model = JSON.parse(prompt.replace(/\r\n/g, '\n').trim().split('\n\n').at(-1)!)
+  expect(model.slides).toHaveLength(1)
+  expect(model.slides[0].visualContext).toEqual({ visualCandidates: [] })
+  await page.getByRole('button', { name: 'Colar resposta desta campanha' }).click()
 
   const sources = [
     { title: 'Fonte com data', url: 'https://example.com/1', publishedAt: '2026-11-18' },
@@ -115,10 +131,10 @@ test('importa a resposta do GPT com datas parciais ao salvar e abre o projeto ed
     { title: 'Outra fonte', url: 'https://example.com/4' },
   ]
   const response = {
-    schemaVersion: 1,
-    campaign: { title: 'Campanha enviada ao Studio', objective: 'Informar', audience: 'Leigo',
-      tone: 'Provocativo', format: 'carousel', caption: 'Legenda preservada.', cta: 'Conheça o contexto.' },
-    sources, slides: [{ order: 1, role: 'content', title: 'Título importado diretamente', body: 'Texto de referência do GPT.',
+    ...model,
+    campaign: { ...model.campaign, title: 'Campanha enviada ao Studio', objective: 'Informar', audience: 'Leigo',
+      tone: 'Provocativo', caption: 'Legenda preservada.', cta: 'Conheça o contexto.' },
+    sources, slides: [{ ...model.slides[0], title: 'Título importado diretamente', body: 'Texto de referência do GPT.',
       imageBrief: 'Direção de arte vinculada ao slide.', layoutType: 'editorial' }],
   }
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify(response))

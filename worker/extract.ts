@@ -17,14 +17,16 @@ const text = (value: unknown, max: number) => typeof value === 'string'
 const dimension = (value: unknown) => /^\d{1,5}$/.test(String(value)) && Number(value) > 0 && Number(value) <= 40000 ? Number(value) : undefined
 const unwanted = /(?:^|[\s/._-])(?:avatar|favicon|sprite|placeholder|tracking|spacer|pixel|advertisement|icon|homepage|sitewide)(?=$|[\s/._-])/i
 const logo = /(?:^|[\s/._-])logo(?=$|[\s/._-])/i
-const blocked = 'header,nav,footer,aside,[role="navigation"],[role="complementary"],.related,.recommended,.more-stories,.advertisement,.ads,.breadcrumb,[class*="teaser"],[class*="related-"],[class*="recommended-"]'
+const blocked = 'header,nav,footer,aside,[role="navigation"],[role="complementary"],.related,.recommended,.more-stories,.advertisement,.ads,.breadcrumb,[class*="teaser"],[class*="related-"],[class*="recommended-"],article[class*="card"],article[class*="preview"]'
 const press = /\b(press.?kit|media.?kit|newsroom|press.?release|press.?room|portfolio|case.?study|press assets|still photography|multimedia|sala de imprensa|kit de imprensa)\b/i
+
+const rasterLink = /\.(?:png|jpe?g|webp)(?:\?|$)/i
 
 function srcset(value: string | null) {
   return value?.split(',').map(part => {
     const [src, descriptor] = part.trim().split(/\s+/)
-    return { src, size: Number.parseFloat(descriptor) || 1 }
-  }).sort((a, b) => b.size - a.size)[0]?.src
+    return { src, size: Number.parseFloat(descriptor) || 1, width: /w$/.test(descriptor ?? '') ? dimension(descriptor.slice(0, -1)) : undefined }
+  }).sort((a, b) => b.size - a.size) ?? []
 }
 
 export async function extractArticle(html: string | ReadableStream<Uint8Array>, page: URL, provider: 'original' | 'official') {
@@ -58,7 +60,10 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
     if ((logo.test(url.pathname) || logo.test(caption)) &&
         !(petsPortfolio && verifiedPortfolioImage(url) && /\b(?:Pets Insurance|Pets Foundation|Pet Pals)\b/i.test(caption))) return
     const before = images.get(url.href)
-    if (!before || ['figure', 'poster', 'structured'].includes(fields.evidence)) images.set(url.href, { ...before, ...fields, url: url.href })
+    if (!before || ['figure', 'poster', 'structured'].includes(fields.evidence)) {
+      const defined = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined))
+      images.set(url.href, { ...(before ?? fields), ...defined, url: url.href })
+    }
   }
   const addLink = (value: string) => {
     const url = researchUrl(value, page.href)
@@ -150,11 +155,22 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
       element(node) {
         const identity = [node.getAttribute('class'), node.getAttribute('id')].join(' ')
         if (omitted || unwanted.test(identity) || logo.test(identity)) return
-        const candidate = srcset(node.getAttribute('data-srcset') ?? node.getAttribute('srcset')) ??
+        // A thumbnail linking to a different story belongs to that story.
+        const destination = anchor && researchUrl(anchor.href, page.href)
+        if (destination && destination.origin === page.origin && destination.pathname !== page.pathname &&
+            !rasterLink.test(destination.pathname) && !/\/(?:uploads|images|media|attachments)\//i.test(destination.pathname)) return
+        const [variant, ...renditions] = srcset(node.getAttribute('data-srcset') ?? node.getAttribute('srcset'))
+        const candidate = variant?.src ??
           node.getAttribute('data-original') ?? node.getAttribute('data-src') ?? node.getAttribute('data-lazy-src') ??
           node.getAttribute('data-full') ?? node.getAttribute('poster') ?? node.getAttribute('src')
+        // The smaller URLs in this srcset point to the same image as the selected raster.
+        const alternateUrls = renditions.slice(0, 12).flatMap(({ src }) => {
+          const url = src && researchUrl(src, page.href)
+          return url && !unwanted.test(url.pathname) ? [url.href] : []
+        })
         add(candidate, { evidence: node.getAttribute('poster') ? 'poster' : currentFigure ? 'figure' : 'body', withinArticle: articleDepth > 0,
-          width: dimension(node.getAttribute('width')), height: dimension(node.getAttribute('height')),
+          alternateUrls: alternateUrls.length ? alternateUrls : undefined,
+          width: variant?.width ?? dimension(node.getAttribute('width')), height: variant ? undefined : dimension(node.getAttribute('height')),
           caption: text(node.getAttribute('alt') ?? node.getAttribute('title'), 600), section: heading || undefined, figure: currentFigure })
       },
     })
@@ -166,7 +182,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
         node.onEndTag(() => {
           if (press.test(current.href + ' ' + current.label)) addLink(current.href)
           if (/\b(?:press assets|still photography|press images|imagens de imprensa)\b/i.test(current.label) &&
-            /\.(?:png|jpe?g|webp)(?:\?|$)/i.test(current.href)) add(current.href, { evidence: 'body', caption: text(current.label, 600) })
+            rasterLink.test(current.href)) add(current.href, { evidence: 'body', caption: text(current.label, 600) })
           if (anchor === current) anchor = undefined
         })
       },

@@ -3,7 +3,7 @@ import { contrastFocalPoint } from '../studio/vision/signals'
 import { readImage } from '../studio/images'
 import type { ImageCredit } from './contract'
 import type { DocumentaryAsset } from './documentaryContract'
-import { needsImage, phraseKey, researchUrl, visualDigest, visualText, words, type CampaignContext, type VisualCopy } from './visualContext'
+import { needsImage, phraseKey, researchUrl, visualDigest, visualObjects, visualText, words, type CampaignContext, type VisualCopy } from './visualContext'
 
 export const matchSchema = z.object({
   strategy: z.enum(['documental', 'documental-expandida', 'editorial', 'illustration']),
@@ -151,6 +151,7 @@ type Evaluation = VisualRelevance | { score: 0; rejected: true; reason: string }
 const rejected = (reason: string) => ({ score: 0, rejected: true, reason }) as const
 export function evaluateCandidate(asset: DocumentaryAsset, request: VisualRequest, reference?: { cited: boolean; requireIntent: boolean }): Evaluation {
   const { campaign, terms, copy } = request
+  const verifyIntent = reference?.cited || reference?.requireIntent
   const assetLabel = documentaryPhrase([asset.caption, asset.evidence === 'search' ? asset.title : undefined,
     asset.evidence === 'search' ? asset.description : undefined, decodePath(asset.url).split('/').at(-1)].filter(Boolean).join(' '))
   const local = [assetLabel, documentaryPhrase(asset.section ?? '')].filter(Boolean).join(' ')
@@ -180,8 +181,13 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
     : count(campaign.names, assetLabel) >= 1 || count(campaign.primary.filter(term => !generalMediaWords.test(term)), assetLabel) >= 2
   const objectTerms = words(copy.visualContext?.visualIntent || copy.imageBrief)
     .filter(term => !campaign.primary.includes(term) && !generalMediaWords.test(term))
-  const confirmsObject = objectTerms.length >= 2 && count(objectTerms, local) >= 2
-  if (reference?.requireIntent && !reference.cited && objectTerms.length >= 2 && !confirmsObject) return rejected('unverified_specific_object')
+  const requiredObjects = visualObjects(copy.visualContext?.visualIntent || copy.imageBrief || '')
+  const captionOrLabel = documentaryPhrase(asset.caption ?? '') || assetLabel
+  if (verifyIntent && (requiredObjects.length
+      ? !requiredObjects.every(object => object.match.test(captionOrLabel))
+      : objectTerms.length > 0 && count(objectTerms, assetLabel) < Math.min(objectTerms.length, 2)))
+    return rejected('unverified_specific_object')
+  if (verifyIntent && explicitCampaign && !assetMatch) return rejected('campaign_not_established_on_asset')
   const editorialPlacement = ['figure', 'poster'].includes(asset.evidence) && !!asset.caption &&
     count(terms.filter(term => !generalMediaWords.test(term)), phraseKey(asset.caption)) >= 2
   const identityWork = /\b(rebrand\w*|identidade visual|visual identity|brand identity|redesign)\b/.test(phraseKey(campaign.subject))
@@ -190,7 +196,7 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
     !!asset.width && !!asset.height && !!publication?.title && phraseKey(asset.title) === phraseKey(publication.title) &&
     (!asset.caption || assetMatch || editorialPlacement)
   const corroborated = documentary && (direct || asset.provider === 'official' || reference?.cited) && identity &&
-    !contextualPoster && (assetMatch || declaredCover || !explicitCampaign && editorialPlacement || reference?.cited && confirmsObject)
+    !contextualPoster && (assetMatch || !verifyIntent && (declaredCover || !explicitCampaign && editorialPlacement))
   const actual = corroborated && (copy.role === 'cover' || overlap > 0 && !!local)
   const related = identity && (assetMatch || asset.evidence === 'search' && named >= 1 || !explicitCampaign && editorialPlacement)
   if (!actual && (!related || (copy.role !== 'cover' && !overlap))) return rejected(!identity ? 'subject_not_established' : 'object_not_established')
@@ -205,7 +211,8 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
     (asset.evidence === 'figure' ? 4 : 0) + (declaredCover ? 18 : 0) + Math.min(20, specific * (copy.role === 'cover' ? 3 : 8)) + distinctive
   return { score, match: actual ? {
     strategy: 'documental', classification: 'confirmed',
-    reason: 'O material aparece no conteúdo ou nos dados estruturados de uma fonte associada à pauta.',
+    reason: verifyIntent ? 'O arquivo foi encontrado na fonte e seus metadados sustentam o objeto visual pedido.'
+      : 'O material aparece no conteúdo ou nos dados estruturados de uma fonte associada à pauta.',
   } : { strategy: 'documental-expandida', classification: 'related',
     reason: 'Os metadados relacionam a imagem à pauta. Confira na fonte se ela pertence ao acontecimento.' } }
 }

@@ -54,6 +54,7 @@ describe('extração documental em HTMLRewriter', () => {
       </head><body><main><article>
       <h2>Bastidores</h2><figure><picture><source srcset="/small.jpg 320w, /large.jpg 1400w">
       <img data-src="/large.jpg" alt="Oficina"></picture><figcaption>Peça da campanha</figcaption></figure>
+      <figure><a href="/outra-campanha/"><img src="/card.jpg" alt="Outra campanha"></a></figure>
       <aside><img src="/ad.jpg"></aside><a href="/press-kit/">Press kit</a>
       </article><section><h2>Outras matérias</h2><img src="/unrelated.jpg"></section></main></body>`
     const response = await runtime.dispatchFetch('http://test/', { method: 'POST', body: JSON.stringify({ url, html }) })
@@ -64,6 +65,7 @@ describe('extração documental em HTMLRewriter', () => {
     ])
     expect(images.find(image => image.url.endsWith('/large.jpg'))).toMatchObject({
       page: url, evidence: 'figure', caption: 'Oficina Peça da campanha', section: 'Bastidores',
+      alternateUrls: ['https://www.geico.com/small.jpg'], width: 1400,
     })
     expect(links).toEqual(['https://www.geico.com/press-kit/'])
   })

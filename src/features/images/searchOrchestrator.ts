@@ -235,15 +235,17 @@ function relevance(candidate: Candidate, request: VisualRequest, manual = false)
     return object.length >= 2 && object.every(term => asset.includes(' ' + term + ' ')) ? fit : undefined
   }
   const asset = candidate.document
-  const isCited = (hint: CampaignContext['visualCandidates'][number]) =>
-    asset.evidence !== 'search' && asset.evidence !== 'feed' &&
-    researchUrl(hint.sourceUrl)?.href === asset.page && researchUrl(hint.imageUrl)?.href === asset.url
+  const isCited = (hint: CampaignContext['visualCandidates'][number]) => {
+    const url = researchUrl(hint.imageUrl)?.href
+    return !!url && ['figure', 'structured', 'body', 'poster'].includes(asset.evidence) &&
+      researchUrl(hint.sourceUrl)?.href === asset.page && (url === asset.url || !!asset.alternateUrls?.includes(url))
+  }
   const slideCandidates = request.copy.visualContext?.visualCandidates
-  const slideHint = slideCandidates?.some(isCited)
-  const cited = !!slideHint || (!slideCandidates?.length || manual) && request.campaign.visualCandidates.some(isCited)
+  const slideRank = slideCandidates?.findIndex(isCited) ?? -1
+  const cited = slideRank >= 0 || (!slideCandidates?.length || manual) && request.campaign.visualCandidates.some(isCited)
   const fit = evaluateCandidate(asset, request, { cited, requireIntent: !manual && !!slideCandidates?.length })
   if ('rejected' in fit) return
-  return { ...fit, score: fit.score + (slideHint && fit.match.classification === 'confirmed' ? 26 : cited ? 6 : 0) }
+  return { ...fit, score: fit.score + (slideRank >= 0 && fit.match.classification === 'confirmed' ? 64 * (6 - slideRank) : cited ? 6 : 0) }
 }
 function rememberOption(pool: Pool, key: string, chosen: string) {
   const prior = pool.options.get(key) ?? []
@@ -382,6 +384,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
   let extraChecks = 0
   let examinedPixels = false
   const examined = new Map<string, AutomaticImage>()
+  const failedDownloads = new WeakSet<Candidate>()
   const refinements = new Map<string, number | null>()
   const provisionalIds = new Map<string, string>()
   const provisionalKeys = new Map<string, Set<string>>()
@@ -417,7 +420,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
           const { sourceId } = candidate.credit
           const keys = creditKeys(candidate.credit)
           const shown = provisionalIds.get(request.key)
-          if (tried.has(sourceId)) return []
+          if (tried.has(sourceId) || failedDownloads.has(candidate)) return []
           if (keys.some(key => used.has(key) && shown !== sourceId || request.discarded.has(key))) {
             trace('discard', request, candidate, 'used_or_manually_discarded'); return []
           }
@@ -485,7 +488,11 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
             if (candidate.document && !candidate.remembered && ['original', 'official'].includes(candidate.document.provider)) {
               void rememberVisual(scope, candidate.document, candidate.credit, image.file).catch(() => undefined)
             }
-          } catch (cause) { recordFailure(cause); trace('download_failed', request, candidate, failureKind(cause)) }
+          } catch (cause) {
+            if (!phase.aborted) failedDownloads.add(candidate)
+            recordFailure(cause)
+            trace('download_failed', request, candidate, failureKind(cause))
+          }
         }))
       }
     })
@@ -493,6 +500,15 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
   }
 
   const hints = [...campaign.slideCandidates, ...campaign.visualCandidates]
+  const blockedSlides = new Set<string>()
+  const recordBlockedPage = (url: string) => {
+    failures.add('blocked')
+    for (const request of remaining) {
+      const visual = request.copy.visualContext
+      const pages = [...visual?.preferredSourceUrls ?? [], ...visual?.visualCandidates?.map(hint => hint.sourceUrl) ?? []]
+      if (pages.some(page => researchUrl(page)?.href === url)) blockedSlides.add(request.key)
+    }
+  }
   const sourceWork = async (source: typeof campaign.sources[number]) => {
     try {
       const first = source.url === campaign.sources[0]?.url
@@ -510,11 +526,15 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       const discovery = await discover(pool, originalPage, JSON.stringify([source.url, preferredImages]), { url: source.url, title: source.title || undefined,
         image: first ? campaign.sourceImage : undefined, primary: first,
         preferredImages: preferredImages.length ? preferredImages : undefined }, fast)
-      if (discovery.state === 'blocked') failures.add('blocked')
+      if (discovery.state === 'blocked') recordBlockedPage(source.url)
       if (discovery.state === 'unavailable') failures.add('connection')
       if (first) pool.complement = discovery
-      await allocate(false, fast)
-    } catch (cause) { if (!signal.aborted) recordFailure(cause) }
+    } catch (cause) {
+      if (!signal.aborted) {
+        if (failureKind(cause) === 'blocked') recordBlockedPage(source.url)
+        else recordFailure(cause)
+      }
+    }
   }
   const braveWork = async (kind: BraveQuery['kind'], query: string, phase: AbortSignal) => {
     if (phase.aborted || workerBlockedUntil > Date.now() || braveBlockedUntil > Date.now() || !remaining.size) return
@@ -534,11 +554,12 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
 
   try {
     await localVisuals(pool, scope, fast)
-    await allocate(false, fast)
+    const activeHintPages = new Set(requests.flatMap(request =>
+      request.copy.visualContext?.visualCandidates?.map(hint => hint.sourceUrl) ?? []))
     const hinted = [
-      ...[...remaining].flatMap(request => request.copy.visualContext?.visualCandidates?.map(hint => hint.sourceUrl) ?? []),
-      ...campaign.visualCandidates.map(hint => hint.sourceUrl),
+      ...campaign.slideCandidates.filter(hint => activeHintPages.has(hint.sourceUrl)).map(hint => hint.sourceUrl),
       ...[...remaining].flatMap(request => request.copy.visualContext?.preferredSourceUrls ?? []),
+      ...campaign.visualCandidates.map(hint => hint.sourceUrl),
     ].flatMap(raw => {
       const url = researchUrl(raw)?.href
       return url ? [{ url, title: '' }] : []
@@ -546,10 +567,17 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     const firstPages = [...new Map(hinted.map(source => [source.url, source])).values()].slice(0, 2)
     if (remaining.size && firstPages.length) await Promise.all(firstPages.map(source => sourceWork(
       campaign.sources.find(item => item.url === source.url) ?? source)))
+    await allocate(false, fast)
     if (remaining.size && campaign.sources.length) {
       const sources = campaign.sources.filter(source => !firstPages.some(page => page.url === source.url)).slice(0, 3)
-      if (sources.length) await sourceWork(sources[0])
-      if (remaining.size) await Promise.all(sources.slice(1).map(sourceWork))
+      if (sources.length) {
+        await sourceWork(sources[0])
+        await allocate(false, fast)
+      }
+      if (remaining.size) {
+        await Promise.all(sources.slice(1).map(sourceWork))
+        await allocate(false, fast)
+      }
     }
     await allocate(true, fast.aborted ? deadline : fast)
     const queried = new Set<string>()
@@ -609,7 +637,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     performance.measure('post-machine:visual:settled', { start: initial, end: performance.now(),
       detail: { slides: requests.length, pending: remaining.size, sourceChecks, braveChecks, catalogChecks, extraChecks, downloadAttempts: downloads } })
     for (const request of remaining) config.finish(request, deadline.aborted ? 'timeout' :
-      [...failures][0] ?? (pool.candidates.size ? 'insufficient' : failed && !discovered ? 'connection' : 'empty'))
+      (blockedSlides.has(request.key) ? 'blocked' : [...failures][0]) ?? (pool.candidates.size ? 'insufficient' : failed && !discovered ? 'connection' : 'empty'))
   }
 }
 

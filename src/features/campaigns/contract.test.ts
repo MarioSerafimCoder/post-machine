@@ -33,9 +33,17 @@ describe('contrato editorial', () => {
     expect(prompt).toContain(article.url)
     expect(prompt).toContain('Designers')
     expect(prompt).toContain('Separe fatos verificáveis, interpretações e opiniões')
-    expect(prompt).toContain('Jamais invente URLs')
+    expect(prompt).toContain('Não invente endereços de CDN')
     expect(prompt).toContain('visualCandidates')
     expect(prompt.match(/"order":/g)).toHaveLength(3)
+    for (const [sample, count] of [[prompt, 3], [createPrompt(post), 1]] as const) {
+      const model = JSON.parse(sample.slice(sample.lastIndexOf('\n\n') + 2))
+      expect(model.slides).toHaveLength(count)
+      expect(model.slides[0].visualContext).toEqual({ visualCandidates: [] })
+      const filled = { ...model, campaign: { ...model.campaign, title: 'Campanha' },
+        slides: model.slides.map((slide: object) => ({ ...slide, title: 'Peça' })) }
+      expect(importContent(JSON.stringify(filled)).slides[0].visualContext).toEqual({ visualCandidates: [] })
+    }
   })
 
   it('importa Markdown e JSON cercado, preservando a fonte original', () => {

@@ -96,6 +96,115 @@ const documentary = [
     ticket: 'excluded-parade', title: campaignName, caption: 'Road Trip to Parade — float de GEICO' },
 ]
 
+test('verifica candidatos da página compartilhada e reabre o projeto com os créditos da alternativa', async ({ page }) => {
+  const failed = { ...documentary[0], url: 'https://www.geico.com/frames/primary.jpg', ticket: 'failed-primary' }
+  const alternative = { ...documentary[0], author: 'Crédito do still alternativo' }
+  const workshopAlias = 'https://www.geico.com/frames/workshop-small.jpg'
+  const workshop = { ...documentary[1], alternateUrls: [workshopAlias], author: 'Crédito da oficina' }
+  const wrong = { ...documentary[2], caption: 'Road Trip to Parade — bonecos na oficina' }
+  const absent = 'https://www.geico.com/frames/unlisted.jpg'
+  const hint = (imageUrl: string) => ({ imageUrl, sourceUrl: source, description: campaignName + ' — bonecos na oficina' })
+  let sourceRequests = 0
+  let searches = 0
+  const downloads: string[] = []
+  await page.route('**/api/visual/page', route => {
+    sourceRequests++
+    expect(route.request().postDataJSON()).toMatchObject({ url: source, preferredImages: [failed.url, wrong.url, workshop.url] })
+    return route.fulfill({ json: { candidates: [wrong, workshop, alternative, failed] } })
+  })
+  await page.route('**/api/visual/brave', route => {
+    searches++
+    return route.fulfill({ json: { state: 'disabled', candidates: [] } })
+  })
+  await page.route('**/api/visual/download', route => {
+    const { ticket } = route.request().postDataJSON()
+    downloads.push(ticket)
+    return ticket === failed.ticket ? route.fulfill({ status: 422, json: { error: 'image_unavailable' } }) :
+      route.fulfill({ contentType: 'image/png', body: poster(ticket === workshop.ticket ? 2 : 1) })
+  })
+  const headline = 'O filme e a oficina'
+  const data = {
+    schemaVersion: 1, campaign: { title: headline, audience: '', objective: 'Informar', tone: 'Profissional',
+      format: 'carousel', caption: '', cta: '', visualContext: { campaignName, subject: 'GEICO — ' + campaignName, entities: ['GEICO'] } },
+    sources: [],
+    slides: [
+      { order: 1, role: 'cover', title: headline, body: 'Conheça o curta.', layoutType: 'photo', imageBrief: 'Imagem do filme',
+        visualContext: { visualCandidates: [hint(failed.url), hint(workshop.url), hint(alternative.url)] } },
+      { order: 2, role: 'content', title: 'Bonecos na oficina', body: 'O trabalho nos bastidores.', layoutType: 'photo', imageBrief: 'Bonecos na oficina',
+        visualContext: { visualCandidates: [hint(wrong.url), hint(absent), hint(workshopAlias)] } },
+    ],
+  }
+  await page.goto('/#/inicio')
+  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify(data))
+  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
+  const studio = page.getByRole('region', { name: editor })
+  for (const order of [1, 2]) {
+    await expect(studio.getByRole('button', { name: 'Slide ' + order, exact: true })).toHaveAttribute('aria-description', /Imagem encontrada/)
+  }
+  expect(sourceRequests).toBe(1)
+  expect(searches).toBe(0)
+  expect([...downloads].sort()).toEqual([failed.ticket, alternative.ticket, workshop.ticket].sort())
+  await expect(studio.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Abrir ' + headline, exact: true }).click()
+  const saved = page.waitForEvent('download')
+  await studio.getByRole('button', { name: 'Baixar backup ZIP', exact: true }).click()
+  const zip = await JSZip.loadAsync(await readFile(await (await saved).path()))
+  const project = JSON.parse(await zip.file('project.json')!.async('string'))
+  for (const [index, asset] of [alternative, workshop].entries()) {
+    expect(project.slides[index].visualChoice.match.classification).toBe('confirmed')
+    expect(project.slides[index].scene.objects).toEqual(expect.arrayContaining([expect.objectContaining({
+      semantic: 'image', imageCredit: expect.objectContaining({ originalUrl: asset.url, sourcePage: source, creator: asset.author }),
+    })]))
+  }
+  expect(sourceRequests).toBe(1)
+})
+
+test('investiga somente páginas indicadas e mostra bloqueio com orçamento Brave esgotado', async ({ page }) => {
+  const refused = 'https://www.example.com/gallery'
+  const pages: string[] = []
+  let braveChecks = 0
+  await page.route('**/api/visual/page', route => {
+    const { url, preferredImages } = route.request().postDataJSON()
+    expect(preferredImages).toBeUndefined()
+    pages.push(url)
+    return url === refused ? route.fulfill({ status: 403, json: { error: 'destination_rejected' } }) :
+      route.fulfill({ json: { candidates: [documentary[0]] } })
+  })
+  await page.route('**/api/visual/brave', route => {
+    braveChecks++
+    return route.fulfill({ status: 429, json: { state: 'limited', reason: 'exhausted', candidates: [] } })
+  })
+  await page.route('https://api.openverse.org/**', route => route.fulfill({ json: { page_count: 0, results: [] } }))
+  await page.route('**/api/visual/download', route => {
+    expect(route.request().postDataJSON().ticket).toBe('official-cover')
+    return route.fulfill({ contentType: 'image/png', body: poster(1) })
+  })
+  await page.goto('/#/inicio')
+  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify({
+    schemaVersion: 1, campaign: { title, audience: '', objective: 'Informar', tone: 'Profissional',
+      format: 'carousel', caption: '', cta: '', visualContext: { campaignName } }, sources: [],
+    slides: [
+      { order: 1, role: 'cover', title, body: 'Conheça o filme.', imageBrief: 'Still do filme', layoutType: 'photo',
+        visualContext: { preferredSourceUrls: [source] } },
+      { order: 2, role: 'content', title: 'Fachada do estúdio', body: 'Visão externa.', imageBrief: 'Fachada do estúdio', layoutType: 'photo',
+        visualContext: { preferredSourceUrls: [refused] } },
+    ],
+  }))
+  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
+  const studio = page.getByRole('region', { name: editor })
+  await expect(studio.getByRole('button', { name: 'Slide 1', exact: true })).toHaveAttribute('aria-description', /Imagem encontrada/)
+  const pending = studio.getByRole('button', { name: 'Slide 2', exact: true })
+  await expect(pending).toHaveAttribute('aria-description', /Revise a busca de imagem/)
+  await pending.click()
+  await studio.getByRole('button', { name: 'Imagens', exact: true }).click()
+  await expect(studio.getByText(/A fonte não permite acessar a imagem/)).toBeVisible()
+  expect([...pages].sort()).toEqual([source, refused].sort())
+  expect(braveChecks).toBe(1)
+})
+
 for (const count of [3, 4, 6, 10]) {
   test(`continua a busca e mede a abertura de ${count} slides da Expressa no Studio`, async ({ page }, info) => {
     test.setTimeout(50_000)

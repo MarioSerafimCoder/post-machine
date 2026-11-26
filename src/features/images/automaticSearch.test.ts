@@ -111,7 +111,11 @@ describe('inteligência visual documental', () => {
     const copy = { ...request.copy, visualContext: { visualIntent: 'Bonecos na oficina' } }
     const target = { ...request, copy }
     expect(evaluateCandidate(film, target, { cited: false, requireIntent: true })).toMatchObject({ rejected: true })
+    expect(evaluateCandidate(film, target, { cited: true, requireIntent: true })).toMatchObject({ rejected: true })
     expect(evaluateCandidate({ ...film, caption: film.caption + ' bonecos na oficina' }, target, { cited: false, requireIntent: true }))
       .toMatchObject({ match: { classification: 'confirmed' } })
+    const otherCampaign = { ...film, url: 'https://www.geico.com/weekend.jpg', caption: 'Weekend Escape — bonecos na oficina' }
+    expect(evaluateCandidate(otherCampaign, target, { cited: true, requireIntent: true }))
+      .toMatchObject({ rejected: true, reason: 'campaign_not_established_on_asset' })
   })
 })

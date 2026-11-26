@@ -144,8 +144,8 @@ jobs:
             + (if (env.BRAVE_SEARCH_API_KEY // "") != "" then { BRAVE_SEARCH_API_KEY: env.BRAVE_SEARCH_API_KEY } else {} end)
             + (if env.VISUAL_YOUTUBE_QUOTA == "confirmed" and (env.YOUTUBE_API_KEY // "") != ""
                then { YOUTUBE_API_KEY: env.YOUTUBE_API_KEY } else {} end)' > "$visual_secrets"
+          # O fluxo de referências diretas é publicado antes do Budget Guard SQLite.
           brave_mode=disabled
-          if [[ "$BRAVE_VISUAL_ZERO_SPEND" == confirmed && -n "$BRAVE_SEARCH_API_KEY" ]]; then brave_mode=confirmed; fi
           output="$RUNNER_TEMP/radar-wrangler-output.jsonl"
           WRANGLER_OUTPUT_FILE_PATH="$output" npx wrangler versions upload --keep-vars --secrets-file "$visual_secrets" \
             --var "CLOUDFLARE_ACCESS_ISSUER:$CLOUDFLARE_ACCESS_ISSUER" --var "CLOUDFLARE_ACCESS_AUD:$CLOUDFLARE_ACCESS_AUD" \
@@ -172,7 +172,6 @@ jobs:
           CLOUDFLARE_ACCESS_AUD: ${{ vars.CLOUDFLARE_ACCESS_AUD }}
           VISUAL_DOWNLOAD_KEY: ${{ secrets.VISUAL_DOWNLOAD_KEY }}
           BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
-          BRAVE_VISUAL_ZERO_SPEND: ${{ vars.BRAVE_VISUAL_ZERO_SPEND }}
           VISUAL_EXTERNAL_HOSTS: ${{ vars.VISUAL_EXTERNAL_HOSTS }}
           VISUAL_OFFICIAL_HOSTS: ${{ vars.VISUAL_OFFICIAL_HOSTS }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}

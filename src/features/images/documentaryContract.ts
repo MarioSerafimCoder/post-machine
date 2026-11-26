@@ -3,6 +3,7 @@ import { researchUrl } from './visualContext'
 
 export const documentaryAssetSchema = z.object({
   url: z.string().refine(value => !!researchUrl(value)),
+  alternateUrls: z.array(z.string().refine(value => !!researchUrl(value))).max(12).optional(),
   page: z.string().refine(value => !!researchUrl(value)),
   provider: z.enum(['original', 'official', 'brave', 'audiovisual']),
   evidence: z.enum(['feed', 'social', 'structured', 'figure', 'body', 'poster', 'search']),

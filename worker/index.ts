@@ -90,14 +90,16 @@ async function candidates(images: Extracted[], person: string, env: Env, key: st
   const hosts = hostsFor(env)
   const order = { figure: 6, structured: 5, poster: 4, body: 3, social: 2, feed: 1, search: 0 }
   const seen = new Set<string>()
-  const priority = (image: Extracted) => order[image.evidence] + (image.evidence !== 'feed' && preferred.has(image.url) ? 10 : 0)
+  const priority = (image: Extracted) => order[image.evidence] + (image.evidence !== 'feed' &&
+    (preferred.has(image.url) || image.alternateUrls?.some(url => preferred.has(url))) ? 10 : 0)
   const eligible = images.sort((a, b) => priority(b) - priority(a)).filter(image => {
     if (seen.has(image.url) || !externalUrl(image.url, hosts) || !researchUrl(image.page)) return false
     seen.add(image.url)
     return true
   }).slice(0, 24)
   return (await Promise.all(eligible.map(async image => documentaryAssetSchema.safeParse({
-    ...image, ticket: await issueTicket(image.url, person, key),
+    ...image, alternateUrls: image.alternateUrls?.filter(url => externalUrl(url, hosts)),
+    ticket: await issueTicket(image.url, person, key),
   })))).flatMap(result => result.success ? [result.data] : [])
 }
 

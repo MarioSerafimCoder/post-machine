@@ -103,13 +103,30 @@ export function campaignContext(input: {
     language: article?.language, sourceImage: article?.imageUrl,
     excluded: visual?.excludedSubjects ?? [], extraQueries: visual?.searchQueries?.slice(1) ?? [],
     visualCandidates: visual?.visualCandidates ?? [],
-    slideCandidates: slides.flatMap(slide => slide.visualContext?.visualCandidates ?? []),
+    slideCandidates: Array.from({ length: 6 }, (_, rank) => slides.flatMap(slide =>
+      slide.visualContext?.visualCandidates?.[rank] ?? [])).flat(),
     terms: words(mainText), primary: words([visual?.campaignName, subject].filter(Boolean).join(' ')),
     scope: visualDigest([article, input.sources, visual, title, sources.map(source => source.url)]),
     context: visualDigest([caption, mainText, slides.map(slide => slide.visualContext)]),
   }
 }
 export type CampaignContext = ReturnType<typeof campaignContext>
+
+const imageObjects = [
+  { pt: 'logotipo anterior', en: 'previous logo', match: /\b(?:logotipo anterior|logo antigo|previous logo|old logo|former logo)\b/ },
+  { pt: 'novo logotipo', en: 'new wordmark logo', match: /\b(?:novo logotipo|novo logo|wordmark|logotipos?|logos?)\b/ },
+  { pt: 'rótulo embalagem', en: 'packaging label', match: /\b(?:embalagens?|packaging|packets?|packs?|rotulos?|labels?|garrafas?|bottles?)\b/ },
+  { pt: 'azulejos', en: 'ceramic tiles', match: /\b(?:azulejos?|tiles?|mosaicos?|mosaics?)\b/ },
+  { pt: 'cartaz', en: 'poster', match: /\b(?:cartazes?|cartaz|posters?)\b/ },
+  { pt: 'fachada', en: 'building facade', match: /\b(?:fachadas?|facades?|storefronts?)\b/ },
+  { pt: 'interface', en: 'interface screenshot', match: /\b(?:interface|screenshots?|captura de tela|paineis de edicao)\b/ },
+  { pt: 'tipografia espécime', en: 'typeface specimen', match: /\b(?:tipografia|typeface|specimens?|especime|glifos?|glyphs?)\b/ },
+  { pt: 'aplicações da identidade visual', en: 'visual identity applications', match: /\b(?:identidade visual|visual identity|brand identity)\b/ },
+] as const
+
+export function visualObjects(intent: string) {
+  return imageObjects.filter(object => object.match.test(phraseKey(intent)))
+}
 
 export function audiovisualIntent(copy: VisualCopy, subject = '') {
   const intent = [copy.visualContext?.imageType, copy.visualContext?.visualIntent, copy.imageBrief, copy.title,

@@ -1,4 +1,11 @@
-# Estado real — 25/11/2026
+# Estado real — 26/11/2026
+
+## Referências visuais no JSON v1
+
+- O modelo copiado mostra `slides[].visualContext.visualCandidates` em posts únicos e carrosséis. O importador v1 e o [texto completo de exemplo](PROMPT_EXTERNO_V1.txt) usam o mesmo formato.
+- A confirmação exige evidência do objeto na fonte. A investigação reúne as referências por página, considera rendições declaradas no `srcset` e conserva o crédito da imagem aplicada quando é preciso usar uma alternativa. A consulta à Brave fica desativada no workflow desta versão, anterior ao Budget Guard SQLite. As páginas diretas e a busca complementar gratuita seguem disponíveis conforme a configuração existente.
+- Validação local da versão de publicação: lint, TypeScript/build e 167 testes unitários aprovados. Os 20 testes dirigidos de campanha e imagens passaram em 1280 e 1440 px. As rotas de produção retornaram o desafio do Cloudflare Access antes da publicação.
+- Piloto editorial pendente. Sobre todos os slides com demanda visual nas dez pautas reais, contar URLs diretas, páginas sem arquivo, ativos validados e imagens pertinentes no slide certo. Distinguir recuperações via JSON das obtidas pela busca complementar.
 
 ## Evolução 13.1 — diagnóstico controlado e correções locais
 
