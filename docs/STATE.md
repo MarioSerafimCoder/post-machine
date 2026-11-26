@@ -2,6 +2,9 @@
 
 ## Referências visuais no JSON v1
 
+- Validação desta correção: lint, 167 testes unitários, TypeScript/build e seis cenários de campanha em 1280 e 1440 px aprovados.
+- Piloto Pattern Coffee relatado pelo proprietário. A alocação das seis imagens funcionou após ajustar visualIntent para detalhes observáveis no idioma da fonte. O prompt passa a solicitar esses detalhes, mantendo direção de arte em português no imageBrief. A amostra do prompt e a cobertura da cópia pela interface acompanham a mudança.
+
 - O modelo copiado mostra `slides[].visualContext.visualCandidates` em posts únicos e carrosséis. O importador v1 e o [texto completo de exemplo](PROMPT_EXTERNO_V1.txt) usam o mesmo formato.
 - A confirmação exige evidência do objeto na fonte. A investigação reúne as referências por página, considera rendições declaradas no `srcset` e conserva o crédito da imagem aplicada quando é preciso usar uma alternativa. A consulta à Brave fica desativada no workflow desta versão, anterior ao Budget Guard SQLite. As páginas diretas e a busca complementar gratuita seguem disponíveis conforme a configuração existente.
 - Validação local da versão de publicação: lint, TypeScript/build e 167 testes unitários aprovados. Os 20 testes dirigidos de campanha e imagens passaram em 1280 e 1440 px. As rotas de produção retornaram o desafio do Cloudflare Access antes da publicação.

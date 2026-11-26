@@ -37,6 +37,8 @@ describe('contrato editorial', () => {
     expect(prompt).toContain('visualCandidates')
     expect(prompt.match(/"order":/g)).toHaveLength(3)
     for (const [sample, count] of [[prompt, 3], [createPrompt(post), 1]] as const) {
+      expect(sample).toContain('idioma original da legenda')
+      expect(sample).toContain('para imageBrief, em português')
       const model = JSON.parse(sample.slice(sample.lastIndexOf('\n\n') + 2))
       expect(model.slides).toHaveLength(count)
       expect(model.slides[0].visualContext).toEqual({ visualCandidates: [] })
