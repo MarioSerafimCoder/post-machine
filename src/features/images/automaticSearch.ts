@@ -7,6 +7,7 @@ import { needsImage, phraseKey, researchUrl, visualDigest, visualObjects, visual
 
 export const matchSchema = z.object({
   strategy: z.enum(['documental', 'documental-expandida', 'editorial', 'illustration']),
+  referenceReview: z.literal(true).optional(),
   classification: z.enum(['confirmed', 'related', 'support']).optional(),
   reason: z.string().max(500),
   fingerprint: z.string().regex(/^[0-9a-f]{16}$/).optional(),
@@ -165,6 +166,9 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
   const explicitMatch = explicitCampaign ? contains(documentaryPhrase(text), documentaryPhrase(explicitCampaign)) : false
   // Quoted campaign titles in the asset caption take precedence over the title of the surrounding article.
   const caption = asset.caption ?? ''
+  const titledPrefix = /^([\p{Lu}\d][^–—]{3,100})\s+[–—]\s/u.exec(caption)?.[1]
+  if (explicitCampaign && titledPrefix && /^[\p{Lu}\d][\p{L}\d%'’]* (?:[\p{Lu}\d][\p{L}\d%'’]* |(?:of|to|the|de|da|do) ){1,}[\p{Lu}\d][\p{L}\d%'’]*$/u.test(titledPrefix.trim()) &&
+      !contains(documentaryPhrase(caption), documentaryPhrase(explicitCampaign))) return rejected('different_campaign')
   const otherTitle = /\b(?:campaign|campanha|film|filme|trailer|commercial|comercial)\s*[:–—-]?\s*["“«‘']([^"”»’']{4,120})["”»’']/giu
   if (explicitCampaign && !contains(documentaryPhrase(caption), documentaryPhrase(explicitCampaign)) &&
       [...caption.matchAll(otherTitle)].some(match => !contains(documentaryPhrase(match[1]), documentaryPhrase(explicitCampaign)))) return rejected('different_campaign')

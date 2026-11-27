@@ -52,7 +52,7 @@ describe('extração documental em HTMLRewriter', () => {
         "video":{"@type":"VideoObject","thumbnailUrl":"/assets/poster.jpg"}}</script>
       <script type="application/ld+json">{"@type":"WebPage","name":"How 15% Saved Christmas","image":"/homepage/gecko.jpg"}</script>
       </head><body><main><article>
-      <h2>Bastidores</h2><figure><picture><source srcset="/small.jpg 320w, /large.jpg 1400w">
+      <h2>Bastidores</h2><figure><picture><source data-lazy-srcset="/small.jpg 320w, /large.jpg 1400w">
       <img data-src="/large.jpg" alt="Oficina"></picture><figcaption>Peça da campanha</figcaption></figure>
       <figure><a href="/outra-campanha/"><img src="/card.jpg" alt="Outra campanha"></a></figure>
       <aside><img src="/ad.jpg"></aside><a href="/press-kit/">Press kit</a>

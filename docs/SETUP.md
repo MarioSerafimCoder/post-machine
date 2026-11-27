@@ -1,5 +1,11 @@
 # Configuração e publicação
 
+## Aprovação de origens visuais no Studio
+
+No painel Imagens, um slide com referência de domínio ainda não autorizado oferece a ação Autorizar com o nome exato do domínio e o link da página. Essa ação usa a sessão do proprietário protegida pelo Access. O Worker verifica DNS público e emite uma autorização assinada para o domínio e a identidade daquela sessão. O navegador guarda até 12 autorizações, válidas por até um ano. Um novo navegador exige nova aprovação.
+
+A aprovação só entra na investigação de páginas e no download com ticket. As regras de endereços privados, redirecionamentos e permissões de caminho para as CDNs compartilhadas já conhecidas continuam aplicadas. Mantenha a política Access de produção restrita ao proprietário da ferramenta.
+
 ## Desenvolvimento
 
 Pré-requisito: Node 24 LTS (24.15+), npm e Git.

@@ -49,6 +49,7 @@ import { copyTemplateDesign, templateRole, type AuthorTemplate, type TemplateSum
 import { AdaptLayoutDialog } from './AdaptLayoutDialog'
 import { frameImage, frameRequest, imageWasEdited, projectVisualContext, rewriteVisualFrame, updateCanvasVisual } from './visualFrames'
 import { useAutomaticImages } from '../images/useAutomaticImages'
+import { approveVisualSource } from '../images/searchOrchestrator'
 import { VisualSearchStatus } from '../images/VisualSearchStatus'
 import { prepareArticleContent, preparePastedContent } from './editorialContent'
 import { divideBody } from './factory/planning'
@@ -179,7 +180,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     const research = projectVisualContext(project)
     return project.slides.flatMap(slide => {
       const existing = semantics(slide.scene).image
-      const provisional = ['related', 'support'].includes(slide.visualChoice?.match?.classification ?? '')
+      const provisional = !slide.visualChoice?.match?.referenceReview && ['related', 'support'].includes(slide.visualChoice?.match?.classification ?? '')
       if (slide.visualChoice?.mode !== 'automatic' || existing && !provisional) return []
       const request = frameRequest(project, slide, research)
       return request ? [request] : []
@@ -196,7 +197,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     const index = latest.slides.findIndex(slide => latest.id + '/' + slide.id === request.key)
     const slide = latest.slides[index]
     const existing = slide && semantics(slide.scene).image
-    const provisional = ['related', 'support'].includes(slide?.visualChoice?.match?.classification ?? '')
+    const provisional = !slide?.visualChoice?.match?.referenceReview && ['related', 'support'].includes(slide?.visualChoice?.match?.classification ?? '')
     const currentRequest = slide && frameRequest(latest, slide)
     if (slide?.visualChoice?.mode !== 'automatic' || existing && !provisional ||
       currentRequest?.signature !== request.signature) return false
@@ -219,6 +220,22 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     if (index === currentRef.current && canvas.current && !updateCanvasVisual(canvas.current, next.scene)) return
     setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) }, false)
   }, exportOpen || (!readyCanvas ? true : hasSelection ? currentFrameKey : undefined))
+  const [approvingSource, setApprovingSource] = useState(false)
+  async function approveSource(url: string) {
+    if (approvingSource || !project) return
+    const projectId = project.id
+    setApprovingSource(true)
+    try {
+      await approveVisualSource(url)
+      const latest = getCurrent()
+      if (latest?.id === projectId) {
+        setProject({ ...latest, slides: latest.slides.map(slide => slide.visualChoice?.mode === 'automatic' && !frameImage(slide.scene)
+          ? { ...slide, visualChoice: { ...slide.visualChoice, revision: (slide.visualChoice.revision ?? 0) + 1 } } : slide) })
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível autorizar a origem.')
+    } finally { setApprovingSource(false) }
+  }
   function changeVisualFrame(mode: 'automatic' | 'manual' | 'locked' | 'none') {
     const latest = getCurrent()
     const slide = latest?.slides[currentRef.current]
@@ -831,11 +848,16 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       {panel === 'Imagens' && <><h3>Imagens</h3>
       {project.slides[current].visualChoice && <div className="studio-visual-choice">
         <VisualSearchStatus status={autoSearch.status(frameTargets.find(item => item.key === project.id + '/' + project.slides[current].id))}
-          match={project.slides[current].visualChoice?.match} />
+          match={project.slides[current].visualChoice?.match}
+          approved={project.slides[current].visualChoice?.decision === 'approved'} />
+        {autoSearch.authorization(frameTargets.find(item => item.key === currentFrameKey))?.map(({ page, url }) =>
+          <div key={url + page}><p>Fonte aguardando autorização. <a href={page} target="_blank" rel="noreferrer">{page}</a></p>
+            <button disabled={approvingSource} onClick={() => void approveSource(url)}>Autorizar {new URL(url).hostname}</button>
+          </div>)}
         <p>{({ automatic: 'Automático', manual: 'Confirmado manualmente', locked: 'Travado', none: 'Sem imagem' } as const)[project.slides[current].visualChoice!.mode]}</p>
         {project.slides[current].visualChoice?.mode === 'locked' ? <button onClick={() => changeVisualFrame('manual')}>Destravar imagem</button> : <>
           {frameImage(project.slides[current].scene) && <>
-            {project.slides[current].visualChoice?.mode === 'automatic' && <button onClick={() => changeVisualFrame('manual')}>Manter esta</button>}
+            {project.slides[current].visualChoice?.mode === 'automatic' && <button onClick={() => changeVisualFrame('manual')}>{project.slides[current].visualChoice?.match?.referenceReview ? 'Confirmar referência' : 'Manter esta'}</button>}
             <button onClick={() => changeVisualFrame('locked')}>Travar imagem</button>
             <button onClick={() => changeVisualFrame('none')}>{project.slides[current].visualChoice?.match ? 'Desfazer escolha automática' : 'Remover imagem'}</button>
           </>}

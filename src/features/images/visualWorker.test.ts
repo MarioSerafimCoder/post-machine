@@ -207,4 +207,25 @@ describe('Worker de pesquisa visual', () => {
       { ...env, VISUAL_LIMIT: { limit: async () => ({ success: false }) } })
     expect(denied.status).toBe(429)
   })
+  it('exige sessão e autorização assinada do mesmo usuário para uma fonte nova', async () => {
+    const jwt = await token()
+    const url = 'https://publisher.example.com/work'
+    vi.stubGlobal('fetch', vi.fn(async (raw: URL) => new URL(raw).hostname === new URL(issuer).hostname ? jwks()
+      : new URL(raw).hostname === 'cloudflare-dns.com' ? Response.json({ Status: 0, Answer: [{ type: 1, data: '93.184.216.34' }] })
+        : new Response('', { status: 404 })))
+    expect((await worker.fetch(request('approve-source', { url }), env)).status).toBe(401)
+    expect(await (await worker.fetch(request('page', { url }, jwt), env)).json()).toMatchObject({ state: 'authorization', approvalUrls: [url] })
+    const grant = await (await worker.fetch(request('approve-source', { url }, jwt), env)).json()
+    expect(grant).toMatchObject({ host: 'publisher.example.com', approval: expect.any(String) })
+    const page = (subject: string, approval: string, target = url) => {
+      const req = request('page', { url: target }, subject)
+      req.headers.set('x-visual-source-approvals', approval)
+      return worker.fetch(req, env).then(response => response.json())
+    }
+    expect(await page(jwt, grant.approval)).toMatchObject({ state: 'blocked' })
+    expect(await page(await token({ sub: 'another' }), grant.approval)).toMatchObject({ state: 'authorization' })
+    expect(await page(jwt, grant.approval + 'x')).toMatchObject({ state: 'authorization' })
+    expect(await page(jwt, grant.approval, 'https://different.example.com/work')).toMatchObject({ state: 'authorization' })
+  })
+
 })

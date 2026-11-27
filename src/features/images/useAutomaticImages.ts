@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { type AutomaticImage, type VisualRequest, type VisualStatus } from './automaticSearch'
 import { investigateVisuals } from './searchOrchestrator'
 
-type Result = { signature: string; image?: AutomaticImage; status: VisualStatus; provisional?: boolean }
+type Result = { signature: string; image?: AutomaticImage; status: VisualStatus; provisional?: boolean; authorization?: { page: string; url: string }[] }
 const requestId = (request: VisualRequest) => request.key + ':' + request.signature
 export function useAutomaticImages(active: boolean, requests: VisualRequest[], occupied: ReadonlySet<string>,
   apply: (request: VisualRequest, image: AutomaticImage) => boolean, onEmpty?: (request: VisualRequest) => void,
@@ -32,13 +32,13 @@ export function useAutomaticImages(active: boolean, requests: VisualRequest[], o
         used: () => read().occupied,
         image: (request, image, provisional) => record(request, { image,
           status: provisional ? 'provisional' : image.match.strategy === 'editorial' ? 'editorial' : 'documental', provisional }),
-        finish: (request, status) => {
+        finish: (request, status, authorization) => {
           if (signal.aborted) return
           setResults(previous => {
             const result = previous[request.key]
             return { ...previous, [request.key]: result?.signature === request.signature && result.image
               ? { ...result, status: result.image.match.strategy === 'editorial' ? 'editorial' : 'documental', provisional: false }
-              : { signature: request.signature, status } }
+              : { signature: request.signature, status, authorization } }
           })
         },
       }, signal).catch(() => pending.forEach(request => record(request, { status: 'error' })))
@@ -79,6 +79,10 @@ export function useAutomaticImages(active: boolean, requests: VisualRequest[], o
   }, [active, requests, results, applyBlocked])
 
   return {
+    authorization(request: VisualRequest | undefined) {
+      const result = request && results[request.key]
+      return result?.signature === request?.signature ? result?.authorization : undefined
+    },
     status(request: VisualRequest | undefined): VisualStatus | undefined {
       if (!request) return
       const result = results[request.key]

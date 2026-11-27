@@ -32,7 +32,7 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   const pastedPrompt = await page.evaluate(() => navigator.clipboard.readText())
   expect(pastedPrompt.replace(/\r\n/g, '\n')).toBe(await prompt.inputValue())
   expect(pastedPrompt).toContain('slides[].visualContext.visualCandidates')
-  expect(pastedPrompt).toContain('idioma original da legenda')
+  expect(pastedPrompt).toContain('os termos encontrados na fonte')
   expect(pastedPrompt).toContain('yellow Chocoberry label green mug')
   const copiedModel = JSON.parse(pastedPrompt.replace(/\r\n/g, '\n').trim().split('\n\n').at(-1)!)
   expect(copiedModel.slides.map((slide: { order: number }) => slide.order)).toEqual([1, 2])

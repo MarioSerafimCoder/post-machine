@@ -11,10 +11,10 @@ function visualStatusText(status?: VisualStatus, match?: VisualMatch) {
   return ''
 }
 
-export function VisualSearchStatus({ status, match }: { status?: VisualStatus; match?: VisualMatch }) {
-  const text = visualStatusText(status, match)
+export function VisualSearchStatus({ status, match, approved }: { status?: VisualStatus; match?: VisualMatch; approved?: boolean }) {
+  const text = match?.referenceReview && !approved ? 'Referência importada · conferir correspondência' : visualStatusText(status, match)
   const classification = match?.classification && {
-    confirmed: 'Documental confirmada', related: 'Documental relacionada', support: 'Apoio editorial',
+    confirmed: 'Documental confirmada', related: match.referenceReview ? (approved ? 'Conferida manualmente' : 'Procedência verificada') : 'Documental relacionada', support: 'Apoio editorial',
   }[match.classification]
   return text ? <div className="visual-search-status" role="status">
     <strong>{text}</strong>{match && <details><summary>Sobre a imagem</summary><p>{classification && <><strong>{classification}</strong><br /></>}{match.reason}</p></details>}

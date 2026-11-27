@@ -17,7 +17,7 @@ const text = (value: unknown, max: number) => typeof value === 'string'
 const dimension = (value: unknown) => /^\d{1,5}$/.test(String(value)) && Number(value) > 0 && Number(value) <= 40000 ? Number(value) : undefined
 const unwanted = /(?:^|[\s/._-])(?:avatar|favicon|sprite|placeholder|tracking|spacer|pixel|advertisement|icon|homepage|sitewide)(?=$|[\s/._-])/i
 const logo = /(?:^|[\s/._-])logo(?=$|[\s/._-])/i
-const blocked = 'header,nav,footer,aside,[role="navigation"],[role="complementary"],.related,.recommended,.more-stories,.advertisement,.ads,.breadcrumb,[class*="teaser"],[class*="related-"],[class*="recommended-"],article[class*="card"],article[class*="preview"]'
+const blocked = 'header:not(.entry-header),nav,footer,aside,[role="navigation"],[role="complementary"],.related,.recommended,.more-stories,.advertisement,.ads,.breadcrumb,[class*="teaser"],[class*="related-"],[class*="recommended-"],article[class*="card"],article[class*="preview"]'
 const press = /\b(press.?kit|media.?kit|newsroom|press.?release|press.?room|portfolio|case.?study|press assets|still photography|multimedia|sala de imprensa|kit de imprensa)\b/i
 
 const rasterLink = /\.(?:png|jpe?g|webp)(?:\?|$)/i
@@ -60,7 +60,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
     if ((logo.test(url.pathname) || logo.test(caption)) &&
         !(petsPortfolio && verifiedPortfolioImage(url) && /\b(?:Pets Insurance|Pets Foundation|Pet Pals)\b/i.test(caption))) return
     const before = images.get(url.href)
-    if (!before || ['figure', 'poster', 'structured'].includes(fields.evidence)) {
+    if (!before || ['figure', 'poster', 'structured'].includes(fields.evidence) || fields.withinArticle && !before.withinArticle) {
       const defined = Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined))
       images.set(url.href, { ...(before ?? fields), ...defined, url: url.href })
     }
@@ -112,7 +112,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
   const intercept = new HTMLRewriter()
     .on('script,noscript', { element() { requiresRendering = true } })
     .on(blocked, { element(node) { omitted++; node.onEndTag(() => { omitted-- }) } })
-    .on('article,[itemprop="articleBody"],.entry-content,.post-content', { element(node) {
+    .on('article,[itemprop="articleBody"],.entry-content,.post-content,.elementor-widget-theme-post-content', { element(node) {
       if (omitted) return
       hasArticle = true
       articleDepth++
@@ -151,7 +151,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
       },
       text(chunk) { if (!omitted) headingBuffer = (headingBuffer + chunk.text).slice(0, 300) },
     })
-    .on('article img, main img, [itemprop="articleBody"] img, .entry-content img, .post-content img, .gallery img, figure img, article picture source, main picture source, figure picture source, article video[poster], main video[poster]', {
+    .on('article img, main img, img.wp-post-image, .elementor-widget-theme-post-content img, .elementor-widget-theme-post-content picture source, [itemprop="articleBody"] img, .entry-content img, .post-content img, .gallery img, figure img, article picture source, main picture source, figure picture source, article video[poster], main video[poster]', {
       element(node) {
         const identity = [node.getAttribute('class'), node.getAttribute('id')].join(' ')
         if (omitted || unwanted.test(identity) || logo.test(identity)) return
@@ -159,7 +159,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
         const destination = anchor && researchUrl(anchor.href, page.href)
         if (destination && destination.origin === page.origin && destination.pathname !== page.pathname &&
             !rasterLink.test(destination.pathname) && !/\/(?:uploads|images|media|attachments)\//i.test(destination.pathname)) return
-        const [variant, ...renditions] = srcset(node.getAttribute('data-srcset') ?? node.getAttribute('srcset'))
+        const [variant, ...renditions] = srcset(node.getAttribute('data-srcset') ?? node.getAttribute('data-lazy-srcset') ?? node.getAttribute('srcset'))
         const candidate = variant?.src ??
           node.getAttribute('data-original') ?? node.getAttribute('data-src') ?? node.getAttribute('data-lazy-src') ??
           node.getAttribute('data-full') ?? node.getAttribute('poster') ?? node.getAttribute('src')
@@ -168,7 +168,11 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
           const url = src && researchUrl(src, page.href)
           return url && !unwanted.test(url.pathname) ? [url.href] : []
         })
-        add(candidate, { evidence: node.getAttribute('poster') ? 'poster' : currentFigure ? 'figure' : 'body', withinArticle: articleDepth > 0,
+        const hero = researchUrl(metadata.get('og:image') ?? '', page.href)?.href
+        const declaredLead = /(?:^|\s)wp-post-image(?:\s|$)/.test(identity) && !!hero &&
+          (researchUrl(candidate ?? '', page.href)?.href === hero || alternateUrls.includes(hero))
+        if (articleDepth === 0 && /(?:^|\s)wp-post-image(?:\s|$)/.test(identity) && !declaredLead) return
+        add(candidate, { evidence: node.getAttribute('poster') ? 'poster' : currentFigure ? 'figure' : 'body', withinArticle: articleDepth > 0 || declaredLead,
           alternateUrls: alternateUrls.length ? alternateUrls : undefined,
           width: variant?.width ?? dimension(node.getAttribute('width')), height: variant ? undefined : dimension(node.getAttribute('height')),
           caption: text(node.getAttribute('alt') ?? node.getAttribute('title'), 600), section: heading || undefined, figure: currentFigure })

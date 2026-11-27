@@ -5,7 +5,7 @@ import { braveSearch } from './brave'
 import { discoverVideos, officialChannel } from './audiovisual'
 import { renderVisualPage, type BrowserBinding } from './browser'
 import { extractArticle, type Extracted } from './extract'
-import { accessRequestSubject, externalFetch, externalUrl, issueTicket, rasterSignature, readLimited, readJson, verifiedPortfolioPage, verifyTicket } from './security'
+import { accessRequestSubject, externalFetch, externalUrl, issueTicket, publicDns, rasterSignature, readLimited, readJson, verifiedPortfolioPage, verifyTicket } from './security'
 
 type Limiter = { limit(input: { key: string }): Promise<{ success: boolean }> }
 type Env = {
@@ -41,7 +41,7 @@ const extraInput = z.object({
   year: z.string().regex(/^\d{4}$/).optional(),
 }).strict()
 const urlInput = z.object({ url: z.string().max(2048) }).strict()
-const routes = new Set(['page', 'brave', 'download', 'import', 'complement'])
+const routes = new Set(['page', 'brave', 'download', 'import', 'complement', 'approve-source'])
 const rasterAccept = 'image/png,image/jpeg,image/webp'
 
 const hostsFor = (env: Env) => [env.VISUAL_EXTERNAL_HOSTS, env.VISUAL_OFFICIAL_HOSTS].filter(Boolean).join(',')
@@ -86,8 +86,7 @@ async function download(url: URL, hosts: string, signal: AbortSignal) {
     : json({ error: 'invalid_image' }, 422)
 }
 
-async function candidates(images: Extracted[], person: string, env: Env, key: string, preferred = new Set<string>()) {
-  const hosts = hostsFor(env)
+async function candidates(images: Extracted[], person: string, env: Env, key: string, preferred = new Set<string>(), hosts = hostsFor(env)) {
   const order = { figure: 6, structured: 5, poster: 4, body: 3, social: 2, feed: 1, search: 0 }
   const seen = new Set<string>()
   const priority = (image: Extracted) => order[image.evidence] + (image.evidence !== 'feed' &&
@@ -118,10 +117,19 @@ export default {
     if (!key || key.length < 32) return json({ error: 'unconfigured' }, 503)
     const rate = await env.VISUAL_LIMIT.limit({ key: person })
     if (!rate.success) return json({ error: 'limited' }, 429, { 'retry-after': '60' })
-    const hosts = hostsFor(env)
+    const grants = ['page', 'download'].includes(route) ? (request.headers.get('x-visual-source-approvals') ?? '').split(',') : []
+    if (grants.length > 12 || grants.some(grant => grant.length > 1000)) return json({ error: 'invalid_input' }, 400)
+    const granted = await Promise.all(grants.filter(Boolean).map(grant => verifyTicket(grant, person, key, 'source-host')))
+    const hosts = [hostsFor(env), ...granted.filter(Boolean)].filter(Boolean).join(',')
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(route === 'complement' ? 8200 : route === 'download' || route === 'import' ? 5500 : 4200)])
     try {
       const payload = await readJson(request, 8192)
+      if (route === 'approve-source') {
+        const url = researchUrl(urlInput.parse(payload).url)
+        if (!url || !externalUrl(url.href, url.hostname)) return json({ error: 'invalid_destination' }, 403)
+        await publicDns(url.hostname, signal)
+        return json({ host: url.hostname, approval: await issueTicket(url.hostname, person, key, 'source-host') })
+      }
       if (route === 'download' || route === 'import') {
         const raw = route === 'import' ? urlInput.parse(payload).url : await verifyTicket(ticketInput.parse(payload).ticket, person, key)
         const url = raw && externalUrl(raw, hosts)
@@ -153,13 +161,18 @@ export default {
       if (route === 'page') {
         const input = pageInput.parse(payload)
         const page = externalUrl(input.url, hosts)
-        if (!page) return json({ error: 'invalid_destination' }, 403)
+        if (!page) {
+          const requested = researchUrl(input.url)
+          if (requested && externalUrl(requested.href, requested.hostname))
+            return json({ state: 'authorization', approvalUrls: [requested.href], candidates: [] })
+          return json({ error: 'invalid_destination' }, 403)
+        }
         const provider = official(page, env) ? 'official' : 'original'
         const feed: Extracted[] = input.primary && input.image && externalUrl(input.image, hosts) ?
           [{ url: input.image, page: page.href, provider, evidence: 'feed', title: input.title }] : []
         let extraction: Awaited<ReturnType<typeof pageImages>>
         try { extraction = await pageImages(page, provider, hosts, signal) }
-        catch { return json({ candidates: await candidates(feed, person, env, key), partial: true, state: 'unavailable' }) }
+        catch { return json({ candidates: await candidates(feed, person, env, key, undefined, hosts), partial: true, state: 'unavailable' }) }
         const link = extraction.links.map(url => externalUrl(url, hosts)).find(url => url &&
           (url.hostname === page.hostname || official(url, env)))
         const related = link && !signal.aborted ? await pageImages(link, official(link, env) ? 'official' : provider, hosts, signal)
@@ -172,8 +185,10 @@ export default {
           browserEnabled(finalPage.hostname, env) ? await issueTicket(finalPage.href, person, key, 'render') : undefined
         const channelTicket = input.primary && audiovisualEnabled(env) && extraction.channelId &&
           await issueTicket(extraction.channelId, person, key, 'channel') || undefined
-        const preferred = new Set(input.preferredImages?.flatMap(raw => externalUrl(raw, hosts)?.href ?? []) ?? [])
-        return json({ state: extraction.blocked ? 'blocked' : 'ok', candidates: await candidates(images, person, env, key, preferred), renderTicket, channelTicket,
+        const preferred = new Set(input.preferredImages?.flatMap(raw => researchUrl(raw)?.href ?? []) ?? [])
+        const approvalUrls = [...preferred].filter(url => !externalUrl(url, hosts) && extraction.images.some(image =>
+          !['feed', 'social', 'search'].includes(image.evidence) && (image.url === url || image.alternateUrls?.includes(url))))
+        return json({ state: extraction.blocked ? 'blocked' : 'ok', candidates: await candidates(images, person, env, key, preferred, hosts), approvalUrls, renderTicket, channelTicket,
           audiovisualAvailable: input.primary && !extraction.blocked && audiovisualEnabled(env) ? true : undefined })
       }
       if (env.BRAVE_VISUAL_ZERO_SPEND !== 'confirmed' || !env.BRAVE_SEARCH_API_KEY) return json({ state: 'disabled', candidates: [] })

@@ -20,6 +20,7 @@ export const documentaryAssetSchema = z.object({
 })
 export type DocumentaryAsset = z.infer<typeof documentaryAssetSchema>
 export const documentaryResponse = z.object({
+  approvalUrls: z.array(z.string().refine(value => !!researchUrl(value))).max(3).optional(),
   candidates: z.array(documentaryAssetSchema).max(32),
   renderTicket: z.string().max(4200).optional(),
   channelTicket: z.string().max(4200).optional(),

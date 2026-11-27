@@ -14,7 +14,7 @@ type Candidate = {
   credit: ImageCredit; document?: DocumentaryAsset; metadata?: string; illustrated?: boolean
   download: (signal: AbortSignal) => Promise<File>; remembered?: boolean
 }
-type Discovery = { candidates: DocumentaryAsset[]; state?: string; renderTicket?: string; audiovisualAvailable?: boolean; channelTicket?: string }
+type Discovery = { approvalUrls?: string[]; candidates: DocumentaryAsset[]; state?: string; renderTicket?: string; audiovisualAvailable?: boolean; channelTicket?: string }
 const empty: Discovery = { candidates: [] }
 const poolSize = 8
 const maxPreparedBytes = 22_000_000
@@ -79,8 +79,28 @@ function pooled<T>(pool: Pool, key: string, signal: AbortSignal, load: (signal: 
   })
 }
 
+const approvalStorage = 'post-machine:source-approvals'
+function sourceApprovals(): [string, string][] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(approvalStorage) ?? '[]')
+    return Array.isArray(saved) ? saved.filter((entry): entry is [string, string] => Array.isArray(entry) &&
+      typeof entry[0] === 'string' && typeof entry[1] === 'string' && /^[\w.-]{1,1000}$/.test(entry[1])).slice(0, 12) : []
+  } catch { return [] }
+}
+
+export async function approveVisualSource(url: string) {
+  const response = await post('approve-source', { url }, AbortSignal.timeout(5500))
+  if (!response.ok) throw Error('Não foi possível autorizar a origem.')
+  const { host, approval } = await response.json()
+  if (host !== researchUrl(url)?.hostname || typeof approval !== 'string' || !/^[\w.-]{1,1000}$/.test(approval))
+    throw Error('A autorização da origem é inválida.')
+  localStorage.setItem(approvalStorage, JSON.stringify([[host, approval], ...sourceApprovals().filter(([saved]) => saved !== host)].slice(0, 12)))
+}
+
 async function post(route: string, body: object, signal: AbortSignal, timeout = 4700) {
-  return fetch(documentaryPrefix + '/' + route, { method: 'POST', headers: { 'content-type': 'application/json' },
+  const approvals = ['page', 'download'].includes(route) ? sourceApprovals() : []
+  return fetch(documentaryPrefix + '/' + route, { method: 'POST', headers: { 'content-type': 'application/json',
+    ...(approvals.length && { 'x-visual-source-approvals': approvals.map(([, grant]) => grant).join(',') }) },
     body: JSON.stringify(body), redirect: 'error', signal: AbortSignal.any([signal, AbortSignal.timeout(timeout)]), cache: 'no-store' })
 }
 
@@ -96,6 +116,7 @@ export async function workerImage(route: 'download' | 'import', body: object, si
     const inspect = response.status === 422 && mime === 'application/json'
     const error = inspect ? await response.json().catch(() => null) : null
     if (!inspect) await response.body?.cancel()
+    if (error?.error === 'invalid_image') throw new VisualSearchError('incompatible')
     const transient = error?.error === 'source_unavailable'
     throw new VisualDownloadError(transient || response.status === 502 || response.status === 504)
   }
@@ -224,7 +245,7 @@ function catalog(request: VisualRequest, pool: Pool, signal: AbortSignal, query:
   }, count => count ? resultsLifetime : negativeLifetime)
 }
 
-function relevance(candidate: Candidate, request: VisualRequest, manual = false) {
+function relevance(candidate: Candidate, request: VisualRequest, manual = false, onReferenceFailure?: (reason: VisualFailure) => void) {
   if (!candidate.document) {
     const metadata = candidate.metadata ?? ''
     const fit = evaluateCatalog(candidate.credit, metadata, request, !!candidate.illustrated)
@@ -244,7 +265,16 @@ function relevance(candidate: Candidate, request: VisualRequest, manual = false)
   const slideRank = slideCandidates?.findIndex(isCited) ?? -1
   const cited = slideRank >= 0 || (!slideCandidates?.length || manual) && request.campaign.visualCandidates.some(isCited)
   const fit = evaluateCandidate(asset, request, { cited, requireIntent: !manual && !!slideCandidates?.length })
-  if ('rejected' in fit) return
+  if ('rejected' in fit) {
+    if (slideRank < 0 || !['unverified_specific_object', 'campaign_not_established_on_asset',
+      'subject_not_established', 'object_not_established'].includes(fit.reason)) {
+      if (slideRank >= 0) onReferenceFailure?.(fit.reason === 'resolution_below_480' ? 'incompatible' : 'contradiction')
+      return
+    }
+    return { score: 80 + 64 * (6 - slideRank), match: { strategy: 'documental-expandida' as const,
+      classification: 'related' as const, referenceReview: true as const,
+      reason: 'O arquivo aparece na página indicada. Confira se a imagem corresponde ao conteúdo do slide.' } }
+  }
   return { ...fit, score: fit.score + (slideRank >= 0 && fit.match.classification === 'confirmed' ? 64 * (6 - slideRank) : cited ? 6 : 0) }
 }
 function rememberOption(pool: Pool, key: string, chosen: string) {
@@ -353,7 +383,7 @@ export function rememberManualVisual(request: VisualRequest, image: AutomaticIma
   if (asset) void rememberVisual(scope, asset, source, image.file).catch(() => undefined)
 }
 
-type Events = { image: (request: VisualRequest, image: AutomaticImage, provisional: boolean) => void; finish: (request: VisualRequest, status: VisualStatus) => void;
+type Events = { image: (request: VisualRequest, image: AutomaticImage, provisional: boolean) => void; finish: (request: VisualRequest, status: VisualStatus, authorization?: { page: string; url: string }[]) => void;
   used: () => ReadonlySet<string>; trace?: (event: { stage: string; ms: number; slide?: string; url?: string; reason?: string }) => void }
 export async function investigateVisuals(requests: VisualRequest[], config: Events, signal: AbortSignal) {
   if (!requests.length) return
@@ -376,6 +406,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
   let discovered = false
   let failed = false
   const failures = new Set<VisualFailure>()
+  const referenceFailures = new Map<string, VisualFailure>()
   const recordFailure = (cause: unknown) => { failed = true; failures.add(failureKind(cause)) }
   let first = true
   let sourceChecks = 0
@@ -397,7 +428,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       first = false
     }
     image.keys.forEach(key => used.add(key))
-    const provisional = match.classification !== 'confirmed'
+    const provisional = match.classification !== 'confirmed' && !match.referenceReview
     if (provisional) {
       provisionalIds.set(request.key, sourceId)
       provisionalKeys.set(request.key, new Set(image.keys))
@@ -424,12 +455,12 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
           if (keys.some(key => used.has(key) && shown !== sourceId || request.discarded.has(key))) {
             trace('discard', request, candidate, 'used_or_manually_discarded'); return []
           }
-          const fit = relevance(candidate, request)
+          const fit = relevance(candidate, request, false, reason => referenceFailures.set(request.key, reason))
           if (!fit) {
             const decision = candidate.document && evaluateCandidate(candidate.document, request)
             trace('discard', request, candidate, decision && 'rejected' in decision ? decision.reason : 'insufficient_evidence'); return []
           }
-          if (!fallback && fit.match.classification !== 'confirmed') return []
+          if (!fallback && fit.match.classification !== 'confirmed' && !fit.match.referenceReview) return []
           if (shown && shown !== sourceId && fit.match.classification !== 'confirmed') return []
           if (shown === sourceId && fit.match.classification !== 'confirmed') return []
           const order = pool.options.get(request.key)?.indexOf(sourceId) ?? -1
@@ -491,6 +522,7 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
           } catch (cause) {
             if (!phase.aborted) failedDownloads.add(candidate)
             recordFailure(cause)
+            referenceFailures.set(request.key, failureKind(cause))
             trace('download_failed', request, candidate, failureKind(cause))
           }
         }))
@@ -501,6 +533,8 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
 
   const hints = [...campaign.slideCandidates, ...campaign.visualCandidates]
   const blockedSlides = new Set<string>()
+  const approvals = new Map<string, { page: string; url: string }[]>()
+  const inspected = new Set<string>()
   const recordBlockedPage = (url: string) => {
     failures.add('blocked')
     for (const request of remaining) {
@@ -523,9 +557,21 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
         if (preferredImages.length === 3) break
       }
       sourceChecks++
-      const discovery = await discover(pool, originalPage, JSON.stringify([source.url, preferredImages]), { url: source.url, title: source.title || undefined,
+      const discovery = await discover(pool, originalPage, JSON.stringify([source.url, preferredImages, sourceApprovals()]), { url: source.url, title: source.title || undefined,
         image: first ? campaign.sourceImage : undefined, primary: first,
         preferredImages: preferredImages.length ? preferredImages : undefined }, fast)
+      if (discovery.state === 'ok') inspected.add(source.url)
+      for (const request of remaining) {
+        const candidates = request.copy.visualContext?.visualCandidates ?? []
+        const preferredPages = request.copy.visualContext?.preferredSourceUrls ?? []
+        const citePage = candidates.some(hint => researchUrl(hint.sourceUrl)?.href === source.url) ||
+          preferredPages.some(page => researchUrl(page)?.href === source.url)
+        if (!citePage) continue
+        for (const url of discovery.approvalUrls ?? []) {
+          if (url !== source.url && !candidates.some(hint => researchUrl(hint.imageUrl)?.href === url)) continue
+          approvals.set(request.key, [...approvals.get(request.key) ?? [], { page: source.url, url }])
+        }
+      }
       if (discovery.state === 'blocked') recordBlockedPage(source.url)
       if (discovery.state === 'unavailable') failures.add('connection')
       if (first) pool.complement = discovery
@@ -564,12 +610,13 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
       const url = researchUrl(raw)?.href
       return url ? [{ url, title: '' }] : []
     })
-    const firstPages = [...new Map(hinted.map(source => [source.url, source])).values()].slice(0, 2)
+    const indicatedPages = [...new Map(hinted.map(source => [source.url, source])).values()]
+    const firstPages = indicatedPages.slice(0, Math.max(2, Math.min(5, activeHintPages.size)))
     if (remaining.size && firstPages.length) await Promise.all(firstPages.map(source => sourceWork(
       campaign.sources.find(item => item.url === source.url) ?? source)))
     await allocate(false, fast)
     if (remaining.size && campaign.sources.length) {
-      const sources = campaign.sources.filter(source => !firstPages.some(page => page.url === source.url)).slice(0, 3)
+      const sources = campaign.sources.filter(source => !firstPages.some(page => page.url === source.url)).slice(0, Math.min(3, 5 - firstPages.length))
       if (sources.length) {
         await sourceWork(sources[0])
         await allocate(false, fast)
@@ -636,8 +683,15 @@ export async function investigateVisuals(requests: VisualRequest[], config: Even
     performance.clearMeasures('post-machine:visual:settled')
     performance.measure('post-machine:visual:settled', { start: initial, end: performance.now(),
       detail: { slides: requests.length, pending: remaining.size, sourceChecks, braveChecks, catalogChecks, extraChecks, downloadAttempts: downloads } })
-    for (const request of remaining) config.finish(request, deadline.aborted ? 'timeout' :
-      (blockedSlides.has(request.key) ? 'blocked' : [...failures][0]) ?? (pool.candidates.size ? 'insufficient' : failed && !discovered ? 'connection' : 'empty'))
+    for (const request of remaining) {
+      const authorization = approvals.get(request.key)
+      const missing = request.copy.visualContext?.visualCandidates?.some(hint =>
+        inspected.has(researchUrl(hint.sourceUrl)?.href ?? ''))
+      const status = authorization?.length ? 'blocked' : referenceFailures.get(request.key) ??
+        (blockedSlides.has(request.key) ? 'blocked' : missing ? 'reference_missing' : deadline.aborted ? 'timeout' :
+          [...failures][0] ?? (pool.candidates.size ? 'insufficient' : failed && !discovered ? 'connection' : 'empty'))
+      config.finish(request, status, authorization)
+    }
   }
 }
 

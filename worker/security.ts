@@ -72,7 +72,7 @@ export function publicAddress(value: string, type: number) {
 }
 
 const dns = new Map<string, number>()
-async function publicDns(hostname: string, signal: AbortSignal) {
+export async function publicDns(hostname: string, signal: AbortSignal) {
   if ((dns.get(hostname) ?? 0) > Date.now()) return
   const answers = await Promise.all(['A', 'AAAA'].map(async type => {
     const endpoint = new URL('https://cloudflare-dns.com/dns-query')
@@ -153,12 +153,12 @@ export async function accessRequestSubject(request: Request, issuer?: string, au
 }
 
 const hmac = (secret: string) => crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
-export async function issueTicket(url: string, person: string, secret: string, purpose?: 'render' | 'channel') {
-  const payload = encode(encoder.encode(JSON.stringify([url, person, Date.now() + 15 * 60_000, ...purpose ? [purpose] : []])))
+export async function issueTicket(url: string, person: string, secret: string, purpose?: 'render' | 'channel' | 'source-host') {
+  const payload = encode(encoder.encode(JSON.stringify([url, person, Date.now() + (purpose === 'source-host' ? 365 * 24 * 60 * 60_000 : 15 * 60_000), ...purpose ? [purpose] : []])))
   const signature = await crypto.subtle.sign('HMAC', await hmac(secret), encoder.encode(payload))
   return payload + '.' + encode(new Uint8Array(signature))
 }
-export async function verifyTicket(ticket: string, person: string, secret: string, purpose?: 'render' | 'channel') {
+export async function verifyTicket(ticket: string, person: string, secret: string, purpose?: 'render' | 'channel' | 'source-host') {
   try {
     const parts = ticket.split('.')
     if (parts.length !== 2 || parts.some(part => !/^[\w-]+$/.test(part))) return

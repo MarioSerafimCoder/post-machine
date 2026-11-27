@@ -1,4 +1,11 @@
 # Estado real — 26/11/2026
+## Aplicação de referências verificadas — 27/11/2026
+
+- O Studio aplica a imagem vinculada ao slide quando a página identifica o arquivo ou uma variante. A interface pede conferência quando faltam evidências editoriais. A aprovação manual persiste com fonte e crédito após reabrir.
+- Novos domínios são aprovados no painel Imagens. O Worker assina a aprovação para a identidade Access e para o domínio exato. O navegador guarda a autorização. As verificações DNS, os limites do arquivo e a política de redirecionamento continuam aplicados.
+- Repetição local com os dois JSONs originais, HTML extraído das fontes reais e os próprios arquivos baixados com HTTP 200. Pattern Coffee aplicou 6 de 6. Carrefour aplicou 5 de 5 após a autorização simulada dos domínios novos e usou a alternativa do Update or Die no slide 4. O slide 5 ficou textual. A conferência visual e o backup após reabrir corresponderam às referências.
+- Lint, TypeScript/build, dry-run e 168 testes unitários aprovados. Nos testes Playwright em 1280 e 1440 px, dois casos atingiram o limite de tempo na execução completa e passaram na repetição dirigida. A autenticação de produção e a aprovação efetiva dos três domínios na sessão do proprietário ainda precisam ser testadas.
+
 
 ## Referências visuais no JSON v1
 

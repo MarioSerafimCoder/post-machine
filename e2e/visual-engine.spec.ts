@@ -205,6 +205,41 @@ test('investiga somente páginas indicadas e mostra bloqueio com orçamento Brav
   expect(braveChecks).toBe(1)
 })
 
+test('autoriza domínio, carrega referência sem legenda e mantém a conferência ao reabrir', async ({ page }) => {
+  const addressed = 'https://publisher.example.com/work/'
+  const asset = { ...documentary[0], url: 'https://publisher.example.com/picture.png', page: addressed,
+    evidence: 'body', caption: undefined, author: 'Estúdio de teste' }
+  await page.route('**/api/visual/page', route => route.fulfill({ json: route.request().headers()['x-visual-source-approvals'] === 'test.grant'
+    ? { state: 'ok', candidates: [asset] } : { state: 'authorization', candidates: [], approvalUrls: [addressed] } }))
+  await page.route('**/api/visual/approve-source', route => {
+    expect(route.request().postDataJSON()).toEqual({ url: addressed })
+    return route.fulfill({ json: { host: 'publisher.example.com', approval: 'test.grant' } })
+  })
+  await page.route('**/api/visual/brave', route => route.fulfill({ json: { state: 'disabled', candidates: [] } }))
+  await page.route('https://api.openverse.org/**', route => route.fulfill({ json: { page_count: 0, results: [] } }))
+  await page.route('**/api/visual/download', route => route.fulfill({ contentType: 'image/png', body: poster(1) }))
+  await page.goto('/#/inicio')
+  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify({
+    schemaVersion: 1, campaign: { title, audience: '', objective: 'Informar', tone: 'Profissional',
+      format: 'post', caption: '', cta: '', visualContext: { campaignName } }, sources: [],
+    slides: [{ order: 1, role: 'cover', title, body: 'Bastidores da criação.', imageBrief: 'Bonecos na oficina', layoutType: 'photo',
+      visualContext: { visualCandidates: [{ imageUrl: asset.url, sourceUrl: addressed, description: 'Bonecos na oficina' }] } }],
+  }))
+  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
+  const studio = page.getByRole('region', { name: editor })
+  await studio.getByRole('button', { name: 'Imagens', exact: true }).click()
+  await studio.getByRole('button', { name: 'Autorizar publisher.example.com' }).click()
+  await expect(studio.getByText('Referência importada · conferir correspondência')).toBeVisible()
+  await studio.getByRole('button', { name: 'Confirmar referência' }).click()
+  await expect(studio.getByText('Confirmado manualmente')).toBeVisible()
+  await expect(studio.getByRole('status').filter({ hasText: /^Salvo$/ })).toBeVisible()
+  await page.reload()
+  await page.getByRole('button', { name: 'Abrir ' + title, exact: true }).click()
+  await studio.getByRole('button', { name: 'Imagens', exact: true }).click()
+  await expect(studio.getByText('Confirmado manualmente')).toBeVisible()
+})
+
 for (const count of [3, 4, 6, 10]) {
   test(`continua a busca e mede a abertura de ${count} slides da Expressa no Studio`, async ({ page }, info) => {
     test.setTimeout(50_000)

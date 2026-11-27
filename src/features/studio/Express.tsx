@@ -133,7 +133,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   const requests = useMemo(() => targets.filter(target => {
     const automatic = automaticBySlide.get(target.slideId)
     const chosenManually = automatic && slides.some(slide => slide.imageId === automatic.id)
-    const provisional = automatic && ['related', 'support'].includes(automatic.automatic?.match.classification ?? '') && !chosenManually
+    const provisional = automatic && !automatic.automatic?.match.referenceReview && ['related', 'support'].includes(automatic.automatic?.match.classification ?? '') && !chosenManually
     return (!automatic || provisional) && !localPlan[slides.findIndex(slide => slide.key === target.slideId)]?.picture
   }), [targets, automaticBySlide, localPlan, slides])
   const occupied = useMemo(() => new Set(photos.filter(photo => !photo.automatic ||
