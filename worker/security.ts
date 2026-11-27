@@ -13,6 +13,7 @@ export const verifiedPortfolioPage = (url: URL) =>
   url.origin === 'https://how.studio' && /^\/work\/pets\/?$/.test(url.pathname) && !url.search
 
 const portfolioNamespace = '/how-and-how/'
+export const automaticPublicSources = '@automatic-public-sources'
 export const verifiedPortfolioImage = (url: URL) => url.origin === 'https://images.prismic.io' &&
   url.pathname.startsWith(portfolioNamespace) &&
   /^[a-z0-9_-][\w.-]*\.(?:png|jpe?g|webp)$/i.test(url.pathname.slice(portfolioNamespace.length))
@@ -22,7 +23,7 @@ export function externalUrl(value: string, configured = '', base?: string) {
   if (!url) return
   const hosts = [...defaultHosts, ...configured.split(',').map(host => host.trim().toLowerCase())]
   const allowed = url.hostname === 'how.studio' ? verifiedPortfolioPage(url) :
-    url.hostname === 'images.prismic.io' ? verifiedPortfolioImage(url) : hosts.includes(url.hostname)
+    url.hostname === 'images.prismic.io' ? verifiedPortfolioImage(url) : hosts.includes(url.hostname) || hosts.includes(automaticPublicSources)
   return allowed && !/^\/_next\/image(?:\/|$)/i.test(url.pathname) &&
     (url.hostname !== 'i.ytimg.com' || !url.search && /^\/vi\/[\w-]{11}\/(?:sd|maxres)default\.jpg$/.test(url.pathname)) &&
     ![...url.searchParams.keys()].some(key => /^(?:url|uri|redirect|redirect_uri|target|destination|callback|proxy)$/i.test(key)) ? url : undefined

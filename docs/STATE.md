@@ -639,3 +639,9 @@ Editorial 01 integra Meus templates com seis slides editáveis. O atalho própri
 ## Grade unificada de templates
 
 Editorial 01 e coleções compartilham a mesma grade de quatro colunas no Studio. Cards com dimensões comuns e ações compactas alinhadas, com exclusão por lixeira vermelha identificada para leitores de tela. Verificação visual a 1280 e 1440 px.
+
+## Importação e fontes públicas automáticas — 27/11/2026
+
+- Corrigida a leitura do JSON copiado com escapes de Markdown. Na sessão real, seis peças foram importadas e abertas no Studio.
+- Fontes públicas indicadas e CDNs descobertas passam a ser aceitas automaticamente para leitura de páginas e downloads assinados. Mantidos Access, HTTPS, bloqueios de destinos privados, DNS em cada redirecionamento, limites e validação de imagem. Importação direta arbitrária mantém a política anterior.
+- Lint, build e testes unitários aprovados antes da mudança de autorização. Playwright: 183 aprovados, 12 omissões e uma falha de tempo no Openverse, aprovada na repetição. Validação final e publicação em andamento.

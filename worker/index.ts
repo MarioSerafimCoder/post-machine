@@ -5,7 +5,7 @@ import { braveSearch } from './brave'
 import { discoverVideos, officialChannel } from './audiovisual'
 import { renderVisualPage, type BrowserBinding } from './browser'
 import { extractArticle, type Extracted } from './extract'
-import { accessRequestSubject, externalFetch, externalUrl, issueTicket, publicDns, rasterSignature, readLimited, readJson, verifiedPortfolioPage, verifyTicket } from './security'
+import { automaticPublicSources, accessRequestSubject, externalFetch, externalUrl, issueTicket, publicDns, rasterSignature, readLimited, readJson, verifiedPortfolioPage, verifyTicket } from './security'
 
 type Limiter = { limit(input: { key: string }): Promise<{ success: boolean }> }
 type Env = {
@@ -120,7 +120,9 @@ export default {
     const grants = ['page', 'download'].includes(route) ? (request.headers.get('x-visual-source-approvals') ?? '').split(',') : []
     if (grants.length > 12 || grants.some(grant => grant.length > 1000)) return json({ error: 'invalid_input' }, 400)
     const granted = await Promise.all(grants.filter(Boolean).map(grant => verifyTicket(grant, person, key, 'source-host')))
-    const hosts = [hostsFor(env), ...granted.filter(Boolean)].filter(Boolean).join(',')
+    // Public discovery and ticketed downloads retain DNS checks on every redirect.
+    const hosts = [hostsFor(env), ...granted.filter(Boolean),
+      ...(['page', 'download'].includes(route) ? [automaticPublicSources] : [])].filter(Boolean).join(',')
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(route === 'complement' ? 8200 : route === 'download' || route === 'import' ? 5500 : 4200)])
     try {
       const payload = await readJson(request, 8192)

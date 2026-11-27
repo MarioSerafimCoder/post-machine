@@ -1,4 +1,5 @@
 import { identifyContent, slideIdSchema } from './slideIdentity'
+import { parseResponseJson } from './parseResponseJson'
 import { z } from 'zod'
 import { articleSchema, opportunitySchema, webUrl, type Article, type Opportunity } from '../radar/contract'
 import { headlineSessionSchema } from '../headlines/contract'
@@ -248,7 +249,7 @@ export function reviewImport(input: string, draft?: Draft) {
   let data: unknown
   if (text.startsWith('#')) data = parseMarkdown(text)
   else {
-    try { data = JSON.parse(text) } catch { throw Error('Cole um JSON válido ou use o modelo Markdown.') }
+    data = parseResponseJson(text)
   }
   const parsed = contentSchema.safeParse(data)
   if (!parsed.success) {
