@@ -1,14 +1,14 @@
 import { collectionBrand, composeCollection, type Collection } from '../collections'
 import { loadFonts } from '../fonts'
 import { dimensions, newProject, type Brand, type Format, type Project } from '../model'
-import { planSlides, compositionPreference, type Asset, type Input, type PlannedSlide, type Treatment } from './planning'
+import { planSlides, compositionPreference, narrativeFunction, type Asset, type Input, type PlannedSlide, type Treatment } from './planning'
 import { evaluateScene, type Issue } from './evaluate'
 import type { AuthorTemplate } from '../authorTemplate'
 import type { VisualAnalysis } from '../vision/signals'
 
 export const treatments: Treatment[] = ['balanced','photo','expressive']
 export const candidateLimitPerSlide = 18
-export type FactoryInput = { style: Collection; format: Format; brand: Brand; slides: Input[]; assets: Asset[]; author?: AuthorTemplate; visual?: ReadonlyMap<string, VisualAnalysis> }
+export type FactoryInput = { style: Collection; format: Format; brand: Brand; slides: Input[]; assets: Asset[]; author?: AuthorTemplate; visual?: ReadonlyMap<string, VisualAnalysis>; intelligent?: boolean }
 export type VersionSlide = { composition: number; issues: Issue[] }
 export type Proposal = { treatment: Treatment; project: Project; details: VersionSlide[] }
 export type Fabrication = { proposals: Proposal[]; slides: PlannedSlide[]; collection: string; elapsed: number; candidates: number }
@@ -36,14 +36,33 @@ function unavailableFonts(brand: Brand): Set<string> {
 }
 
 function makeCandidate(input: FactoryInput, brand: Brand, slide: PlannedSlide, index: number, composition: number, treatment: Treatment, missing: Set<string>) {
-  const { scene, measurements } = composeCollection(input.style,composition,slide.content,brand,input.format,treatment)
+  // The text-only geometry of the photo treatment leaves a narrow accent.
+  // A slide awaiting an image needs a full-size frame that can be filled in Studio.
+  const awaitingImage = input.intelligent && slide.visualPlaceholder && !slide.picture
+  const layoutTreatment = awaitingImage && treatment === 'photo' ? 'balanced' : treatment
+  const { scene, measurements } = composeCollection(input.style,composition,slide.content,brand,input.format,layoutTreatment)
   const assessment = evaluateScene(scene,measurements,slide,input.format,brand,missing)
   const preference = compositionPreference(slide,index,composition)
   let score = preference - assessment.penalty
-  if (slide.visualPlaceholder && !slide.picture && scene.objects.some(object => object.semantic === 'imageFrame')) score += 28
+  const frame = slide.visualPlaceholder && !slide.picture && scene.objects.find(object => object.semantic === 'imageFrame')
+  if (frame) {
+    const [width, height] = dimensions[input.format]
+    const usable = Number(frame.width) >= width * .18 && Number(frame.height) >= height * .16
+    score += awaitingImage && !usable ? -65 : 28
+  }
   const title = measurements.find(metric => metric.field === 'title')
   const body = measurements.find(metric => metric.field === 'body')
   const cta = measurements.find(metric => metric.field === 'cta')
+  if (input.intelligent) {
+    const mode = narrativeFunction(slide, index, input.slides.length)
+    const ideal = { cover: 0, cta: 5, highlight: 4, data: 4, comparison: 2, list: 2, context: 1,
+      conclusion: 5, content: slide.picture ? 3 : 2 }[mode]
+    if (ideal === composition) score += 7
+    if (slide.picture) score += assessment.retained * 14
+    for (const metric of measurements) {
+      if (metric.fits) score -= (1 - metric.size / metric.preferred) * (metric.field === 'title' ? 18 : 12)
+    }
+  }
   if (slide.role === 'cover' && title?.fits) score += Math.min(9, title.size / Math.max(1, body?.size ?? 30) * 3)
   if (slide.role === 'content' && body?.fits) score += Math.min(8, body.size / body.preferred * 7)
   if (slide.role === 'cta' && cta?.fits) score += Math.min(8, cta.size / cta.preferred * 8)
@@ -76,7 +95,9 @@ export async function fabricate(input: FactoryInput, signal: AbortSignal, progre
       for (let composition=0;composition<input.style.layouts.length;composition++) {
         signal.throwIfAborted()
         const candidate = makeCandidate(input,brand,slide,index,composition,proposal.treatment,missing)
-        candidate.score -= (last === composition ? 4 : 0) + (chosen.includes(composition) ? 5 : 0)
+        const repeated = input.intelligent && proposal.details.slice(-2).every(detail => detail.composition === composition) &&
+          proposal.details.length > 1
+        candidate.score -= (last === composition ? 4 : 0) + (chosen.includes(composition) ? 5 : 0) + (repeated ? 7 : 0)
         options.push(candidate)
         candidates++
         if (performance.now()-lastYield >= 10) {

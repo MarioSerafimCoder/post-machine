@@ -73,8 +73,11 @@ test('cola, busca em paralelo, usa apoio editorial e retoma escolhas e créditos
   const before = queries.filter(query => /ponte|bridge/.test(query)).length
   await button(page, 'Conteúdo').click()
   await page.getByLabel('Título', { exact: true }).nth(1).fill('Biblioteca municipal')
-  await expect(exactStatus(page, 'Imagem encontrada').last()).toBeVisible()
+  await expect(exactStatus(page, 'O contexto visual mudou. Revise a imagem escolhida.')).toBeVisible()
   await button(page, 'Imagens').click()
+  await expect(images.nth(1)).toContainText('Café e xícara na mesa')
+  await expect(images.nth(1).getByText('O contexto visual mudou. Revise a imagem escolhida.')).toBeVisible()
+  await images.nth(1).getByRole('button', { name: 'Buscar novamente' }).click()
   await expect(images.nth(1)).toContainText('Biblioteca municipal histórica')
   expect(queries.filter(query => /ponte|bridge/.test(query))).toHaveLength(before)
   await page.screenshot({ path: info.outputPath('busca-progressiva.png'), fullPage: true })

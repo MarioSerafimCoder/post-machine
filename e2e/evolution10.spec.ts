@@ -128,10 +128,6 @@ test('cria conteúdo pela entrada unificada e organiza o JSON na colagem', async
     sources: [{ title: 'Fonte editorial', url: 'https://example.org/fonte', publishedAt: null }],
     slides: [{ order: 1, role: 'content', title: 'A luz organiza a leitura', subtitle: 'Arquitetura editorial', body: 'Uma pauta sobre arquitetura.', imageBrief: '', layoutType: 'editorial' }],
   }))
-  await expect(page.getByLabel('Nome do projeto')).toHaveValue('Um novo recorte')
-  await expect(page.getByLabel('Título', { exact: true })).toHaveValue('A luz organiza a leitura')
-  await expect(page.getByRole('status').filter({ hasText: '1 slide organizado' })).toBeVisible()
-  await page.getByRole('button', { name: 'Montar e abrir no Studio' }).click()
   await expect(page.getByRole('region', { name: 'Editor Studio' })).toBeVisible()
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Um novo recorte')
   await page.getByText('Conteúdo editorial de origem', { exact: true }).click()

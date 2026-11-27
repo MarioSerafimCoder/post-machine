@@ -1,5 +1,7 @@
 import { useStudioShortcuts } from './useStudioShortcuts'
-import { isSearchFailure } from '../images/searchDiagnostics'
+import { failureText, isSearchFailure } from '../images/searchDiagnostics'
+import { alternativeWasEdited, coverEmptyVisual, hasEditorialAlternative, requiresDocumentary } from './editorialAlternative'
+import { parseRecoveredReferences, recoveryPrompt } from '../images/referenceRecovery'
 import { ContextHeader, ContextRail, type ContextTool } from '../../components/ContextRail'
 import { StudioImageSearch } from '../images/ImageSearch'
 import { ImageLibrary } from '../images/ImageLibrary'
@@ -75,9 +77,10 @@ function readBackupDate(id: string) {
   } catch { return undefined }
 }
 
-export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: DesignMode } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'import' | 'blank' }; onStartCampaign: (mode: CampaignStartMode, campaignId?: string) => void }) {
+export function Studio({ request, active, homeEntry, onStartCampaign }: { request: { draft: Draft; mode?: DesignMode } | null; active: boolean; homeEntry?: { projectId?: string; mode?: 'import' | 'blank'; file?: File }; onStartCampaign: (mode: CampaignStartMode, campaignId?: string) => void }) {
   const [expressDraft, setExpressDraft] = useState<Draft>()
   const [expressOrigin, setExpressOrigin] = useState<'import' | 'blank'>()
+  const [expressFile, setExpressFile] = useState<File>()
   const [error, setError] = useState('')
   const [slideFeedback, setSlideFeedback] = useState<{ text: string; id: string }>()
   useEffect(() => {
@@ -124,6 +127,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   const [fullReview, setFullReview] = useState<Review>()
   const [guidance, setGuidance] = useState<{ finding: Finding; project: Project }>()
   const [imagePanel, setImagePanel] = useState<{ tab: 'search' | 'library'; slideId: string; term: string; request: number }>()
+  const [recoveredReferences, setRecoveredReferences] = useState<{ key: string; text: string }>()
   const focusPath=useRef<string|null>(null)
   useEffect(() => { void listProjects().then(setLibrary, () => setError('Não foi possível carregar os projetos.')); void readBrand().then(value => { if (value) setBrand(newProjectBrand(value)) }, () => undefined) }, [])
   async function back() {
@@ -160,8 +164,13 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       const after = frameImage(scene)
       const swapped = before?.src !== after?.src ||
         (before?.imageCredit as ImageCredit | undefined)?.sourceId !== (after?.imageCredit as ImageCredit | undefined)?.sourceId
-      const visualChoice = edited && (before || after) ? {
-        ...s.visualChoice, match: manualMatch ?? (swapped ? undefined : s.visualChoice?.match), signature: undefined,
+      const previousCopy = before && after && !swapped ? semantics(s.scene) : undefined
+      const nextCopy = previousCopy && semantics(scene)
+      const reviewRequired = previousCopy && nextCopy &&
+        (previousCopy.title !== nextCopy.title || previousCopy.subtitle !== nextCopy.subtitle || previousCopy.body !== nextCopy.body)
+      const visualChoice = !before && !after && alternativeWasEdited(s.scene, scene) ? { ...s.visualChoice, mode: 'manual' as const } : edited && (before || after) ? {
+        ...s.visualChoice, reception: after ? { state: 'applied' as const } : undefined, match: manualMatch ?? (swapped ? undefined : s.visualChoice?.match), signature: undefined,
+        reviewRequired: swapped ? false : reviewRequired || s.visualChoice?.reviewRequired,
         ...(swapped && before ? {
           decision: after ? 'replaced' as const : 'rejected' as const,
           discarded: rememberRejectedVisual(s.visualChoice?.discarded, before.imageCredit as ImageCredit | undefined, s.visualChoice?.match),
@@ -169,7 +178,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
           decision: 'approved' as const,
         } : {}),
         mode: after ? s.visualChoice?.mode === 'locked' ? 'locked' as const : 'manual' as const : 'none' as const,
-      } : s.visualChoice
+      } : reviewRequired ? { mode: 'manual' as const, ...s.visualChoice, reviewRequired: true } : s.visualChoice
       return { ...s, visualChoice, scene: { ...scene, ...(!edited && s.scene.contentImage ? { contentImage: s.scene.contentImage } : {}) } }
     }) }), record, false, textTarget && { target: textTarget, slide: currentRef.current })
     refresh(n => n + 1)
@@ -181,7 +190,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     return project.slides.flatMap(slide => {
       const existing = semantics(slide.scene).image
       const provisional = !slide.visualChoice?.match?.referenceReview && ['related', 'support'].includes(slide.visualChoice?.match?.classification ?? '')
-      if (slide.visualChoice?.mode !== 'automatic' || existing && !provisional) return []
+      if (slide.visualChoice?.mode !== 'automatic' || existing && (!provisional || slide.visualChoice.reviewRequired)) return []
       const request = frameRequest(project, slide, research)
       return request ? [request] : []
     })
@@ -199,26 +208,31 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     const existing = slide && semantics(slide.scene).image
     const provisional = !slide?.visualChoice?.match?.referenceReview && ['related', 'support'].includes(slide?.visualChoice?.match?.classification ?? '')
     const currentRequest = slide && frameRequest(latest, slide)
-    if (slide?.visualChoice?.mode !== 'automatic' || existing && !provisional ||
+    if (slide?.visualChoice?.mode !== 'automatic' || existing && (!provisional || slide.visualChoice.reviewRequired) ||
       currentRequest?.signature !== request.signature) return false
     const currentCanvas = index === currentRef.current ? canvas.current : null
     if (index === currentRef.current && (!currentCanvas || canvasSlide.current !== request.key || currentCanvas.getActiveObjects().length)) return false
     const next = rewriteVisualFrame(slide, { ...slide.visualChoice, signature: request.signature, match: image.match }, image)
-    if (next.scene === slide.scene || currentCanvas && !updateCanvasVisual(currentCanvas, next.scene, image)) return false
+    if (next.scene === slide.scene || currentCanvas && !updateCanvasVisual(currentCanvas, next.scene, image)) return 'application'
     setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) }, false)
     return true
-  }, request => {
+  }, (request, status) => {
     const latest = getCurrent()
-    if (!latest || exportOpen) return
+    if (!latest || exportOpen) return false
     const index = latest.slides.findIndex(slide => latest.id + '/' + slide.id === request.key)
     const slide = latest.slides[index]
     if (slide?.visualChoice?.mode !== 'automatic' || frameImage(slide.scene) ||
       frameRequest(latest, slide)?.signature !== request.signature ||
-      !slide.scene.objects.some(object => object.semantic === 'imageFrame' && object.visible !== false) ||
-      (index === currentRef.current && (!canvas.current || canvasSlide.current !== request.key || canvas.current.getActiveObjects().length))) return
-    const next = rewriteVisualFrame(slide, slide.visualChoice, undefined, true)
-    if (index === currentRef.current && canvas.current && !updateCanvasVisual(canvas.current, next.scene)) return
+      (index === currentRef.current && (!canvas.current || canvasSlide.current !== request.key || canvas.current.getActiveObjects().length))) return false
+    const failure = status in failureText ? status as keyof typeof failureText : undefined
+    const choice = { ...slide.visualChoice,
+      reception: { state: 'alternative', failure, confirmed: false,
+        attempts: autoSearch.attempts(request),
+        documentaryRequired: requiresDocumentary(slide, !!latest.editorialSource || !!latest.editorialReferences?.length || !!latest.importedContent?.sources.length) } } as const
+    const next = hasEditorialAlternative(slide) ? { ...slide, visualChoice: choice } : rewriteVisualFrame(slide, choice, undefined, true)
+    if (next.scene !== slide.scene && index === currentRef.current && canvas.current && !updateCanvasVisual(canvas.current, next.scene)) return false
     setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) }, false)
+    return true
   }, exportOpen || (!readyCanvas ? true : hasSelection ? currentFrameKey : undefined))
   const [approvingSource, setApprovingSource] = useState(false)
   async function approveSource(url: string) {
@@ -249,7 +263,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
           : slide.visualChoice?.discarded,
     })
       : { ...slide, visualChoice: { ...slide.visualChoice, mode,
-        decision: currentImage && slide.visualChoice?.mode === 'automatic' ? 'approved' as const : slide.visualChoice?.decision } }
+        reviewRequired: false,
+        decision: currentImage && (mode === 'manual' || slide.visualChoice?.mode === 'automatic') ? 'approved' as const : slide.visualChoice?.decision } }
     setProject({ ...latest, slides: latest.slides.map(item => item.id === slide.id ? next : item) })
     if (next.scene !== slide.scene) setRevision(value => value + 1)
   }
@@ -276,7 +291,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setRevision(value => value + 1)
   }
   useStudioShortcuts(active, canvas, changed, moveHistory, setError)
-  function replace(value: Project, fromStorage = false) { setProject(value, !fromStorage, fromStorage); setRevision(n => n + 1) }
+  function replace(value: Project, fromStorage = false) {
+    setProject(fromStorage ? value : { ...value, slides: value.slides.map(coverEmptyVisual) }, !fromStorage, fromStorage)
+    setRevision(n => n + 1)
+  }
   function chooseSlide(index: number, projectId = project?.id) {
     currentRef.current = index
     setCurrent(index)
@@ -340,7 +358,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     setEntry(undefined)
     setProject({ ...newProject(format), brand: projectBrand, slides: [emptySlide(projectBrand.background)] })
   }
-  const openFromHome = useEffectEvent(async ({ projectId: id, mode }: NonNullable<typeof homeEntry>) => {
+  const openFromHome = useEffectEvent(async ({ projectId: id, mode, file }: NonNullable<typeof homeEntry>) => {
     if (id) {
       if (getCurrent()?.id !== id) await openProject(id)
       return
@@ -351,6 +369,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         if (getCurrent()) setProject(undefined)
         setExpressDraft(undefined)
         setExpressOrigin(mode)
+        setExpressFile(file)
         setEntry('express')
         return
       }
@@ -386,9 +405,10 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     if (mode === 'radar') { setOpeningArticle(true); setEntry(undefined) }
     try {
       await flush()
-      if (mode === 'express' && draft.content) {
+      if ((mode === 'express' || mode === 'smart') && draft.content) {
         setExpressDraft(draft)
-        setExpressOrigin(undefined)
+        setExpressOrigin(mode === 'smart' ? 'import' : undefined)
+        setExpressFile(undefined)
         setProject(undefined)
         setEntry('express')
       } else if (mode === 'radar') {
@@ -504,7 +524,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       const index = frame ? target.getObjects().indexOf(frame) : -1
       if (frame) {
         cropImage(image, frame.getScaledWidth() / frame.getScaledHeight())
-        target.remove(frame, ...target.getObjects().filter(object => object.semantic === 'imageHint' || object.semantic === 'imageDecoration'))
+        target.remove(frame, ...target.getObjects().filter(object => object.semantic === 'imageHint' || object.semantic === 'imageDecoration' || object.semantic === 'editorialAlternative'))
       }
       if (index >= 0) target.insertAt(index, image)
       else target.add(image)
@@ -603,14 +623,35 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   })
   const assistantAnchor = useAssistantAnchor(active && !!project)
   const editorialOpen = !!project && editorialProject === project.id
-  const missingPhoto = frameTargets.find(item => autoSearch.status(item) === 'empty')
-  const missingIndex = project?.slides.findIndex(slide => missingPhoto?.key === project.id + '/' + slide.id) ?? -1
-  useAssistantSignal(active && project && !auditOpen && !exportOpen && project.slides.some(slide => slide.scene.objects.length) ? {
+  const searchesPending = frameTargets.some(item => {
+    const value = autoSearch.status(item)
+    return value === undefined || value === 'documental' || value === 'editorial' || value === 'illustration' || value === 'provisional'
+  })
+  const currentVisualRequest = project && frameTargets.find(item => item.slideId === project.slides[current]?.id)
+  const pendingTargets = frameTargets.filter(item => {
+    const slide = project?.slides.find(slide => slide.id === item.slideId)
+    const state = autoSearch.status(item)
+    return slide && !frameImage(slide.scene) && (state === 'empty' || isSearchFailure(state))
+  })
+  const missingIndex = project?.slides.findIndex(slide => pendingTargets[0]?.slideId === slide.id) ?? -1
+  const report = project && fullReview && sameReviewVersion(fullReview.project, project) ? fullReview.report : undefined
+  const populated = project?.slides.some(slide => slide.scene.objects.length)
+  const photosToReview = project?.slides.some(slide => slide.visualChoice?.reviewRequired ||
+    (['related', 'support'].includes(slide.visualChoice?.match?.classification ?? '') && slide.visualChoice?.decision !== 'approved'))
+  const readyToExport = populated && !searchesPending && !pendingTargets.length && !photosToReview && report?.status === 'clear' && status === 'Salvo'
+  const productionStatus = searchesPending ? 'Buscando imagens…' : project?.delivery ? deliveryStatus :
+    readyToExport ? 'Pronto para exportar' : report || pendingTargets.length || !populated ? 'Revisão pendente' : 'Pronto para revisão'
+  useAssistantSignal(active && project && !auditOpen && !exportOpen && populated && !searchesPending ? {
     area: 'studio', scope: project.id, category: 'production', priority: 1, proactive: false,
     insight: missingIndex >= 0 ? {
-      id: 'studio:photo', title: `Escolha uma imagem para o slide ${missingIndex + 1}`, assessment: 'verified',
-      detail: 'A busca terminou sem uma imagem adequada. Você pode escolher uma foto ou manter o slide sem imagem.',
+      id: 'studio:photo', title: pendingTargets.length === 1 ? `O slide ${missingIndex + 1} ainda precisa de imagem` :
+        `${pendingTargets.length} slides ainda precisam de imagem`, assessment: 'verified',
+      detail: 'Escolha uma foto ou mantenha o slide somente com texto.',
       actions: [{ label: 'Escolher imagem', run: () => { chooseSlide(missingIndex); openImages('search', missingIndex) } }],
+    } : readyToExport ? {
+      id: 'studio:export', title: 'O projeto está pronto para exportar', assessment: 'verified',
+      detail: 'A arte está salva e a revisão atual não encontrou problemas.',
+      actions: [{ label: 'Abrir exportação', run: () => setExportProjectId(project.id) }],
     } : {
       id: 'studio:review', title: 'Revise o carrossel antes de exportar', assessment: 'heuristic',
       detail: `${project.slides.length} ${project.slides.length === 1 ? 'slide disponível' : 'slides disponíveis'} no editor.`,
@@ -629,8 +670,8 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
     articleOpenFailed ? <button className="button button-outline" onClick={() => setRetryArticle(value => value + 1)}>Tentar abrir notícia novamente</button> : null
   if (!project && openingArticle) return <section className="studio-welcome">{articleFeedback}</section>
   if (!project && entry === 'express') return <Suspense fallback={<p role="status">Abrindo Criar carrossel…</p>}>
-    <Express key={expressDraft?.id ?? expressOrigin} campaign={expressDraft} originMode={expressOrigin} active={active} brand={brand} format={format}
-      cancel={() => { setEntry(undefined); setExpressDraft(undefined) }} open={value => openCreated(value, true)} editTemplate={editTemplate} />
+    <Express key={expressDraft?.id ?? expressOrigin} campaign={expressDraft} originMode={expressOrigin} initialFile={expressFile} active={active} brand={brand} format={format}
+      cancel={() => { setEntry(undefined); setExpressDraft(undefined); setExpressFile(undefined) }} open={value => openCreated(value, true)} editTemplate={editTemplate} />
   </Suspense>
   if (!project && entry === 'collections') return <section className="studio-welcome">
     <div className="studio-entry"><h2>Biblioteca de templates</h2><button className="button button-outline" disabled={starting} onClick={() => setEntry(undefined)}>Voltar aos projetos</button></div>
@@ -642,17 +683,19 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
   </section>
   if (!project) return <>{articleFeedback}<ProjectLibrary result={libraryResult} refresh={async () => setLibrary(await listProjects())}
     error={error} flush={flush} open={openProject} create={() => createEmptyProject()}
-    express={() => { setExpressDraft(undefined); setExpressOrigin(undefined); setEntry('express') }} templates={() => setEntry('collections')}
+    express={() => { setExpressDraft(undefined); setExpressOrigin(undefined); setExpressFile(undefined); setEntry('express') }} templates={() => setEntry('collections')}
     format={format} setFormat={setFormat} campaign={onStartCampaign} imported={value => {
       chooseSlide(0); replace(value, true); setError('')
       setSlideFeedback({ text: 'Projeto importado.', id: crypto.randomUUID() })
     }} /></>
   const source = project.editorialSource ?? campaign?.article
   const overflow = textExceedsLayout(project.slides[current].scene)
-  const searchesPending = frameTargets.some(item => {
-    const value = autoSearch.status(item)
-    return value === 'documental' || value === 'editorial' || value === 'illustration' || value === 'provisional'
-  })
+  function retryPendingVisuals() {
+    const pending = new Set(pendingTargets.map(item => item.slideId))
+    setProject(latest => latest && ({ ...latest, slides: latest.slides.map(slide =>
+      slide.visualChoice?.mode === 'automatic' && pending.has(slide.id) && !frameImage(slide.scene)
+        ? { ...slide, visualChoice: { ...slide.visualChoice, revision: (slide.visualChoice.revision ?? 0) + 1 } } : slide) }))
+  }
   return <section className="studio" aria-label="Editor Studio">
     {designSource && <Suspense fallback={<p role="status">Carregando opções de design…</p>}>
       <ProjectDesignOptions source={designSource} close={() => setDesignSource(undefined)}
@@ -732,7 +775,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         <button className="studio-icon" aria-label="Ajustar à tela" title="Ajustar à tela" aria-pressed={manualZoom === undefined} onClick={() => setManualZoom(undefined)}><Icon name="fit" /></button>
         <label className="studio-inline-field"><input type="checkbox" checked={guides} onChange={event => setGuides(event.target.checked)} />Área segura</label>
         </div>
-        <div className="studio-actions studio-output" role="group" aria-label="Finalização"><span className="delivery-status">{!project.delivery && fullReview && sameReviewVersion(fullReview.project, project) ? 'Revisão atual' : deliveryStatus}</span>
+        <div className="studio-actions studio-output" role="group" aria-label="Finalização"><span className="delivery-status">{productionStatus}</span>
           <details className="review-menu" onKeyDown={event => {
             if (event.key === 'Escape') { event.currentTarget.open = false; editorialToggle.current?.focus() }
           }} onBlur={event => {
@@ -846,14 +889,56 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       {panel === 'Texto' && <><h3>Tipografia</h3><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'title', project.brand.primary); changed() } }}>Adicionar título</button><button disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, 'text', project.brand.primary); changed() } }}>Adicionar texto</button></>}
       {panel === 'Elementos' && <><h3>Formas</h3>{([['rect', 'Retângulo'], ['circle', 'Círculo'], ['line', 'Linha']] as const).map(([type, name]) => <button key={type} disabled={!readyCanvas} onClick={() => { if (canvas.current) { addObject(canvas.current, type, project.brand.primary); changed() } }}>{name}</button>)}</>}
       {panel === 'Imagens' && <><h3>Imagens</h3>
+      {searchesPending && <button onClick={() => autoSearch.cancel()}>Cancelar verificação de imagens</button>}
+      {currentVisualRequest && autoSearch.status(currentVisualRequest) === 'application' &&
+        <button onClick={() => autoSearch.retryApplication(currentVisualRequest)}>Tentar aplicar arquivo recebido</button>}
+      {!!pendingTargets.length && <button type="button" onClick={retryPendingVisuals}>Buscar apenas imagens pendentes · {pendingTargets.length}</button>}
       {project.slides[current].visualChoice && <div className="studio-visual-choice">
-        <VisualSearchStatus status={autoSearch.status(frameTargets.find(item => item.key === project.id + '/' + project.slides[current].id))}
+        {hasEditorialAlternative(project.slides[current]) && <div role="status">
+          <strong>Alternativa editorial · composição gráfica local</strong>
+          <p>Esta composição não documenta a peça real. {project.slides[current].visualChoice?.reception?.confirmed ? 'Pertinência confirmada manualmente.' : project.slides[current].visualChoice?.reception?.documentaryRequired === false ? 'Composição gráfica de apoio; nenhuma fotografia foi recebida.' : 'Pendência editorial: forneça uma imagem ou confirme que esta alternativa sustenta o conteúdo.'}</p>
+          {project.slides[current].visualChoice?.reception?.documentaryRequired !== false && !project.slides[current].visualChoice?.reception?.confirmed && <button onClick={() => {
+            setProject(p => p && ({ ...p, slides: p.slides.map((slide, index) => index === current ? { ...slide,
+              visualChoice: { ...slide.visualChoice, reception: { state: 'alternative',
+                failure: slide.visualChoice?.reception?.failure, confirmed: true }, mode: 'manual', decision: 'approved' } } : slide) }))
+          }}>Confirmar alternativa pertinente</button>}
+        </div>}
+        <VisualSearchStatus status={autoSearch.status(currentVisualRequest ?? undefined)} attempts={autoSearch.attempts(currentVisualRequest ?? undefined) ?? project.slides[current].visualChoice?.reception?.attempts}
+          persisted={status === 'Salvo'}
+          failure={project.slides[current].visualChoice?.reception?.failure}
           match={project.slides[current].visualChoice?.match}
           approved={project.slides[current].visualChoice?.decision === 'approved'} />
+        {frameImage(project.slides[current].scene) && <img alt="Arquivo aplicado ao slide" src={String(frameImage(project.slides[current].scene)?.src)} style={{ width: '100%', maxHeight: 140, objectFit: 'contain' }} />}
+        {[...new Set([...(project.slides[current].visualContext?.visualCandidates?.map(hint => hint.sourceUrl) ?? []),
+          ...(project.slides[current].visualContext?.preferredSourceUrls ?? []), project.slides[current].visualContext?.videoUrl].filter((url): url is string => !!url))]
+          .map(url => <p key={url}><a href={url} target="_blank" rel="noreferrer">Abrir fonte · {new URL(url).hostname}</a></p>)}
+        {saveFailed && <p role="alert">{failureText.persistence}</p>}
+        <details><summary>Recuperar referências com o GPT externo</summary>
+          <p>Peça alternativas para esta peça e cole a resposta aqui. As referências serão verificadas pelo aplicativo.</p>
+          <button onClick={() => void navigator.clipboard.writeText(recoveryPrompt(project.slides[current])).then(
+            () => setError('Pedido de recuperação copiado. Use no GPT externo e cole a resposta abaixo.'),
+            () => setError('Não foi possível copiar o pedido. Permita o acesso à área de transferência.'))}>Copiar pedido de novas imagens</button>
+          <label>Resposta de referências deste slide<textarea maxLength={32000}
+            value={recoveredReferences?.key === currentFrameKey ? recoveredReferences?.text ?? '' : ''}
+            onChange={event => setRecoveredReferences({ key: currentFrameKey!, text: event.target.value })} /></label>
+          <button disabled={recoveredReferences?.key !== currentFrameKey || !recoveredReferences?.text.trim()} onClick={() => {
+            try {
+              const slide = project.slides[current]
+              const visual = parseRecoveredReferences(recoveredReferences!.text, slide.id)
+              setProject({ ...project, slides: project.slides.map(item => item.id === slide.id ? { ...item,
+                visualContext: { ...item.visualContext, ...visual }, visualChoice: { ...item.visualChoice, mode: frameImage(item.scene) ? item.visualChoice?.mode ?? 'manual' : 'automatic',
+                  revision: (item.visualChoice?.revision ?? 0) + 1, reviewRequired: !!frameImage(item.scene) || item.visualChoice?.reviewRequired } } : item) })
+              setRecoveredReferences(undefined); setError('')
+            } catch (cause) { setError(cause instanceof Error ? cause.message : 'Resposta inválida.') }
+          }}>Verificar referências recuperadas</button>
+        </details>
         {autoSearch.authorization(frameTargets.find(item => item.key === currentFrameKey))?.map(({ page, url }) =>
           <div key={url + page}><p>Fonte aguardando autorização. <a href={page} target="_blank" rel="noreferrer">{page}</a></p>
             <button disabled={approvingSource} onClick={() => void approveSource(url)}>Autorizar {new URL(url).hostname}</button>
           </div>)}
+        {project.slides[current].visualChoice?.reviewRequired && <><p role="status">O contexto visual mudou. Revise a imagem escolhida.</p>
+          {frameImage(project.slides[current].scene) && <button onClick={() => changeVisualFrame(project.slides[current].visualChoice?.mode === 'locked' ? 'locked' : 'manual')}>Confirmar imagem no contexto atual</button>}
+        </>}
         <p>{({ automatic: 'Automático', manual: 'Confirmado manualmente', locked: 'Travado', none: 'Sem imagem' } as const)[project.slides[current].visualChoice!.mode]}</p>
         {project.slides[current].visualChoice?.mode === 'locked' ? <button onClick={() => changeVisualFrame('manual')}>Destravar imagem</button> : <>
           {frameImage(project.slides[current].scene) && <>
@@ -861,7 +946,11 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
             <button onClick={() => changeVisualFrame('locked')}>Travar imagem</button>
             <button onClick={() => changeVisualFrame('none')}>{project.slides[current].visualChoice?.match ? 'Desfazer escolha automática' : 'Remover imagem'}</button>
           </>}
-          <button onClick={() => changeVisualFrame('automatic')}>{project.slides[current].visualChoice?.mode === 'automatic' ? 'Buscar novamente' : 'Voltar ao automático'}</button>
+          {frameImage(project.slides[current].scene) ?
+            <button onClick={() => openImages('search')}>Buscar outra imagem</button> :
+            <button onClick={() => changeVisualFrame('automatic')}>{project.slides[current].visualChoice?.mode === 'automatic' ? 'Buscar novamente' : 'Voltar ao automático'}</button>}
+          {!frameImage(project.slides[current].scene) && project.slides[current].visualChoice?.mode === 'automatic' &&
+            <button onClick={() => changeVisualFrame('none')}>Manter somente texto</button>}
         </>}
       </div>}
       <div className="image-tabs" role="group" aria-label="Origem da imagem">
@@ -874,7 +963,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
       </div><h4>Upload local</h4><label>Adicionar ou substituir imagem<input id="studio-image-upload" type="file" accept="image/png,image/jpeg,image/webp" disabled={!readyCanvas} onChange={e => { void upload(e.target.files?.[0]); e.target.value = '' }} /></label><p>PNG, JPEG ou WebP. Até 20 MB e 40 MP. Selecione uma imagem para substituí-la.</p></>}
       {panel === 'Camadas' && readyCanvas?.getObjects().map((o, i) => {
         const label = o instanceof Textbox ? o.text.slice(0, 32) || 'Texto vazio' : (o.semantic === 'editorialGradient' ? 'Gradiente editorial' : o.label) || ({ image:'Imagem', rect:'Retângulo', circle:'Círculo', line:'Linha', group:'Grupo' }[o.type.toLowerCase()] ?? 'Elemento')
-        return <button key={i} aria-pressed={readyCanvas.getActiveObjects().includes(o)} onClick={event => {
+        return <button key={i} data-semantic={o.semantic} aria-pressed={readyCanvas.getActiveObjects().includes(o)} onClick={event => {
           const selection = readyCanvas.getActiveObjects()
           readyCanvas.discardActiveObject()
           const next = event.shiftKey ? selection.includes(o) ? selection.filter(item => item !== o) : [...selection,o] : [o]
@@ -895,10 +984,7 @@ export function Studio({ request, active, homeEntry, onStartCampaign }: { reques
         setPanel('Imagens')
         if (operation === 'empty') openImages('search', index)
         else if (operation === 'error') {
-          const failed = new Set(frameTargets.filter(item => isSearchFailure(autoSearch.status(item))).map(item => item.key))
-          setProject(latest => latest && ({ ...latest, slides: latest.slides.map(slide =>
-            slide.visualChoice?.mode === 'automatic' && failed.has(latest.id + '/' + slide.id)
-              ? { ...slide, visualChoice: { ...slide.visualChoice, revision: (slide.visualChoice.revision ?? 0) + 1 } } : slide) }))
+          retryPendingVisuals()
         }
       }} issues={reviewedSlides} project={project} current={current} select={chooseSlide} action={slideAction} reorder={reorderFrame}
         imageStatus={id => autoSearch.status(frameTargets.find(item => item.key === project.id + '/' + id))}

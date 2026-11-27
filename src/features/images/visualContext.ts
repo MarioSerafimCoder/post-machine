@@ -18,20 +18,39 @@ const phrase = z.string().trim().min(1).max(240).regex(/^[^\p{Cc}]+$/u)
 const publicUrl = z.string().trim().refine(value => !!researchUrl(value), 'Use uma URL HTTPS pública.')
 const urls = z.array(publicUrl).max(8)
 const visualCandidates = z.array(z.object({
-  imageUrl: publicUrl, sourceUrl: publicUrl, description: phrase,
+  imageUrl: publicUrl.optional(), sourceUrl: publicUrl, description: phrase,
 })).max(6)
 const queries = z.array(phrase).max(6)
 export const campaignVisualSchema = z.object({
   subject: phrase.optional(), entities: z.array(phrase).max(16).optional(), campaignName: phrase.optional(),
+  language: z.enum(['pt', 'en']).optional(),
   year: z.number().int().min(1800).max(2100).optional(), mediaType: phrase.optional(), searchQueries: queries.optional(),
   preferredSources: urls.optional(), excludedSubjects: z.array(phrase).max(16).optional(), visualCandidates: visualCandidates.optional(),
 })
 export const slideVisualSchema = z.object({
+  subject: phrase.optional(), entities: z.array(phrase).max(16).optional(), excludedSubjects: z.array(phrase).max(16).optional(),
+  year: z.number().int().min(1800).max(2100).optional(),
+  allowEditorialSupport: z.boolean().optional(),
+  documentaryRequired: z.boolean().optional(),
+  referenceStatus: z.enum(['found', 'page_only', 'video_only', 'unavailable']).optional(),
+  videoUrl: publicUrl.optional(),
   visualIntent: phrase.optional(), searchQueries: queries.optional(), preferredSourceUrls: urls.optional(), imageType: phrase.optional(),
   visualCandidates: visualCandidates.optional(),
 })
 export type CampaignVisual = z.infer<typeof campaignVisualSchema>
 export type SlideVisual = z.infer<typeof slideVisualSchema>
+
+// Reorder parameters only. Do not invent renditions or strip identity parameters.
+export function imageReferenceKey(raw?: string) {
+  const url = raw && researchUrl(raw.replace(/&amp;/gi, '&'))
+  if (!url) return undefined
+  url.searchParams.sort()
+  return url.href
+}
+export function identifiesReference(asset: { url: string; alternateUrls?: string[] }, raw?: string) {
+  const key = imageReferenceKey(raw)
+  return !!key && [asset.url, ...asset.alternateUrls ?? []].some(url => imageReferenceKey(url) === key)
+}
 
 export type VisualCopy = {
   title: string; body?: string; subtitle?: string; cta?: string; imageBrief?: string; role?: string; visualContext?: SlideVisual
@@ -44,7 +63,7 @@ export const phraseKey = (value = '') => normalize(value).replace(/[^\p{L}\p{N}]
 const unique = (values: (string | undefined)[]) => [...new Map(values.flatMap(value => value?.trim()
   ? [[phraseKey(value), value.trim()] as const] : [])).values()]
 export const visualText = (slide: VisualCopy) => [slide.title, slide.subtitle, slide.body, slide.cta, slide.imageBrief,
-  slide.visualContext?.visualIntent, slide.visualContext?.imageType].filter(Boolean).join(' ')
+  slide.visualContext?.subject, ...slide.visualContext?.entities ?? [], slide.visualContext?.visualIntent, slide.visualContext?.imageType].filter(Boolean).join(' ')
 const noImage = /\b(sem (?:imagem|foto|fotografia)|apenas texto|somente texto|exclusivamente textual|no (?:image|photo)|text only|textual)\b/
 export function needsImage(slide: VisualCopy) {
   const intent = phraseKey([slide.imageBrief, slide.visualContext?.visualIntent, slide.visualContext?.imageType].filter(Boolean).join(' '))
@@ -100,7 +119,7 @@ export function campaignContext(input: {
     year && !subject.includes(String(year)) ? String(year) : undefined].filter(Boolean).join(' ')])[0]?.slice(0, 240)
   return {
     subject, names, year, sources, query, campaignName: visual?.campaignName ?? entitiesIn(subject).find(name => /\d/.test(name) && words(name).length > 2),
-    language: article?.language, sourceImage: article?.imageUrl,
+    language: visual?.language ?? article?.language, sourceImage: article?.imageUrl,
     excluded: visual?.excludedSubjects ?? [], extraQueries: visual?.searchQueries?.slice(1) ?? [],
     visualCandidates: visual?.visualCandidates ?? [],
     slideCandidates: Array.from({ length: 6 }, (_, rank) => slides.flatMap(slide =>

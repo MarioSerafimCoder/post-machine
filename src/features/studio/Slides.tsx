@@ -7,6 +7,7 @@ import { compositionNames } from './collections'
 import { templates } from './templates'
 import { sameReviewSettings } from '../audit/review'
 import type { VisualStatus } from '../images/automaticSearch'
+import { hasEditorialAlternative } from './editorialAlternative'
 
 export type SlideReview = { project: Project; scene: Scene; errors: number; warnings: number }
 export function Slides({ project, current, select, action, issues, reorder, open, toggle, imageStatus, locatePhoto }: {
@@ -44,7 +45,7 @@ export function Slides({ project, current, select, action, issues, reorder, open
       const review = issues.get(slide.id)
       const status = imageStatus?.(slide.id)
       const match = slide.visualChoice?.match
-      const photoStatus = slide.visualChoice?.reviewRequired ? 'Contexto alterado: revise a imagem' : status === 'empty' ? 'Nenhuma imagem adequada encontrada' :
+      const photoStatus = hasEditorialAlternative(slide) ? (slide.visualChoice?.reception?.confirmed ? 'Alternativa editorial confirmada' : slide.visualChoice?.reception?.documentaryRequired === false ? 'Alternativa editorial' : 'Alternativa editorial · revisão pendente') : slide.visualChoice?.reviewRequired ? 'Contexto alterado: revise a imagem' : status === 'empty' ? 'Nenhuma imagem adequada encontrada' :
         isSearchFailure(status) ? 'Revise a busca de imagem' : match ? 'Imagem encontrada' : status ? 'Buscando imagem' :
           slide.visualChoice?.mode === 'none' ? 'Slide sem imagem' : ''
       const composition = /^collection-v1:[^:]+:(\d)$/.exec(slide.layout)?.[1]

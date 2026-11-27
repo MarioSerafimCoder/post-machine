@@ -1,11 +1,12 @@
 import { Textbox } from 'fabric'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { collections, imageForFrame } from '../collections'
-import { defaultBrand } from '../model'
+import { defaultBrand, dimensions } from '../model'
 import { validateProject } from '../validation'
 import { compositionPreference, divideBody, planSlides } from './planning'
 import { fitText } from './typography'
 import { candidateLimitPerSlide, fabricate, recompose } from './fabricate'
+import { chooseProposal } from './artDirector'
 
 const image = (id: string, width: number, height: number) => ({
   type:'Image',src:'data:image/png;base64,'+id,width,height,
@@ -112,6 +113,16 @@ describe('tipografia e propostas', () => {
     expect(result.proposals[0].details[0].issues.map(issue=>issue.kind)).toEqual(expect.arrayContaining(['font','image']))
     expect(result.proposals[1].project.slides[0].scene.objects.some(object=>object.semantic==='imageFrame')).toBe(true)
     await expect(fabricate(input,controller.signal,()=>controller.abort())).rejects.toMatchObject({name:'AbortError'})
+  })
+  it('reserva área útil para a foto que chegar depois da montagem automática', async () => {
+    const style = collections.find(item => item.id === 'minimal')!
+    const format = 'portrait' as const
+    const result = await fabricate({ style, format, brand: defaultBrand, intelligent: true,
+      slides: [{ title: 'A lua da Insomnia Cookies', body: 'Uma forma recorrente na nova identidade.',
+        role: 'cover', visualPlaceholder: true }], assets: [] }, new AbortController().signal, vi.fn())
+    const frame = chooseProposal(result.proposals).project.slides[0].scene.objects.find(object => object.semantic === 'imageFrame')
+    expect(Number(frame?.width)).toBeGreaterThanOrEqual(dimensions[format][0] * .18)
+    expect(Number(frame?.height)).toBeGreaterThanOrEqual(dimensions[format][1] * .16)
   })
 })
 

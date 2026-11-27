@@ -1,6 +1,6 @@
 import { imagePhoto } from './expressPhoto'
 import { isSearchFailure } from '../images/searchDiagnostics'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ContextRail, ContextWorkspace, type ContextTool } from '../../components/ContextRail'
 import { maxImport, maxSlides, type Content, type Draft } from '../campaigns/contract'
 import { readCampaigns } from '../campaigns/storage'
@@ -24,12 +24,15 @@ import { openExpressDraft, reconcileExpressSlides, type ExpressDraft, type Expre
 import { AuthorTemplates } from './AuthorTemplates'
 import { templateRole, type AuthorTemplate } from './authorTemplate'
 import { fabricateAuthorTemplate, planAuthorImages } from './factory/authorFabrication'
+import { chooseCollection, chooseProposal } from './factory/artDirector'
 import { loadAuthorTemplate } from './storage'
 import { useLocalVision } from './vision/useLocalVision'
 import { creditKeys, rememberRejectedVisual, requestFor } from '../images/automaticSearch'
 import { campaignContext } from '../images/visualContext'
 import { useAutomaticImages } from '../images/useAutomaticImages'
+import { coverEmptyVisual, requiresDocumentary } from './editorialAlternative'
 import { VisualSearchStatus } from '../images/VisualSearchStatus'
+import { BraveAttribution } from '../images/BraveBudgetStatus'
 import { frameImage, frameRequest, projectVisualContext, rewriteVisualFrame } from './visualFrames'
 import './collections.css'
 
@@ -49,8 +52,8 @@ const entry = (data: CollectionSlide = { title:'', body:'' }): Entry => {
   return { ...data, id, key: id }
 }
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : String(cause)
-export function Express({ active, brand, campaign, originMode, format: initialFormat, cancel, open, editTemplate }: {
-  active: boolean; brand: Brand; campaign?: Draft; originMode?: 'import' | 'blank'; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
+export function Express({ active, brand, campaign, originMode, initialFile, format: initialFormat, cancel, open, editTemplate }: {
+  active: boolean; brand: Brand; campaign?: Draft; originMode?: 'import' | 'blank'; initialFile?: File; format: Format; cancel: () => void; open: (project: Project) => Promise<void>
   editTemplate: (template: AuthorTemplate) => Promise<void>
 }) {
   const [step, setStep] = useState<Step>('Conteúdo')
@@ -82,6 +85,9 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   const [imageBriefSlide, setImageBriefSlide] = useState('')
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
+  const [autoOnImport, setAutoOnImport] = useState(originMode === 'import')
+  const [autoMount, setAutoMount] = useState(originMode === 'import' && !!campaign?.content)
+  const importedFile = useRef<File | undefined>(undefined)
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('')
@@ -90,6 +96,8 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   const [progress, setProgress] = useState<number>()
   const [editTarget, setEditTarget] = useState<{ index: number; field: 'text' | 'image' }>()
   const generation = useRef<AbortController | null>(null)
+  const manualTemplate = useRef(false)
+  const directionIndex = useRef(0)
   const [previewIndex, setPreviewIndex] = useState(0)
   const operation = useRef(false)
   const dragged = useRef<string | undefined>(undefined)
@@ -127,14 +135,18 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   }), [style, format, brand, slides, author, visual, photos])
   const localPlan = useMemo(() => author ? planAuthorImages(author, localInput) : planFactoryImages(localInput), [author, localInput])
   const automaticBySlide = useMemo(() => new Map(targets.flatMap(target => {
-    const photo = photos.find(item => item.automatic?.slideKey === target.slideId && item.automatic.signature === target.signature)
+    const pendingReview = slides.find(slide => slide.key === target.slideId)?.needsImageReview
+    const photo = photos.find(item => item.automatic?.slideKey === target.slideId &&
+      (item.automatic.signature === target.signature || pendingReview))
     return photo ? [[target.slideId, photo] as const] : []
-  })), [targets, photos])
+  })), [targets, photos, slides])
   const requests = useMemo(() => targets.filter(target => {
+    const index = slides.findIndex(slide => slide.key === target.slideId)
     const automatic = automaticBySlide.get(target.slideId)
+    if (automatic && slides[index]?.needsImageReview) return false
     const chosenManually = automatic && slides.some(slide => slide.imageId === automatic.id)
     const provisional = automatic && !automatic.automatic?.match.referenceReview && ['related', 'support'].includes(automatic.automatic?.match.classification ?? '') && !chosenManually
-    return (!automatic || provisional) && !localPlan[slides.findIndex(slide => slide.key === target.slideId)]?.picture
+    return (!automatic || provisional) && !localPlan[index]?.picture
   }), [targets, automaticBySlide, localPlan, slides])
   const occupied = useMemo(() => new Set(photos.filter(photo => !photo.automatic ||
     automaticBySlide.get(photo.automatic.slideKey) === photo || slides.some(slide => slide.imageId === photo.id)).flatMap(photo => {
@@ -225,7 +237,14 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   },[editTarget,step])
 
   function change(slide: string, patch: Partial<Entry>) {
-    setSlides(value => value.map(item => item.key === slide ? { ...item, ...patch } : item))
+    setSlides(value => value.map(item => {
+      if (item.key !== slide) return item
+      const next = { ...item, ...patch }
+      if ((item.imageId || item.image || photos.some(photo => photo.automatic?.slideKey === slide)) &&
+        (['title', 'body', 'subtitle', 'imageBrief'] as const).some(field =>
+          (item[field] ?? '').trim() !== (next[field] ?? '').trim())) next.needsImageReview = true
+      return next
+    }))
   }
   function assignPhoto(slide: Entry, index: number, id: string | null | undefined) {
     const photo = photos.find(item => item.id === id)
@@ -263,6 +282,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
         setName(result.structured.campaign.title.slice(0,100))
         if (!author) setFormat(result.structured.campaign.format === 'story' ? 'story' : initialFormat === 'story' ? 'portrait' : initialFormat)
       }
+      setAutoMount(result.kind === 'json' && autoOnImport)
       if (originMode && !author && style === collections[0]) {
         const suggested = result.slides.some(slide => slide.intent === 'comparison') ? 'swiss' :
           result.slides.some(slide => slide.imageBrief?.trim()) ? 'photo' : 'minimal'
@@ -272,6 +292,21 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
       setStatus(`${result.slides.length} ${result.slides.length === 1 ? 'slide organizado' : 'slides organizados'}.`)
     } catch (cause) { setError(errorText(cause)) }
   }
+
+  async function readContentFile(file: File) {
+    try {
+      if (file.size > maxImport * 4) throw Error('O arquivo excede o limite de importação.')
+      const raw = await file.text()
+      if (raw.length > maxImport) throw Error('O conteúdo excede o limite de importação.')
+      if (live.current) { setText(raw); applyText(raw) }
+    } catch (cause) { if (live.current) setError(errorText(cause)) }
+  }
+  const readEntryFile = useEffectEvent(readContentFile)
+  useEffect(() => {
+    if (!active || draftGate !== 'ready' || !initialFile || importedFile.current === initialFile) return
+    importedFile.current = initialFile
+    void readEntryFile(initialFile)
+  }, [active, draftGate, initialFile])
 
   function updateRaw(raw: string) {
     setText(raw)
@@ -389,7 +424,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
       } }],
     },
   } : undefined)
-  async function startFabrication(openRecommended = false) {
+  async function startFabrication(openRecommended = false, automaticDirection = false) {
     if (invalid.length || generation.current || busy || downloading || vision.progress) return
     const controller = new AbortController()
     generation.current = controller
@@ -397,17 +432,19 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     setStatus('')
     setProgress(0)
     try {
+      const directed = automaticDirection && !author && !manualTemplate.current
+        ? chooseCollection(slides, format, photos.length > 0, style, directionIndex.current++) : style
+      const input = automaticDirection ? { ...factoryInput, style: directed, intelligent: true } : factoryInput
+      if (directed !== style) setStyle(directed)
       const output = author
-        ? await fabricateAuthorTemplate(author, factoryInput, controller.signal, setProgress)
-        : await fabricate(factoryInput, controller.signal, complete => setProgress(complete))
+        ? await fabricateAuthorTemplate(author, input, controller.signal, setProgress)
+        : await fabricate(input, controller.signal, complete => setProgress(complete))
       if (live.current && !controller.signal.aborted) {
         if (openRecommended) {
-          const warnings = (proposal: Proposal) => proposal.details.reduce((sum, detail) => sum + detail.issues.filter(requiresReview).length, 0)
-          const recommended = output.proposals.reduce((best, proposal) => warnings(proposal) < warnings(best) ? proposal : best)
-          await create(recommended)
+          await create(chooseProposal(output.proposals))
           return
         }
-        setPrepared({ input:factoryInput,result:output })
+        setPrepared({ input,result:output })
         setSelected(0)
         setPreviewIndex(0)
         setStatus(author ? 'Prévia do template pronta para revisar.' : 'Três propostas prontas para comparar.')
@@ -452,7 +489,9 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
           const match = photos.find(photo => photo.id === entry.imageId)?.automatic?.match
           return { ...slide, visualChoice: { ...state, mode: entry.imageLocked ? 'locked' : 'manual', match } }
         }
-        if (!request) return slide
+        if (!request) return coverEmptyVisual(slide)
+        if (!image) return rewriteVisualFrame(slide, { ...state, mode: 'automatic', reception: { state: 'checking', confirmed: false,
+          documentaryRequired: requiresDocumentary(slide, !!project.editorialSource || !!sourceContent?.sources.length) } })
         return { ...slide, visualChoice: { ...state, mode: 'automatic', ...(image && auto ? { signature: request.signature, match: auto.match } : {}) } }
       })
       await open(project)
@@ -461,6 +500,17 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     } catch (cause) { setError(errorText(cause)) }
     finally { operation.current = false; if (live.current) setBusy(false) }
   }
+  const automaticallyMount = useEffectEvent(() => {
+    setAutoMount(false)
+    void startFabrication(true, true)
+  })
+  useEffect(() => {
+    if (!active || draftGate !== 'ready' || !autoMount || !autoOnImport || !canMount || busy || downloading ||
+      progress !== undefined || vision.progress) return
+    const timer = setTimeout(() => automaticallyMount(), 0)
+    return () => clearTimeout(timer)
+  }, [active, draftGate, autoMount, autoOnImport, canMount, busy, downloading, progress, vision.progress])
+
   function selectStep(value: string) {
     if (busy || downloading) return
     generation.current?.abort()
@@ -540,16 +590,10 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
         {text.trim() && lastOrganized !== text && <button className="button button-dark" onClick={() => applyText()}>Organizar slides</button>}
         <button className="button button-outline" onClick={() => contentFile.current?.click()}>Importar arquivo</button>
         {!editingSlides && <button className="button button-outline" onClick={showSlides}>Escrever slide a slide</button>}
-        <input hidden ref={contentFile} aria-label="Importar arquivo JSON ou Markdown" type="file" accept=".json,.md,application/json,text/markdown" onChange={async event => {
+        <input hidden ref={contentFile} aria-label="Importar arquivo JSON ou Markdown" type="file" accept=".json,.md,.txt,application/json,text/markdown,text/plain" onChange={event => {
           const file = event.currentTarget.files?.[0]
           event.currentTarget.value = ''
-          if (!file) return
-          try {
-            if (file.size > maxImport * 4) throw Error('O arquivo excede o limite de importação.')
-            const raw = await file.text()
-            if (raw.length > maxImport) throw Error('O conteúdo excede o limite de importação.')
-            if (live.current) { setText(raw); applyText(raw) }
-          } catch (cause) { if (live.current) setError(errorText(cause)) }
+          if (file) void readContentFile(file)
         }} />
         {!!campaigns?.length && <label>Carregar campanha do Radar<select value={linked?.id ?? ''} onChange={event => loadCampaign(event.target.value)}>
           <option value="">Selecione uma campanha</option>
@@ -577,7 +621,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
       <label>Texto<textarea id={'express-edit-text-' + index} rows={3} value={slide.body} onChange={event => change(slide.key,{body:event.target.value})} /></label>
         <label>Chamada para ação<input value={slide.cta ?? ''} onChange={event => change(slide.key,{cta:event.target.value})} /></label>
         {slide.needsImageReview && <p role="status">O contexto visual mudou. Revise a imagem escolhida.</p>}
-        <label>Briefing de imagem<input value={slide.imageBrief ?? ''} onChange={event => change(slide.key,{imageBrief:event.target.value, needsImageReview:true})} /></label>
+        <label>Briefing de imagem<input value={slide.imageBrief ?? ''} onChange={event => change(slide.key,{imageBrief:event.target.value})} /></label>
         {(automaticBySlide.has(slide.key) || requests.some(item => item.slideId === slide.key)) && <div className="express-image-match">
           {automaticBySlide.has(slide.key) ? <img src={String(automaticBySlide.get(slide.key)?.object.src)} alt="" /> :
             <span className="visual-search-placeholder" aria-hidden="true" />}
@@ -588,6 +632,7 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
     <button className="button button-outline" disabled={slides.length >= maxSlides} onClick={() => setSlides(items => [...items,entry()])}>Adicionar slide</button></>}
   </div>
   else if (step === 'Imagens') panel = <>
+    <BraveAttribution />
     <nav aria-label="Origem das imagens da produção" className="collection-actions">
       {([['local','Arquivos locais'],['openverse','Openverse'],['library','Imagens utilizadas'],['url','Link externo']] as const).map(([value,label]) =>
         <button key={value} id={`express-origin-${value}`} className="button button-outline" aria-pressed={origin === value} disabled={busy || downloading} onClick={() => setOrigin(value)}>{label}</button>)}
@@ -674,13 +719,14 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
             {planned?.content.focalPoint && !slide.focalPoint && <p>Ponto focal sugerido pela concentração de contraste.</p>}
           </div>
         </div>
-        <VisualSearchStatus status={search.status(request)} match={match} />
+        <VisualSearchStatus status={search.status(request)} match={match} attempts={search.attempts(request)} />
+        {slide.needsImageReview && <p role="status">O contexto visual mudou. Revise a imagem escolhida.</p>}
         <p className="muted">{slide.imageLocked ? 'Travado' : slide.imageId === null ? 'Sem imagem' : slide.imageId ? 'Confirmado manualmente' : 'Automático'}</p>
         <div className="collection-actions">
           {match && auto && <button className="button button-outline" onClick={() => assignPhoto(slide, index, auto.id)}>Manter esta</button>}
           {planned?.content.image && !slide.imageLocked && <button className="button button-outline" onClick={() =>
             change(slide.key, { imageId: slide.imageId ?? auto?.id ?? planned.picture?.id, imageLocked: true,
-              visualDecision: auto ? 'approved' : slide.visualDecision,
+              visualDecision: auto ? 'approved' : slide.visualDecision, needsImageReview: false,
               focalPoint: slide.focalPoint ?? planned.content.focalPoint })}>Travar imagem</button>}
           {slide.imageLocked && <button className="button button-outline" onClick={() => change(slide.key, { imageLocked: false })}>Destravar imagem</button>}
           {!slide.imageLocked && <button className="button button-outline" onClick={() => { setOrigin('openverse'); setImageBriefSlide(slide.key) }}>Trocar imagem</button>}
@@ -720,13 +766,13 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   </>
   else if (step === 'Templates') panel = <>
     <AuthorTemplates format={format} selected={author?.id} use={value => {
-      setAuthor(value); setFormat(value.format); setStatus(`${value.name} selecionado em ${formatNames[value.format]}.`)
+      manualTemplate.current = true; setAuthor(value); setFormat(value.format); setStatus(`${value.name} selecionado em ${formatNames[value.format]}.`)
     }} edit={async value => { await draftQueue.flush(slot); await editTemplate(value) }} />
     <CollectionGallery selected={author ? undefined : style.id} format={format} setFormat={value => {
       setFormat(value)
       if (author && author.format !== value) { setAuthor(undefined); setStatus('Formato da coleção alterado. Selecione uma composição nesse formato.') }
     }} use={value => {
-      setAuthor(undefined); setStyle(value); setStatus(`${value.name} selecionada.`)
+      manualTemplate.current = true; setAuthor(undefined); setStyle(value); setStatus(`${value.name} selecionada.`)
     }} />
   </>
   else panel = <>
@@ -760,6 +806,8 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
   }
 
   async function recover(data: ExpressDraft) {
+    setAutoMount(false)
+    importedFile.current = initialFile
     if (data.authorTemplateId) {
       setBusy(true)
       try {
@@ -817,11 +865,25 @@ export function Express({ active, brand, campaign, originMode, format: initialFo
           <h3>{step}</h3>
           {(editingSlides || step !== 'Conteúdo') && <span className="muted">{slides.length - invalid.length} de {slides.length} {slides.length === 1 ? 'slide' : 'slides'} com conteúdo · {photos.length} {photos.length === 1 ? 'imagem' : 'imagens'} · {author?.name ?? style.name}</span>}
         </header>
-        {(busy || downloading || (originMode && progress !== undefined)) && <p role="status">{downloading ? 'Baixando imagem…' : 'Montando slides…'}</p>}
+        {(busy || downloading || progress !== undefined || autoMount) && <p role="status">
+          {downloading ? 'Baixando imagem…' : progress !== undefined || busy ? 'Montando carrossel…' : 'Preparando conteúdo…'}
+        </p>}
         {originMode && step === 'Conteúdo' && progress !== undefined && !busy &&
           <button className="button button-outline" onClick={() => generation.current?.abort()}>Cancelar montagem</button>}
         {error && <p className="express-warning" role="alert">{error}</p>}
         {status && <p className="express-feedback" key={status} role="status">{status}</p>}
+        {step === 'Conteúdo' && editingSlides && <div className="collection-actions">
+          <button className="button button-dark" disabled={!canMount || busy || downloading || progress !== undefined || !!vision.progress}
+            onClick={() => void startFabrication(true, true)}>Montar automaticamente</button>
+          <span className="muted">Uma proposta editável será aberta no Studio. A pesquisa de imagens continua em segundo plano.</span>
+        </div>}
+        {step === 'Conteúdo' && originMode === 'import' && <details>
+          <summary>Direção manual</summary>
+          <label className="express-check"><input type="checkbox" checked={!autoOnImport} onChange={event => {
+            setAutoOnImport(!event.target.checked)
+            if (event.target.checked) { setAutoMount(false); generation.current?.abort() }
+          }} /> Escolher a direção antes de montar um JSON</label>
+        </details>}
         {(missing.length > 0 || interrupted.length > 0 || matchedPhotos.length > 0) && <div className="collection-actions" role="group" aria-label="Fotografias da preparação">
           {matchedPhotos.length > 0 && <button className="button button-outline" disabled={busy || downloading} onClick={() => {
             const index = slides.findIndex(slide => automaticBySlide.has(slide.key) || photos.some(photo => photo.id === slide.imageId && photo.automatic))

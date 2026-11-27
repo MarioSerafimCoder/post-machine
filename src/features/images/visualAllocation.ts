@@ -9,7 +9,8 @@ export function narrativeAssignment<T extends Choice>(choices: T[]) {
   const lookup = new Map<string, Map<string, T>>()
   for (const choice of choices) {
     const row = lookup.get(choice.request.key) ?? new Map()
-    row.set(choice.candidate.credit.sourceId, choice)
+    const existing = row.get(choice.candidate.credit.sourceId)
+    if (!existing || choice.score > existing.score) row.set(choice.candidate.credit.sourceId, choice)
     lookup.set(choice.request.key, row)
   }
   const rows = slideIds.length

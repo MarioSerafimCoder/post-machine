@@ -9,6 +9,7 @@ import ProjectPreview from './ProjectPreview'
 import { newProjectIdentity, formatNames, type Format } from './model'
 import { backupProject, listProjects, loadProject, removeProject, restoreProject, saveLibraryProject, type ProjectSummary } from './storage'
 import { StorageSettings } from './StorageSettings'
+import { BraveBudgetStatus } from '../images/BraveBudgetStatus'
 import './projectLibrary.css'
 
 const date = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' })
@@ -160,6 +161,12 @@ export function ProjectLibrary({ result, refresh, error, flush, open, imported, 
         <button disabled={busy}>Salvar nome</button><button type="button" onClick={() => setRename(undefined)}>Cancelar</button>
       </form>}
     </article>)}</div>
-    <footer className="library-footer"><StorageSettings flush={flush} /></footer>
+    <footer className="library-footer">
+      <section aria-labelledby="library-settings">
+        <h2 id="library-settings">Configurações</h2>
+        <StorageSettings flush={flush} />
+        <BraveBudgetStatus />
+      </section>
+    </footer>
   </section>
 }

@@ -23,14 +23,14 @@ function explicitIntent(layout: string): CollectionSlide['intent'] {
   return undefined
 }
 
-export function parseExpress(input: string): { slides: Input[]; structured?: Content } {
+export function parseExpress(input: string): { slides: Input[]; structured?: Content; kind?: 'json' | 'markdown' } {
   const text = input.replace(/\r\n?/g, '\n').trim()
     .replace(/^```(?:json|md|markdown|txt|text)?[ \t]*\n([\s\S]*?)\n```$/i, '$1').trim()
   if (!text) throw Error('Cole o conteúdo antes de organizar os slides.')
   if (text.length > maxImport) throw Error('O conteúdo excede o limite de 250 mil caracteres.')
   if (/^(?:\{|\[|# Campanha\b)/i.test(text)) {
     const structured = importContent(text)
-    return { slides: fromStructured(structured), structured }
+    return { slides: fromStructured(structured), structured, kind: text.startsWith('#') ? 'markdown' : 'json' }
   }
   const marker = /^(?:#{1,6}[ \t]+)?slide[ \t]+\d+[ \t]*(?:(?:[-–—:.])[ \t]*(.*))?$/gim
   const sections = [...text.matchAll(marker)]

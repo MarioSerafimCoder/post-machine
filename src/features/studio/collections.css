@@ -148,3 +148,6 @@
 .author-template-actions summary { font-size: 12px; color: var(--muted); }
 .collection-grid .author-template-actions { order: 1; margin-top: 8px; }
 .collection-grid .collection-card-copy > .collection-actions { order: 2; }
+.brave-attribution { display:inline-flex; align-items:center; gap:.5rem; padding:.35rem .55rem; margin:.35rem 0; border:1px solid currentColor; border-radius:.35rem; color:inherit; text-decoration:none; }
+.brave-attribution img { width:76px; height:auto; }
+.brave-attribution strong { font-size:.72rem; letter-spacing:.035em; }

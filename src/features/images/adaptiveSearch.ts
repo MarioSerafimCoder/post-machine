@@ -1,5 +1,5 @@
 import { prioritizedImageQueries, type VisualRequest } from './automaticSearch'
-import { phraseKey } from './visualContext'
+import { phraseKey, researchUrl } from './visualContext'
 
 export type SearchOutcome = { kind: 'web' | 'images'; query: string; cause: 'empty' | 'unusable' | 'blocked' | 'download' }
 // Word order and punctuation alone do not justify spending another provider request.
@@ -15,9 +15,13 @@ export function nextVisualQuery(requests: VisualRequest[], queried: ReadonlySet<
   const available = (kind: SearchOutcome['kind'], values: string[]) => values.map(query => ({ kind, query }))
     .find(item => !queried.has(visualQueryKey(item.kind, item.query)))
   // No usable raster / blocked origin: discover another publication and its captions.
-  // No results: reformulate first, then change channel. Both remain within five calls.
+  // No results: reformulate first, then change channel.
   if (previous && previous.cause !== 'empty' && previous.kind === 'images') {
-    const web = available('web', [previous.query, ...queries])
+    const source = requests.flatMap(request => request.copy.visualContext?.preferredSourceUrls ?? [])
+      .map(url => researchUrl(url)?.hostname).find(Boolean)
+    const publication = source && source.length < 180 && previous.cause !== 'blocked'
+      ? [previous.query.slice(0, 238 - source.length) + ' ' + source] : []
+    const web = available('web', [...publication, previous.query, ...queries])
     if (web) return web
   }
   if (previous?.cause === 'empty') {

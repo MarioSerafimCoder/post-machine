@@ -6,6 +6,7 @@ import { inspectCanvas } from '../audit/rules'
 import { defaultSettings, type Finding } from '../audit/contract'
 import { projectCredits } from '../images/credits'
 import { verifySceneLoaded } from './sceneIntegrity'
+import { visualDeliveryIssues } from './editorialAlternative'
 import './objects'
 export function download(blob: Blob, name: string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 10000) }
 export async function renderScene(scene: Scene, width: number, height: number, options: { scale?: number; signal?: AbortSignal; audit?: (canvas: StaticCanvas) => Finding[] } = {}) {
@@ -28,6 +29,8 @@ export async function renderScene(scene: Scene, width: number, height: number, o
 type ExportOptions = { signal?: AbortSignal; includeCaption?: boolean; progress?: (status: string) => void; reviewedFindings?: readonly Finding[] }
 export async function exportProject(project: Project, current?: number, { signal, progress, includeCaption, reviewedFindings }: ExportOptions = {}) {
   signal?.throwIfAborted()
+  const visualIssues = visualDeliveryIssues(project, current)
+  if (visualIssues.length) throw Error(visualIssues.join('\n'))
   await loadFonts(project.brand)
   const [width, height] = dimensions[project.format]
   const slides = current === undefined ? project.slides : [project.slides[current]]

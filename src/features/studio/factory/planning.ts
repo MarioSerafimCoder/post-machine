@@ -17,6 +17,20 @@ export type PlannedSlide = {
   visualPlaceholder?: boolean
 }
 
+export function narrativeFunction(slide: PlannedSlide, index: number, total: number) {
+  const { content, focus, role } = slide
+  const declared = normalize(content.layoutType ?? '').trim()
+  if (role === 'cover' || role === 'cta' || content.cta) return role === 'cover' ? 'cover' : 'cta'
+  if (focus) return focus
+  if (/^(?:quote|citacao|highlight|destaque)$/.test(declared)) return 'highlight'
+  if (/^(?:comparison|comparativo|comparacao)$/.test(declared)) return 'comparison'
+  if (/^(?:data|dado|dado numerico|statistic)$/.test(declared) || /^\s*\d+[.,\d]*\s*(?:%|mil\b|milhoes\b)/i.test(content.title)) return 'data'
+  if (/^(?:list|lista)$/.test(declared) || (content.body.match(/^\s*(?:[-•]|\d+[.)])\s/gm)?.length ?? 0) >= 2) return 'list'
+  if (/^(?:conclusion|conclusao)$/.test(declared) || (index === total - 1 && total > 2 && !slide.picture)) return 'conclusion'
+  if (/^(?:intro|introducao|context|contextualizacao)$/.test(declared) || index === 1) return 'context'
+  return 'content'
+}
+
 const word = (value: string) => normalize(value).match(/[\p{L}\p{N}]{4,}/gu) ?? []
 const irrelevant = new Set(['imagem', 'foto', 'fotografia', 'slide', 'para', 'como', 'sobre', 'esta', 'este', 'uma', 'composição', 'with', 'from', 'photo', 'image'])
 

@@ -52,9 +52,9 @@ test('valida a referência importada, pesquisa no Studio e mantém a substituiç
     { order: 3, role: 'cta', title: 'Veja o curta', body: 'Confira a peça na página da campanha.', imageBrief: 'Somente texto', layoutType: 'textual' },
   ] }
   await page.goto('/#/inicio')
-  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByRole('button', { name: /^Criar conteúdo/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Importar conteúdo' }).click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify(data))
-  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
   const studio = page.getByRole('region', { name: editor })
   await expect(studio.getByRole('button', { name: 'Slide 1', exact: true })).toHaveAttribute('aria-description', /Imagem encontrada/)
   expect(imageQueries).toBe(0)
@@ -109,7 +109,7 @@ test('verifica candidatos da página compartilhada e reabre o projeto com os cr�
   const downloads: string[] = []
   await page.route('**/api/visual/page', route => {
     sourceRequests++
-    expect(route.request().postDataJSON()).toMatchObject({ url: source, preferredImages: [failed.url, wrong.url, workshop.url] })
+    expect(route.request().postDataJSON()).toMatchObject({ url: source, preferredImages: [failed.url, wrong.url, workshop.url, absent, alternative.url, workshopAlias] })
     return route.fulfill({ json: { candidates: [wrong, workshop, alternative, failed] } })
   })
   await page.route('**/api/visual/brave', route => {
@@ -135,9 +135,9 @@ test('verifica candidatos da página compartilhada e reabre o projeto com os cr�
     ],
   }
   await page.goto('/#/inicio')
-  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByRole('button', { name: /^Criar conteúdo/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Importar conteúdo' }).click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify(data))
-  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
   const studio = page.getByRole('region', { name: editor })
   for (const order of [1, 2]) {
     await expect(studio.getByRole('button', { name: 'Slide ' + order, exact: true })).toHaveAttribute('aria-description', /Imagem encontrada/)
@@ -182,7 +182,8 @@ test('investiga somente páginas indicadas e mostra bloqueio com orçamento Brav
     return route.fulfill({ contentType: 'image/png', body: poster(1) })
   })
   await page.goto('/#/inicio')
-  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByRole('button', { name: /^Criar conteúdo/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Importar conteúdo' }).click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify({
     schemaVersion: 1, campaign: { title, audience: '', objective: 'Informar', tone: 'Profissional',
       format: 'carousel', caption: '', cta: '', visualContext: { campaignName } }, sources: [],
@@ -193,11 +194,10 @@ test('investiga somente páginas indicadas e mostra bloqueio com orçamento Brav
         visualContext: { preferredSourceUrls: [refused] } },
     ],
   }))
-  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
   const studio = page.getByRole('region', { name: editor })
   await expect(studio.getByRole('button', { name: 'Slide 1', exact: true })).toHaveAttribute('aria-description', /Imagem encontrada/)
   const pending = studio.getByRole('button', { name: 'Slide 2', exact: true })
-  await expect(pending).toHaveAttribute('aria-description', /Revise a busca de imagem/)
+  await expect(pending).toHaveAttribute('aria-description', /Alternativa editorial · revisão pendente/)
   await pending.click()
   await studio.getByRole('button', { name: 'Imagens', exact: true }).click()
   await expect(studio.getByText(/A fonte não permite acessar a imagem/)).toBeVisible()
@@ -219,14 +219,14 @@ test('autoriza domínio, carrega referência sem legenda e mantém a conferênci
   await page.route('https://api.openverse.org/**', route => route.fulfill({ json: { page_count: 0, results: [] } }))
   await page.route('**/api/visual/download', route => route.fulfill({ contentType: 'image/png', body: poster(1) }))
   await page.goto('/#/inicio')
-  await page.getByRole('button', { name: /Importar conteúdo/ }).first().click()
+  await page.getByRole('button', { name: /^Criar conteúdo/ }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Importar conteúdo' }).click()
   await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify({
     schemaVersion: 1, campaign: { title, audience: '', objective: 'Informar', tone: 'Profissional',
       format: 'post', caption: '', cta: '', visualContext: { campaignName } }, sources: [],
     slides: [{ order: 1, role: 'cover', title, body: 'Bastidores da criação.', imageBrief: 'Bonecos na oficina', layoutType: 'photo',
       visualContext: { visualCandidates: [{ imageUrl: asset.url, sourceUrl: addressed, description: 'Bonecos na oficina' }] } }],
   }))
-  await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
   const studio = page.getByRole('region', { name: editor })
   await studio.getByRole('button', { name: 'Imagens', exact: true }).click()
   await studio.getByRole('button', { name: 'Autorizar publisher.example.com' }).click()
@@ -293,12 +293,11 @@ for (const count of [3, 4, 6, 10]) {
       })),
     }
     await page.goto('/#/inicio')
-    const importButton = page.getByRole('button', { name: /Importar conteúdo/ }).first()
-    await importButton.click()
+    await page.getByRole('button', { name: /^Criar conteúdo/ }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Importar conteúdo' }).click()
+    const started = performance.now()
     await page.getByLabel('Cole aqui o conteúdo do seu post ou carrossel').fill(JSON.stringify(data))
     await expect.poll(() => sourceRequests).toBe(1)
-    const started = performance.now()
-    await page.getByRole('button', { name: 'Montar e abrir no Studio', exact: true }).click()
     const studio = page.getByRole('region', { name: editor })
     await expect(studio.getByLabel('Projeto', { exact: true })).toHaveValue(title)
     const opened = performance.now()
@@ -312,12 +311,9 @@ for (const count of [3, 4, 6, 10]) {
       await studio.getByRole('button', { name: 'Finalizar e exportar', exact: true }).click()
       await expect(studio.getByText(/Há buscas de imagens em andamento/)).toBeVisible()
       release()
-      const exported = page.waitForEvent('download')
       await page.getByRole('button', { name: 'Exportar ZIP', exact: true }).click()
-      const warning = page.getByRole('button', { name: 'Exportar com avisos' })
-      if (await Promise.race([exported.then(() => false), warning.waitFor().then(() => true)])) await warning.click()
-      const zip = await JSZip.loadAsync(await readFile(await (await exported).path()))
-      expect(zip.file('creditos.txt')).toBeNull()
+      await expect(studio.getByText('Finalização visual pendente')).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Exportar com avisos' })).toHaveCount(0)
       await page.getByRole('button', { name: 'Fechar exportação' }).click()
     } else release()
     const first = studio.getByRole('button', { name: 'Slide 1', exact: true })
@@ -366,3 +362,62 @@ for (const count of [3, 4, 6, 10]) {
     }) })
   })
 }
+test('recupera a variante da mesma fonte e explica o conflito no segundo slide', async ({ page }) => {
+  const raster = poster(2)
+  const asset = { ...documentary[0], evidence: 'figure' }
+  const usable = { ...asset, url: asset.url + '?w=1280', ticket: 'usable' }
+  const broken = { ...asset, url: asset.url + '?w=1600', ticket: 'broken' }
+  const tickets: string[] = []
+  await page.route('**/api/visual/page', route => route.fulfill({ json: { state: 'ok', candidates: [usable, { ...broken, url: asset.url + '?w=1500', ticket: 'broken2' }, broken] } }))
+  await page.route('**/api/visual/brave', route => route.fulfill({ json: { state: 'disabled', candidates: [] } }))
+  await page.route('https://api.openverse.org/**', route => route.fulfill({ json: { page_count: 0, results: [] } }))
+  await page.route('**/api/visual/download', route => {
+    const ticket = route.request().postDataJSON().ticket
+    tickets.push(ticket)
+    return ticket === 'usable' ? route.fulfill({ contentType: 'image/png', body: raster }) :
+      route.fulfill({ status: 422, json: { error: 'image_unavailable' } })
+  })
+  await page.goto('/')
+  const result = await page.evaluate(async ({ source, title }) => {
+    const base = '/src/features/images/'
+    const { campaignContext } = await import(base + 'visualContext.ts')
+    const { requestFor } = await import(base + 'automaticSearch.ts')
+    const { investigateVisuals } = await import(base + 'searchOrchestrator.ts')
+    const slides = ['cover','content'].map(role => ({ role, title, imageBrief: title }))
+    const context = campaignContext({ title, sources: [{ url: source, title }], slides })
+    const requests = slides.map((slide, index) => requestFor('variants/' + index, slide, context, 1))
+    const images: string[] = []
+    const states: string[] = []
+    await investigateVisuals(requests, {
+      used: () => new Set(),
+      image: (_request: unknown, image: { object: { imageCredit: { originalUrl: string } } }) => images.push(image.object.imageCredit.originalUrl),
+      finish: (_request: unknown, state: string) => states.push(state),
+    }, AbortSignal.timeout(15000))
+    return { images, states }
+  }, { source, title: campaignName })
+  expect(tickets).toEqual(['broken', 'broken2', 'usable'])
+  expect(result).toEqual({ images: [usable.url], states: ['duplicate'] })
+})
+
+test('expira a aprovação sem perdê-la em gravações concorrentes vigentes', async ({ page }) => {
+  await page.goto('/')
+  const write = async (approved: boolean) => page.evaluate(async ({ candidate, approved }) => {
+    const path = '/src/features/images/visualMemory.ts'
+    const memory = await import(path)
+    const credit = { sourceId: 'asset-test', provider: 'original', originalUrl: candidate.url }
+    await memory.rememberVisual('test-scope', candidate, credit, new Blob(['fixture']), undefined, approved)
+  }, { candidate: documentary[0], approved })
+  const read = () => page.evaluate(async () => {
+    const path = '/src/features/images/visualMemory.ts'
+    const memory = await import(path)
+    return (await memory.readVisualMemory('test-scope')).map((entry: { approved?: boolean }) => !!entry.approved)
+  })
+  const start = Date.UTC(2026, 10, 26)
+  await page.clock.setFixedTime(new Date(start))
+  await Promise.all([write(true), write(false)])
+  expect(await read()).toEqual([true])
+  await page.clock.setFixedTime(new Date(start + 86_400_001))
+  expect(await read()).toEqual([])
+  await write(false)
+  expect(await read()).toEqual([false])
+})

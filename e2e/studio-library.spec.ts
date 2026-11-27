@@ -1,5 +1,41 @@
 import { expect, test } from '@playwright/test'
 
+test('consulta e ajusta consumo pelo teclado na biblioteca do Studio', async ({ page }, info) => {
+  let paused = false
+  let automaticLimit = 2
+  let totalLimit = 3
+  await page.route('**/api/visual/budget', async route => {
+    const command = route.request().postDataJSON()
+    if (command.action === 'settings') {
+      paused = command.settings.enabled === undefined ? paused : !command.settings.enabled
+      automaticLimit = command.settings.automaticLimit ?? automaticLimit
+      totalLimit = command.settings.totalLimit ?? totalLimit
+    }
+    await route.fulfill({ json: { state: paused ? 'disabled' : 'ready', allowed: false, reason: paused ? 'paused' : undefined,
+      canManage: true, freeOnly: true, settings: { enabled: !paused }, totals: { web: 1, images: 0, automatic: 1, manual: 0, diagnostic: 0, cents: 1 },
+      limitCents: 500, reserveCents: 50, totalLimit, automaticLimit, confirmedAt: '2026-11-26T10:00:00Z',
+      end: '2026-11-27T10:00:00Z', remaining: totalLimit - 1, automaticRemaining: automaticLimit - 1, manualReserveRemaining: 1,
+    } })
+  })
+  await page.goto('/#/studio')
+  await expect(page.getByRole('heading', { name: 'Configurações' })).toBeVisible()
+  await page.getByText('Consumo e franquias', { exact: true }).press('Enter')
+  await expect(page.getByText('Modo exclusivamente gratuito ativo.')).toBeVisible()
+  await expect(page.getByText('1 (1 Web, 0 Images)')).toBeVisible()
+  await page.getByLabel('Limite total de consultas').fill('2')
+  await page.getByLabel('Limite de consultas automáticas').fill('1')
+  await page.getByRole('button', { name: 'Salvar limites' }).press('Enter')
+  await expect(page.getByText('Total 2 · Automáticas 1')).toBeVisible()
+  await page.getByRole('button', { name: 'Pausar pesquisa Brave' }).press('Enter')
+  await expect(page.getByText('Pesquisa Brave pausada pelo proprietário.')).toBeVisible()
+  await page.getByLabel('Permitir buscas gratuitas do Openverse neste navegador').uncheck()
+  await page.screenshot({ path: info.outputPath('consumo-e-franquias.png'), fullPage: true })
+  await page.reload()
+  await page.getByText('Consumo e franquias', { exact: true }).press('Enter')
+  await expect(page.getByLabel('Permitir buscas gratuitas do Openverse neste navegador')).not.toBeChecked()
+  await expect(page.getByRole('button', { name: 'Retomar pesquisa Brave' })).toBeVisible()
+})
+
 test('organiza, renomeia, duplica e exporta projetos pela biblioteca visual', async ({ page }, info) => {
   await page.goto('/#/studio')
   const create = page.getByText('＋ Novo projeto', { exact: true })

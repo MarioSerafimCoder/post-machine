@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import worker from '../../../worker/index'
+import { BraveBudget } from '../../../worker/braveBudget'
 import { externalFetch, externalUrl, issueTicket, publicAddress, rasterSignature, verifyTicket } from '../../../worker/security'
 
 const issuer = 'https://visual-test-team.cloudflareaccess.com'
@@ -12,6 +13,18 @@ const env = {
   ASSETS: { fetch: async () => new Response('SPA') }, VISUAL_LIMIT: allowed, BRAVE_LIMIT: allowed,
   CLOUDFLARE_ACCESS_ISSUER: issuer, CLOUDFLARE_ACCESS_AUD: audience, VISUAL_DOWNLOAD_KEY: key,
 }
+const budgetBinding = () => {
+  const values = new Map<string, unknown>()
+  const object = new BraveBudget({ storage: { transaction: async <T>(callback: (tx: {
+    get<V>(key: string): Promise<V | undefined>; put(key: string, entry: unknown): Promise<void>
+  }) => Promise<T>) => callback({ get: async key => structuredClone(values.get(key)) as never,
+    put: async (key, entry) => { values.set(key, structuredClone(entry)) } }) } })
+  return { idFromName: () => 'one', get: () => object }
+}
+const budgetEnv = () => ({ BRAVE_BUDGET: budgetBinding(), BRAVE_CYCLE_START: new Date(Date.now() - 86400000).toISOString(),
+  BRAVE_CYCLE_END: new Date(Date.now() + 86400000).toISOString(),
+  BRAVE_BALANCE_CONFIRMED_AT: new Date(Date.now() - 80000000).toISOString(), BRAVE_FREE_CREDIT_CENTS: '500',
+  BRAVE_PRIOR_USAGE_CENTS: '0', BRAVE_PRICE_CENTS: '0.5', BRAVE_AUTOMATIC_LIMIT: '900', BRAVE_TOTAL_LIMIT: '1000' })
 const jwk = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256', modulusLength: 2048,
   publicExponent: new Uint8Array([1, 0, 1]) }, true, ['sign', 'verify'])
 const publicKey = { ...await crypto.subtle.exportKey('jwk', jwk.publicKey), kid: 'test-key' }
@@ -39,6 +52,7 @@ describe('Worker de pesquisa visual', () => {
     vi.stubGlobal('fetch', outbound)
     expect(await (await worker.fetch(new Request(origin + '/'), env)).text()).toBe('SPA')
     expect((await worker.fetch(request('brave', {}), env)).status).toBe(401)
+    expect((await worker.fetch(request('budget', {}), env)).status).toBe(401)
     expect((await worker.fetch(request('brave', {}, await token({ aud: ['other-app'] })), env)).status).toBe(401)
     expect((await worker.fetch(request('brave', {}, await token({ exp: 1 })), env)).status).toBe(401)
     expect((await worker.fetch(request('brave', {}, (await token()).slice(0, -5) + 'AAAAA'), env)).status).toBe(401)
@@ -166,7 +180,7 @@ describe('Worker de pesquisa visual', () => {
       throw Error('Unexpected origin')
     })
     vi.stubGlobal('fetch', outbound)
-    const configured = { ...env, BRAVE_SEARCH_API_KEY: 'unit-test', BRAVE_VISUAL_ZERO_SPEND: 'confirmed' }
+    const configured = { ...env, ...budgetEnv(), BRAVE_SEARCH_API_KEY: 'unit-test', BRAVE_VISUAL_ZERO_SPEND: 'confirmed', BRAVE_ATTRIBUTION_CONFIRMED: 'confirmed' }
     const response = await worker.fetch(request('brave', { kind: 'images', query: 'visual identity campaign', anchors: ['Official visual identity'] }, jwt), configured)
     const result = await response.json()
     expect(response.status).toBe(200)
@@ -184,10 +198,58 @@ describe('Worker de pesquisa visual', () => {
     expect(await (await worker.fetch(request('brave', query, jwt), env)).json()).toEqual({ state: 'disabled', candidates: [] })
     expect(await (await worker.fetch(request('brave', query, jwt), { ...env, BRAVE_SEARCH_API_KEY: 'unit-test' })).json())
       .toEqual({ state: 'disabled', candidates: [] })
-    const configured = { ...env, BRAVE_SEARCH_API_KEY: 'unit-test', BRAVE_VISUAL_ZERO_SPEND: 'confirmed' }
+    const unbudgeted = { ...env, BRAVE_SEARCH_API_KEY: 'unit-test', BRAVE_VISUAL_ZERO_SPEND: 'confirmed', BRAVE_ATTRIBUTION_CONFIRMED: 'confirmed' }
+    expect(await (await worker.fetch(request('brave', query, jwt), unbudgeted)).json()).toEqual({ state: 'unavailable', candidates: [] })
+    expect(outbound.mock.calls.filter(([url]) => String(url).startsWith('https://api.search.brave.com'))).toHaveLength(0)
+    const configured = { ...env, ...budgetEnv(), BRAVE_SEARCH_API_KEY: 'unit-test', BRAVE_VISUAL_ZERO_SPEND: 'confirmed', BRAVE_ATTRIBUTION_CONFIRMED: 'confirmed' }
     expect((await worker.fetch(request('brave', query, jwt), configured)).status).toBe(429)
     expect((await worker.fetch(request('brave', query, jwt), configured)).status).toBe(429)
     expect(outbound.mock.calls.filter(([url]) => String(url).startsWith('https://api.search.brave.com'))).toHaveLength(1)
+  })
+  it('restringe ajustes do orçamento ao proprietário e rejeita comandos reservados ao Worker', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jwks()))
+    const configured = { ...env, ...budgetEnv(), BRAVE_BUDGET_OWNER_SUB: 'editor' }
+    const pause = { action: 'settings', settings: { enabled: false } }
+    expect((await worker.fetch(request('budget', pause, await token({ sub: 'guest' })), configured)).status).toBe(403)
+    expect((await worker.fetch(request('budget', { action: 'reserve', kind: 'web' }, await token()), configured)).status).toBe(400)
+    expect((await worker.fetch(request('budget', { action: 'settings', settings: { freeOnly: false } }, await token()), configured)).status).toBe(400)
+    expect(await (await worker.fetch(request('budget', pause, await token()), configured)).json()).toMatchObject({
+      canManage: true, freeOnly: true, settings: { enabled: false },
+    })
+  })
+  it('mantém uma reserva em cancelamento e registra 402 antes de autorizar outra finalidade', async () => {
+    const jwt = await token()
+    let starts!: () => void
+    let rejectPayment!: (response: Response) => void
+    const entered = new Promise<void>(resolve => { starts = resolve })
+    const outbound = vi.fn(async (input: URL | string, init: RequestInit) => {
+      if (String(input).startsWith(issuer)) return jwks()
+      starts()
+      return new Promise<Response>((resolve, reject) => {
+        rejectPayment = resolve
+        init.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+      })
+    })
+    vi.stubGlobal('fetch', outbound)
+    const configured = { ...env, ...budgetEnv(), BRAVE_SEARCH_API_KEY: 'unit-test',
+      BRAVE_VISUAL_ZERO_SPEND: 'confirmed', BRAVE_ATTRIBUTION_CONFIRMED: 'confirmed' }
+    const query = { kind: 'web', query: 'Fotografia da campanha' }
+    const abort = new AbortController()
+    const cancelled = worker.fetch(new Request(request('brave', query, jwt), { signal: abort.signal }), configured)
+    await entered
+    expect((await worker.fetch(request('brave', { ...query, purpose: 'diagnostic' }, jwt), configured)).status).toBe(409)
+    abort.abort()
+    await cancelled
+    const nextEntered = new Promise<void>(resolve => { starts = resolve })
+    const next = worker.fetch(request('brave', { ...query, kind: 'images', purpose: 'manual' }, jwt), configured)
+    await nextEntered
+    rejectPayment(new Response(null, { status: 402 }))
+    expect((await next).status).toBe(429)
+    expect((await worker.fetch(request('brave', { ...query, purpose: 'diagnostic' }, jwt), configured)).status).toBe(429)
+    expect(await (await worker.fetch(request('budget', {}, jwt), configured)).json()).toMatchObject({
+      reason: 'payment', totals: { web: 1, images: 1, automatic: 1, manual: 1, diagnostic: 0 },
+    })
+    expect(outbound.mock.calls.filter(([url]) => String(url).startsWith('https://api.search.brave.com'))).toHaveLength(2)
   })
   it('verifica DNS novamente ao seguir redirecionamentos e limita volume pelo usuário autenticado', async () => {
     const jwt = await token()
@@ -214,7 +276,7 @@ describe('Worker de pesquisa visual', () => {
       : new URL(raw).hostname === 'cloudflare-dns.com' ? Response.json({ Status: 0, Answer: [{ type: 1, data: '93.184.216.34' }] })
         : new Response('', { status: 404 })))
     expect((await worker.fetch(request('approve-source', { url }), env)).status).toBe(401)
-    expect(await (await worker.fetch(request('page', { url }, jwt), env)).json()).toMatchObject({ state: 'blocked' })
+    expect(await (await worker.fetch(request('page', { url }, jwt), env)).json()).toMatchObject({ state: 'not_found' })
     const grant = await (await worker.fetch(request('approve-source', { url }, jwt), env)).json()
     expect(grant).toMatchObject({ host: 'publisher.example.com', approval: expect.any(String) })
     const page = (subject: string, approval: string, target = url) => {
@@ -222,10 +284,13 @@ describe('Worker de pesquisa visual', () => {
       req.headers.set('x-visual-source-approvals', approval)
       return worker.fetch(req, env).then(response => response.json())
     }
-    expect(await page(jwt, grant.approval)).toMatchObject({ state: 'blocked' })
-    expect(await page(await token({ sub: 'another' }), grant.approval)).toMatchObject({ state: 'blocked' })
-    expect(await page(jwt, grant.approval + 'x')).toMatchObject({ state: 'blocked' })
-    expect(await page(jwt, grant.approval, 'https://different.example.com/work')).toMatchObject({ state: 'blocked' })
+    expect(await page(jwt, grant.approval)).toMatchObject({ state: 'not_found' })
+    expect(await page(await token({ sub: 'another' }), grant.approval)).toMatchObject({ state: 'not_found' })
+    expect(await page(jwt, grant.approval + 'x')).toMatchObject({ state: 'not_found' })
+    expect(await page(jwt, grant.approval, 'https://different.example.com/work')).toMatchObject({ state: 'not_found' })
+    const preferredImages = Array.from({ length: 6 }, (_, index) => `https://publisher.example.com/${index}.jpg`)
+    expect((await worker.fetch(request('page', { url, preferredImages }, jwt), env)).status).toBe(200)
+    expect((await worker.fetch(request('page', { url, preferredImages: Array(127).fill(preferredImages[0]) }, jwt), env)).status).toBe(400)
   })
 
 })

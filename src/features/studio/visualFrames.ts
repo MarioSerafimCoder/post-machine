@@ -4,6 +4,7 @@ import { campaignContext } from '../images/visualContext'
 import { imageForFrame } from './collections'
 import { dimensions, type Project, type Scene, type VisualSlide } from './model'
 import { semantics } from './templates'
+import { alternativeSemantic, editorialObjects, requiresDocumentary } from './editorialAlternative'
 
 export function frameImage(scene: Scene) {
   return scene.objects.find(object => object.semantic === 'image' && String(object.type).toLowerCase() === 'image')
@@ -53,17 +54,24 @@ export function rewriteVisualFrame(slide: VisualSlide, choice: VisualChoice, sug
   const placeholder = String(reserved.type).toLowerCase() === 'image'
     ? new Rect({ left: box[0], top: box[1], width: box[2], height: box[3], strokeWidth: 0, fill: '#efefef',
       originX: 'left', originY: 'top', semantic: 'imageFrame' }).toObject() as unknown as Record<string, unknown> : reserved
+  const alternative = remove && choice.mode === 'automatic'
   const objects = slide.scene.objects.flatMap(object => {
     if (object === reserved) return remove ? [{ ...placeholder, semantic: 'imageFrame', visible: !hidePlaceholder }] : [
       { ...placeholder, semantic: 'visualSearchFrame', visible: false },
       imageForFrame(suggestion.object, [...box], 'cover', .5, suggestion.focalPoint),
     ]
-    if (object.semantic === 'image' || object.semantic === 'imageHint' || object.semantic === 'imageDecoration') return []
+    if (object.semantic === 'image' || object.semantic === 'imageHint' || object.semantic === 'imageDecoration' || object.semantic === alternativeSemantic) return []
     return [object]
   })
+  if (alternative) {
+    const index = objects.findIndex(object => object.semantic === 'imageFrame')
+    objects[index] = { ...objects[index], visible: false }
+    objects.splice(index + 1, 0, ...editorialObjects(box, slide.id).map(object => object.toObject(['semantic']) as Record<string, unknown>))
+  }
   const scene = { ...slide.scene, objects }
   delete scene.contentImage
-  return { ...slide, visualChoice: choice, scene }
+  return { ...slide, visualChoice: { ...choice, reception: suggestion ? { state: 'applied' } : alternative ?
+    { state: 'alternative', documentaryRequired: requiresDocumentary(slide), ...choice.reception } : undefined }, scene }
 }
 
 export function imageWasEdited(previous: Scene, next: Scene) {
@@ -81,7 +89,7 @@ export function updateCanvasVisual(canvas: Canvas, next: Scene, suggestion?: Aut
   const picture = frameImage(next)
   if (!frame || (suggestion && !picture)) return false
   current.set({ semantic: frame.semantic as string, visible: frame.visible !== false })
-  const replaced = objects.filter(object => ['image', 'imageHint', 'imageDecoration'].includes(object.semantic ?? ''))
+  const replaced = objects.filter(object => ['image', 'imageHint', 'imageDecoration', alternativeSemantic].includes(object.semantic ?? ''))
   canvas.remove(...replaced)
   replaced.forEach(object => object.dispose())
   if (suggestion && picture) {
@@ -90,6 +98,19 @@ export function updateCanvasVisual(canvas: Canvas, next: Scene, suggestion?: Aut
     const rendered = new FabricImage(suggestion.element, properties)
     canvas.insertAt(canvas.getObjects().indexOf(current) + 1, rendered)
     rendered.setCoords()
+  } else if (next.objects.some(object => object.semantic === alternativeSemantic)) {
+    const box = [Number(frame.left ?? 0), Number(frame.top ?? 0), Number(frame.width) * Number(frame.scaleX ?? 1),
+      Number(frame.height) * Number(frame.scaleY ?? 1)] as const
+    // Use the serialized composition, including its variant, so canvas and export agree.
+    const serialized = next.objects.filter(object => object.semantic === alternativeSemantic)
+    const rendered = editorialObjects(box, '')
+    rendered.forEach((object, index) => {
+      const properties = { ...serialized[index] }
+      delete properties.type
+      delete properties.version
+      object.set(properties)
+      canvas.insertAt(canvas.getObjects().indexOf(current) + 1 + index, object)
+    })
   }
   canvas.requestRenderAll()
   return true

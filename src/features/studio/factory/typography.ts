@@ -9,7 +9,9 @@ export function fitText(item: Textbox, width: number, height: number, preferred:
   const fits = () => item.height <= height+1 && item.width <= width+1
   const reset = (size: number) => item.set({ fontSize:size, width })
   if (!fits()) {
-    item.set({ lineHeight:1.04, charSpacing:-8, width })
+    if (item.width > width + 1) item.set({ splitByGrapheme: true, width })
+    if (!fits()) item.set({ lineHeight:1.07, width })
+    if (!fits()) item.set({ lineHeight:1.04, charSpacing:-8, width })
     if (!fits()) {
       reset(minimum)
       if (item.width > width + 1) item.set({ splitByGrapheme: true, width })

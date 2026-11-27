@@ -4,6 +4,7 @@ import { dimensions, newProject, type Brand, type Format, type Scene, type Visua
 import './objects'
 import { needsImage, textLayout } from '../images/visualContext'
 import { fitText } from './factory/typography'
+import { coverEmptyVisual } from './editorialAlternative'
 export const templates = { editorial: 'Capa editorial', photo: 'Capa fotográfica', text: 'Conteúdo textual', split: 'Imagem + conteúdo', comparison: 'Comparativo', cta: 'Encerramento / CTA' }
 export type Template = keyof typeof templates
 export type Semantic = { title: string; subtitle?: string; body: string; cta: string; image?: Record<string, unknown> }
@@ -80,8 +81,8 @@ export function fromCampaign(draft: Draft, brand: Brand, preferred?: Template, f
     }
     const title = scene.objects.find(object => object.semantic === 'title')
     if (title && s.headlines) title.headlines = structuredClone(s.headlines)
-    return { id: s.id ?? crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, visualSubtitle: s.subtitle, visualContext: s.visualContext, scene,
-      ...((layout === 'photo' || layout === 'split') && query ? { visualChoice: { mode: 'automatic' as const } } : {}) }
+    return coverEmptyVisual({ id: s.id ?? crypto.randomUUID(), layout, role: s.role, imageBrief: s.imageBrief, visualSubtitle: s.subtitle, visualContext: s.visualContext, scene,
+      ...((layout === 'photo' || layout === 'split') && query ? { visualChoice: { mode: 'automatic' as const } } : {}) })
   })
   return project
 }

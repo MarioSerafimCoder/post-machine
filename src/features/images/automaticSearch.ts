@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { visualFailureSchema } from './searchDiagnostics'
 import { contrastFocalPoint } from '../studio/vision/signals'
 import { readImage } from '../studio/images'
 import type { ImageCredit } from './contract'
@@ -16,6 +17,8 @@ export const matchSchema = z.object({
 })
 export type VisualMatch = z.infer<typeof matchSchema>
 export const visualChoiceSchema = z.object({
+  reception: z.object({ state: z.enum(['checking', 'applied', 'alternative']), failure: visualFailureSchema.optional(), confirmed: z.boolean().optional(), documentaryRequired: z.boolean().optional(),
+    attempts: z.array(z.string().max(2600)).max(48).optional() }).optional(),
   reviewRequired: z.boolean().optional(),
   mode: z.enum(['automatic', 'manual', 'locked', 'none']),
   decision: z.enum(['approved', 'rejected', 'replaced']).optional(),
@@ -64,20 +67,28 @@ function queryWithAnchor(query: string, anchor: string) {
 export function requestFor(key: string, copy: VisualCopy, campaign: CampaignContext, ratio: number, revision = 0,
   neighbors: VisualCopy[] = [], discarded: string[] = [], manual = false): VisualRequest | undefined {
   if (!manual && !needsImage(copy)) return
-  const detail = [copy.imageBrief, copy.visualContext?.visualIntent, copy.visualContext?.imageType, copy.subtitle, copy.title]
+  const detail = [copy.visualContext?.visualIntent, copy.visualContext?.subject, copy.imageBrief, copy.visualContext?.imageType, copy.subtitle, copy.title]
     .filter(Boolean).find(text => !generic.test(phraseKey(text)))
   const search = copy.visualContext?.searchQueries?.[0] || [campaign.subject !== detail ? campaign.subject : '', detail].filter(Boolean).join(' ')
   const catalog = copy.visualContext?.searchQueries?.[0] || detail || copy.body
   const anchor = campaign.campaignName || campaign.names.find(name => /\p{L}/u.test(name) && contains(phraseKey(campaign.subject), phraseKey(name))) || campaign.subject
+  const objects = visualObjects([copy.visualContext?.imageType, detail].filter(Boolean).join(' '))
+  const language = campaign.language === 'en' ? 'en' : 'pt'
+  const entity = copy.visualContext?.entities?.[0] ?? anchor
+  const datedObjectQueries = objects.flatMap(object => entity ? [
+    [entity, object[language], copy.visualContext?.year ?? campaign.year].filter(Boolean).join(' '),
+    [entity, object[language === 'pt' ? 'en' : 'pt']].join(' '),
+  ] : [])
   const imageQueries = [...new Set([
     ...copy.visualContext?.searchQueries ?? [],
     detail,
+    ...datedObjectQueries.slice(0, 2),
     [copy.imageBrief, copy.visualContext?.visualIntent, copy.visualContext?.imageType, copy.title].filter(Boolean).join(' '),
-  ].flatMap(value => value?.trim() ? [queryWithAnchor(value, anchor)] : []))]
+  ].flatMap(value => value?.trim() ? [queryWithAnchor(value, datedObjectQueries.includes(value) ? entity : anchor)] : []))]
     .filter(query => query && phraseKey(query) !== phraseKey(campaign.query ?? '')).slice(0, 3)
   const groupTerms = words(campaign.subject)
   const terms = words([visualText(copy), ...copy.visualContext?.searchQueries ?? []].join(' '))
-  const catalogQueries = [...new Set([catalog, copy.visualContext?.searchQueries?.[1]].flatMap(value => value
+  const catalogQueries = [...new Set([catalog, copy.visualContext?.searchQueries?.[1], datedObjectQueries[0]].flatMap(value => value
     ? [words(value).filter(word => !generic.test(word)).slice(0, 5).join(' ') || groupTerms.slice(0, 4).join(' ')] : []))].filter(Boolean)
   return {
     key, slideId: key.slice(key.indexOf('/') + 1), campaign, ratio, copy, revision,
@@ -157,10 +168,39 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
     asset.evidence === 'search' ? asset.description : undefined, decodePath(asset.url).split('/').at(-1)].filter(Boolean).join(' '))
   const local = [assetLabel, documentaryPhrase(asset.section ?? '')].filter(Boolean).join(' ')
   const text = phraseKey([asset.title, asset.description, local, decodePath(asset.page)].filter(Boolean).join(' '))
+  const section = documentaryPhrase(asset.section ?? '')
+  if (/^(?:further reading|related (?:articles|stories)|leia tambem|leia mais)$/.test(section))
+    return rejected('unrelated_media_in_article')
+  const brief = copy.visualContext?.visualIntent || copy.imageBrief || copy.title
+  if (/\b(?:product placement|merchandising)\b/.test(phraseKey(brief)) &&
+      !/\b(?:product placement|merchandising|branded|placement de produto)\b/.test(assetLabel))
+    return rejected('specific_object_not_shown')
+  const sectionNames = campaign.names.filter(name => words(name).length >= 2 && contains(phraseKey(asset.title ?? ''), phraseKey(name)) &&
+    contains(phraseKey(brief), phraseKey(name)))
+  if (asset.section && sectionNames.length && !count(sectionNames, local) &&
+      /\b(?:roundup|round up|apanhado|giro|retrospectiva)\b/.test(phraseKey(asset.description)))
+    return rejected('slide_subject_not_established')
+  const detailNames = campaign.names.filter(name => words(name).length >= 2 && contains(phraseKey(brief), phraseKey(name)))
+  if (copy.role !== 'cover' && detailNames.length && !count(detailNames, local) &&
+      !count(words(brief).filter(term => term.length > 3), assetLabel))
+    return rejected('slide_subject_not_established')
+  if (/\b(?:collage|montage|montagem|colagem)\b/.test(assetLabel) &&
+      !/\b(?:collage|montage|montagem|colagem)\b/.test(phraseKey(brief)))
+    return rejected('generic_or_conceptual')
+  // An illustration of survey results cannot document the observed behaviour.
+  if (/\b(?:survey|pesquisa|poll)\b/.test(text) && /(?:\d+%|\d+ percent|survey shows|pesquisa (?:mostra|revela))/i.test(brief) &&
+      !/\b(?:survey|pesquisa|poll|chart|grafico|infographic|infografico)\b/.test(assetLabel))
+    return rejected('specific_object_not_shown')
   const publication = campaign.sources[0]
   const direct = publication?.url.replace(/\/$/, '') === asset.page.replace(/\/$/, '')
   const explicitCampaign = campaign.campaignName
-  if (count(campaign.excluded, local || text)) return rejected('excluded_subject')
+  if (count([...campaign.excluded, ...copy.visualContext?.excludedSubjects ?? []], local || text)) return rejected('excluded_subject')
+  if (/\b(?:ai generated|gerad[ao] por ia|conceptual illustration|ilustracao conceitual|generic stock photo)\b/.test(assetLabel))
+    return rejected('generic_or_conceptual')
+  if (/\b(?:ai generated|generated (?:using|with|by) (?:generative )?ai|(?:gerad[ao]s?|feit[ao]s?|criad[ao]s?) (?:com|por) (?:ia|inteligencia artificial)|(?:combina|mistura) (?:\w+ ){1,6}com (?:ia generativa|inteligencia artificial))\b/.test(text))
+    return rejected('synthetic_media_disclosed')
+  if (/\bpodcast\b/.test(local) && asset.section && !/\b(?:podcast|audiograma)\b/.test(phraseKey(visualText(copy))))
+    return rejected('unrelated_media_in_article')
   if ((asset.evidence === 'search' || !direct) && generic.test(local || text)) return rejected('generic_or_conceptual')
   if ((asset.width && asset.width < 480) || (asset.height && asset.height < 480)) return rejected('resolution_below_480')
   const explicitMatch = explicitCampaign ? contains(documentaryPhrase(text), documentaryPhrase(explicitCampaign)) : false
@@ -174,9 +214,9 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
       [...caption.matchAll(otherTitle)].some(match => !contains(documentaryPhrase(match[1]), documentaryPhrase(explicitCampaign)))) return rejected('different_campaign')
   const named = count(campaign.names, text)
   const subject = count(campaign.primary, text)
-  const year = typeof campaign.year === 'number' ? String(campaign.year) : undefined
+  const year = copy.visualContext?.year ?? (typeof campaign.year === 'number' ? campaign.year : undefined)
   const publishedYear = asset.publishedAt?.match(/^\d{4}/)?.[0]
-  if (year && publishedYear && Math.abs(Number(year) - Number(publishedYear)) > 1 && !explicitMatch) return rejected('different_year')
+  if (year && publishedYear && Math.abs(year - Number(publishedYear)) > 1 && !explicitMatch) return rejected('different_year')
   const overlap = count(terms, assetLabel || text)
   const near = count(request.neighbors, local)
   const documentary = ['figure', 'structured', 'body', 'poster'].includes(asset.evidence)
@@ -185,24 +225,47 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
     : count(campaign.names, assetLabel) >= 1 || count(campaign.primary.filter(term => !generalMediaWords.test(term)), assetLabel) >= 2
   const objectTerms = words(copy.visualContext?.visualIntent || copy.imageBrief)
     .filter(term => !campaign.primary.includes(term) && !generalMediaWords.test(term))
+  const confirmsObject = objectTerms.length >= 2 && count(objectTerms, local) >= 2
   const requiredObjects = visualObjects(copy.visualContext?.visualIntent || copy.imageBrief || '')
-  const captionOrLabel = documentaryPhrase(asset.caption ?? '') || assetLabel
-  if (verifyIntent && (requiredObjects.length
-      ? !requiredObjects.every(object => object.match.test(captionOrLabel))
-      : objectTerms.length > 0 && count(objectTerms, assetLabel) < Math.min(objectTerms.length, 2)))
-    return rejected('unverified_specific_object')
+  const localCaption = documentaryPhrase(asset.caption ?? '')
+  const unmetObject = requiredObjects.length > 0 && (verifyIntent
+    ? !requiredObjects.every(object => object.match.test(localCaption || assetLabel))
+    : !requiredObjects.some(object => object.match.test(localCaption || assetLabel)))
+  if (copy.role !== 'cover' && unmetObject)
+    return rejected('specific_object_not_shown')
+  const explicitSlideSubject = copy.visualContext?.subject
+  const slideEntities = copy.visualContext?.entities ?? []
+  const establishesSlide = !explicitSlideSubject && !slideEntities.length || count(slideEntities, local) > 0 ||
+    !!explicitSlideSubject && count(words(explicitSlideSubject), local) >= Math.min(2, Math.max(1, words(explicitSlideSubject).length))
+  if (!establishesSlide) return rejected('slide_subject_not_established')
+  if (verifyIntent && (unmetObject || !requiredObjects.length && objectTerms.length > 0 &&
+      count(objectTerms, assetLabel) < Math.min(objectTerms.length, 2))) return rejected('unverified_specific_object')
   if (verifyIntent && explicitCampaign && !assetMatch) return rejected('campaign_not_established_on_asset')
   const editorialPlacement = ['figure', 'poster'].includes(asset.evidence) && !!asset.caption &&
     count(terms.filter(term => !generalMediaWords.test(term)), phraseKey(asset.caption)) >= 2
-  const identityWork = /\b(rebrand\w*|identidade visual|visual identity|brand identity|redesign)\b/.test(phraseKey(campaign.subject))
+  const identityWork = /\b(rebrand\w*|identidade visual|visual identity|brand identity|identity|wordmark|typeface|custom font|redesign)\b/.test(phraseKey(campaign.subject))
   const contextualPoster = identityWork && copy.role === 'cover' && asset.evidence === 'poster' && !assetMatch
   const declaredCover = !explicitCampaign && direct && copy.role === 'cover' && asset.evidence === 'structured' &&
     !!asset.width && !!asset.height && !!publication?.title && phraseKey(asset.title) === phraseKey(publication.title) &&
-    (!asset.caption || assetMatch || editorialPlacement)
+    (!asset.caption && !identityWork || assetMatch || editorialPlacement)
   const corroborated = documentary && (direct || asset.provider === 'official' || reference?.cited) && identity &&
     !contextualPoster && (assetMatch || !verifyIntent && (declaredCover || !explicitCampaign && editorialPlacement))
   const actual = corroborated && (copy.role === 'cover' || overlap > 0 && !!local)
-  const related = identity && (assetMatch || asset.evidence === 'search' && named >= 1 || !explicitCampaign && editorialPlacement)
+  if (actual && copy.role === 'cover' && unmetObject && /\b(?:portrait|retrato|smiles? at the camera|posing for the camera)\b/.test(localCaption))
+    return { score: 32, match: { strategy: 'editorial', classification: 'support',
+      reason: 'O retrato contextualiza a pessoa citada. A imagem da peça precisa de evidência própria.' } }
+  const speculativeBranding = /\?/.test(campaign.subject) && /\b(?:brands?|branding|product placement|marcas?|merchandising)\b/.test(phraseKey(campaign.subject))
+  if (actual && !explicitCampaign && speculativeBranding && assetMatch &&
+      !/\b(?:brands?|branding|product placement|marcas?|merchandising)\b/.test(local) && !confirmsObject)
+    return { score: 34, match: { strategy: 'editorial', classification: 'support',
+      reason: 'A imagem contextualiza a pessoa citada. A proposta de marca discutida na pauta precisa de evidência visual própria.' } }
+  // A lead photograph can be related to the story without proving the depicted object.
+  const lead = asset.leadImage && direct && !explicitCampaign && copy.role === 'cover' && !unmetObject &&
+    !copy.visualContext?.visualCandidates?.length && phraseKey(copy.imageBrief || copy.title) === phraseKey(publication?.title ?? '') &&
+    phraseKey(asset.title) === phraseKey(publication?.title ?? '') && !generic.test(local + ' ' + text) &&
+    !/\b(?:ia|ai|illustration|ilustracao|conceito|concept)\b/.test(text)
+  const related = identity && (lead || assetMatch || asset.evidence === 'search' && named >= 1 || !explicitCampaign && editorialPlacement ||
+    identityWork && direct && copy.role === 'cover' && asset.evidence === 'structured')
   if (!actual && (!related || (copy.role !== 'cover' && !overlap))) return rejected(!identity ? 'subject_not_established' : 'object_not_established')
   const fit = asset.width && asset.height ? Math.min(asset.width / asset.height / request.ratio, request.ratio / (asset.width / asset.height)) : .5
   const intent = words([copy.imageBrief, copy.visualContext?.visualIntent, copy.visualContext?.imageType].filter(Boolean).join(' '))
@@ -266,7 +329,7 @@ export async function prepareImage(file: File, credit: ImageCredit, signal: Abor
     const keys = creditKeys(credit, { strategy: 'editorial', reason: '', fingerprint, fingerprintVertical, fileHash })
     image.set({ imageCredit: credit, semantic: 'image', originX: 'left', originY: 'top' })
     return { file, id: credit.sourceId, name: credit.title || 'Imagem da fonte', keys, fingerprint, fingerprintVertical, fileHash, element: image.getElement(),
-      object: image.toObject() as unknown as Record<string, unknown>,
+      object: { ...image.toObject(), imageCredit: credit } as unknown as Record<string, unknown>,
       match: { strategy: 'editorial', reason: '', fingerprint, fileHash } as VisualMatch,
       focalPoint: data && contrastFocalPoint(data.data, canvas.width, canvas.height) }
   } finally { image.dispose() }

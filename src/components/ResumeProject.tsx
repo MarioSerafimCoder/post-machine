@@ -27,7 +27,7 @@ export function ResumeProject({ open, resume }: { open: (id: string) => void; re
     return () => { active = false; unsubscribe?.() }
   }, [])
   return <section className="production-section" aria-labelledby="resume-heading">
-    <header><h2 id="resume-heading">Continue produzindo</h2><a className="text-button" href="#/studio">Ver projetos</a></header>
+    <header><h2 id="resume-heading" tabIndex={-1}>Continue produzindo</h2><a className="text-button" href="#/studio">Ver projetos</a></header>
     {result === undefined && <p role="status">Buscando projetos locais…</p>}
     {result === null && <p role="status">Não foi possível consultar os projetos deste navegador.</p>}
     {result && !result.projects.length && !result.preparation && <p>Seus projetos e preparações locais aparecem aqui depois que você começa.</p>}

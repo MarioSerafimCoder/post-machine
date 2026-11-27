@@ -18,8 +18,7 @@ const dimension = (value: unknown) => /^\d{1,5}$/.test(String(value)) && Number(
 const unwanted = /(?:^|[\s/._-])(?:avatar|favicon|sprite|placeholder|tracking|spacer|pixel|advertisement|icon|homepage|sitewide)(?=$|[\s/._-])/i
 const logo = /(?:^|[\s/._-])logo(?=$|[\s/._-])/i
 const blocked = 'header:not(.entry-header),nav,footer,aside,[role="navigation"],[role="complementary"],.related,.recommended,.more-stories,.advertisement,.ads,.breadcrumb,[class*="teaser"],[class*="related-"],[class*="recommended-"],article[class*="card"],article[class*="preview"]'
-const press = /\b(press.?kit|media.?kit|newsroom|press.?release|press.?room|portfolio|case.?study|press assets|still photography|multimedia|sala de imprensa|kit de imprensa)\b/i
-
+const press = /\b(press.?kit|media.?kit|newsroom|press.?release|press.?room|portfolio|case.?study|press assets|still photography|multimedia|sala de imprensa|kit de imprensa|photo gallery|image gallery|galeria de (?:imagens|fotos))\b/i
 const rasterLink = /\.(?:png|jpe?g|webp)(?:\?|$)/i
 
 function srcset(value: string | null) {
@@ -37,6 +36,8 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
   const captions = new Map<number, string>()
   const descriptors: unknown[] = []
   let omitted = 0
+  let truncated = false
+  let picture: { sources: string[] } | undefined
   let currentFigure = 0
   let figures = 0
   let articleDepth = 0
@@ -55,9 +56,11 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
       url = !!original && /^\/(?!\/)/.test(original) && researchUrl(original, page.href)
     }
     if (!url || unwanted.test(url.pathname) || unwanted.test(fields.caption ?? '') ||
-      (fields.width && fields.width < 360) || (fields.height && fields.height < 300) || images.size >= 45) return
+      (fields.width && fields.width < 360) || (fields.height && fields.height < 300)) return
+    if (!images.has(url.href) && images.size >= 180) { truncated = true; return }
     const caption = fields.caption ?? ''
     if ((logo.test(url.pathname) || logo.test(caption)) &&
+        !(fields.figure && fields.withinArticle && /\b(?:redesign|wordmark|identidade visual|new logo|novo logotipo)\b/i.test(caption)) &&
         !(petsPortfolio && verifiedPortfolioImage(url) && /\b(?:Pets Insurance|Pets Foundation|Pet Pals)\b/i.test(caption))) return
     const before = images.get(url.href)
     if (!before || ['figure', 'poster', 'structured'].includes(fields.evidence) || fields.withinArticle && !before.withinArticle) {
@@ -84,6 +87,13 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
     if (Array.isArray(value)) { value.slice(0, 24).forEach(item => descriptor(item, depth + 1)); return }
     const item = value as Record<string, unknown>
     const types = [item['@type']].flat()
+    if (types.includes('WebPage') && typeof item.url === 'string' && researchUrl(item.url)?.href === page.href) {
+      if (item.isAccessibleForFree === false || item.isAccessibleForFree === 'false') unavailable = true
+      if (typeof item.thumbnailUrl === 'string') jsonImage(item.thumbnailUrl, 'social', depth)
+      const primary = item.primaryImageOfPage
+      if (primary && typeof primary === 'object' && ('url' in primary || 'contentUrl' in primary))
+        jsonImage(primary, 'structured', depth)
+    }
     if (provider === 'official' && types.some(type => /^(?:Organization|Corporation|LocalBusiness)$/.test(String(type))) &&
         typeof item.url === 'string' && researchUrl(item.url)?.origin === page.origin) {
       for (const entry of [item.sameAs].flat().slice(0, 20)) {
@@ -95,13 +105,17 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
     }
     if (types.some(type => /Article|BlogPosting|PressRelease/.test(String(type)))) {
       const title = text(item.headline ?? item.name, 500)
-      const pageUri = typeof item.url === 'string' ? researchUrl(item.url, page.href) : undefined
-      if ((!title && !pageUri) || (pageUri && pageUri.pathname.replace(/\/$/, '') !== page.pathname.replace(/\/$/, ''))) return
+      const entity = item.mainEntityOfPage
+      const declaredPage = item.url ?? (entity && typeof entity === 'object' ? (entity as Record<string, unknown>)['@id'] : entity)
+      const pageUri = typeof declaredPage === 'string' ? researchUrl(declaredPage, page.href) : undefined
+      if ((!title && !pageUri) || (pageUri && (pageUri.origin !== page.origin ||
+        pageUri.pathname.replace(/\/$/, '') !== page.pathname.replace(/\/$/, '')))) return
       if (item.isAccessibleForFree === false || item.isAccessibleForFree === 'false') unavailable = true
       if (title && !metadata.has('article:title')) metadata.set('article:title', title)
       const date = text(item.datePublished, 50)
       if (date) metadata.set('article:published_time', date)
-      jsonImage(item.image ?? item.primaryImageOfPage, 'structured', depth)
+      jsonImage(item.image, 'structured', depth)
+      jsonImage(item.primaryImageOfPage, 'structured', depth)
       descriptor(item.video, depth + 1)
     }
     if (types.includes('ImageObject') && (item.caption || item.name)) jsonImage(item, 'structured', depth)
@@ -109,7 +123,17 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
     descriptor(item['@graph'], depth + 1)
     descriptor(item.mainEntity, depth + 1)
   }
+  let primaryPost: string | undefined
   const intercept = new HTMLRewriter()
+    .on('body', { element(node) { primaryPost = /(?:^|\s)postid-(\d+)(?:\s|$)/.exec(node.getAttribute('class') ?? '')?.[1] } })
+    .on('article.type-post', { element(node) {
+      if (omitted) return
+      const post = /(?:^|\s)post-(\d+)(?:\s|$)/.exec(node.getAttribute('class') ?? '')?.[1]
+      if (primaryPost && post && primaryPost !== post) {
+        omitted++
+        node.onEndTag(() => { omitted-- })
+      }
+    } })
     .on('script,noscript', { element() { requiresRendering = true } })
     .on(blocked, { element(node) { omitted++; node.onEndTag(() => { omitted-- }) } })
     .on('article,[itemprop="articleBody"],.entry-content,.post-content,.elementor-widget-theme-post-content', { element(node) {
@@ -127,6 +151,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
         if (/^(?:og:image(?::(?:secure_url|url))?|twitter:image(?::src)?)$/.test(property)) add(content, { evidence: 'social' })
       }
     } })
+    .on('head link[rel="image_src"]', { element(node) { add(node.getAttribute('href'), { evidence: 'social' }) } })
     .on('script[type="application/ld+json"]', {
       element(node) {
         structured = ''
@@ -139,6 +164,11 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
       const parent = currentFigure
       currentFigure = ++figures
       node.onEndTag(() => { currentFigure = parent })
+    } })
+    .on('picture', { element(node) {
+      const parent = picture
+      picture = { sources: [] }
+      node.onEndTag(() => { picture = parent })
     } })
     .on('figcaption', { text(chunk) {
       if (currentFigure && !omitted) captions.set(currentFigure, ((captions.get(currentFigure) ?? '') + chunk.text).slice(0, 600))
@@ -162,10 +192,24 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
         const [variant, ...renditions] = srcset(node.getAttribute('data-srcset') ?? node.getAttribute('data-lazy-srcset') ?? node.getAttribute('srcset'))
         const candidate = variant?.src ??
           node.getAttribute('data-original') ?? node.getAttribute('data-src') ?? node.getAttribute('data-lazy-src') ??
-          node.getAttribute('data-full') ?? node.getAttribute('poster') ?? node.getAttribute('src')
+          node.getAttribute('data-full') ?? node.getAttribute('data-original-src') ?? node.getAttribute('poster') ?? node.getAttribute('src')
+        if (currentFigure && anchor && rasterLink.test(anchor.href)) {
+          add(anchor.href, { evidence: 'figure', withinArticle: articleDepth > 0,
+            caption: text(node.getAttribute('alt') ?? node.getAttribute('title'), 600), section: heading || undefined, figure: currentFigure })
+        }
+        const alternative = text(node.getAttribute('alt'), 600)
+        if (picture && alternative) {
+          for (const url of picture.sources) {
+            const rendition = images.get(url)
+            if (rendition && !rendition.caption) rendition.caption = alternative
+          }
+        } else if (picture && candidate && variant && picture.sources.length < 12) {
+          const url = researchUrl(candidate, page.href)
+          if (url) picture.sources.push(url.href)
+        }
         // The smaller URLs in this srcset point to the same image as the selected raster.
         const alternateUrls = renditions.slice(0, 12).flatMap(({ src }) => {
-          const url = src && researchUrl(src, page.href)
+          const url = src && researchUrl(src.replace(/&amp;/gi, '&'), page.href)
           return url && !unwanted.test(url.pathname) ? [url.href] : []
         })
         const hero = researchUrl(metadata.get('og:image') ?? '', page.href)?.href
@@ -184,7 +228,7 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
         const current = { href: node.getAttribute('href') ?? '', label: '' }
         anchor = current
         node.onEndTag(() => {
-          if (press.test(current.href + ' ' + current.label)) addLink(current.href)
+          if (!rasterLink.test(current.href) && press.test(current.href + ' ' + current.label)) addLink(current.href)
           if (/\b(?:press assets|still photography|press images|imagens de imprensa)\b/i.test(current.label) &&
             rasterLink.test(current.href)) add(current.href, { evidence: 'body', caption: text(current.label, 600) })
           if (anchor === current) anchor = undefined
@@ -201,11 +245,14 @@ export async function extractArticle(html: string | ReadableStream<Uint8Array>, 
   const publishedAt = text(metadata.get('article:published_time'), 50)
   const ogWidth = dimension(metadata.get('og:image:width'))
   const ogHeight = dimension(metadata.get('og:image:height'))
-  return { images: [...images.values()].flatMap(({ figure, withinArticle, ...image }): Extracted[] => hasArticle && withinArticle === false ? [] : [{ ...image, page: page.href, provider,
+  const og = researchUrl(metadata.get('og:image') ?? metadata.get('og:image:url') ?? '', page.href)?.href
+  return { images: [...images.values()].flatMap(({ figure, withinArticle, ...image }): Extracted[] => hasArticle && withinArticle === false && image.url !== og ? [] : [{ ...image, page: page.href, provider,
+    leadImage: image.url === og && (figure || withinArticle) ? true : undefined,
     title: image.title ?? title, description: image.description ?? description, publishedAt,
-    width: image.width ?? (image.evidence === 'social' ? ogWidth : undefined),
-    height: image.height ?? (image.evidence === 'social' ? ogHeight : undefined),
+    width: image.width ?? (image.url === og && image.evidence === 'social' ? ogWidth : undefined),
+    height: image.height ?? (image.url === og && image.evidence === 'social' ? ogHeight : undefined),
     // Attribution-only figcaptions must not erase the object's alt description.
-    caption: text([...new Set([image.caption, figure ? captions.get(figure) : undefined].filter(Boolean))].join(' '), 600) }]),
-    links: [...links], title, requiresRendering, channelId }
+    caption: text([...new Set([image.caption, figure ? captions.get(figure) : undefined,
+      image.url === og ? metadata.get('og:image:alt') : undefined].filter(Boolean))].join(' '), 600) }]),
+    links: [...links], title, requiresRendering, channelId, ...(truncated ? { truncated: true } : {}) }
 }

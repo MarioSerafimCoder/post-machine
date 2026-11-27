@@ -26,7 +26,7 @@ export function App() {
   const [assistantSignals] = useState(createAssistantSignals)
   const [visited, setVisited] = useState({ studio: false, radar: false })
   const [radarStart, setRadarStart] = useState<CampaignEntry>()
-  const [studioEntry, setStudioEntry] = useState<{ projectId?: string; mode?: 'import' | 'blank' }>()
+  const [studioEntry, setStudioEntry] = useState<{ projectId?: string; mode?: 'import' | 'blank'; file?: File }>()
   const [creating, setCreating] = useState(false)
   function openDesign(draft: Draft, mode?: DesignMode) {
     setStudioEntry(undefined)
@@ -38,14 +38,14 @@ export function App() {
     const draft = await openArticleCampaign(article)
     if (resolvePage(window.location.hash) === 'inicio') openDesign(draft, 'radar')
   }
-  function startContent(origin: ContentOrigin) {
+  function startContent(origin: ContentOrigin, file?: File) {
     setCreating(false)
     if (origin === 'radar') {
       setRadarStart({ mode: 'radar' })
       window.location.assign('#/radar')
     } else {
       setDesignRequest(null)
-      setStudioEntry({ mode: origin })
+      setStudioEntry({ mode: origin, file })
       window.location.assign('#/studio')
     }
   }
@@ -86,7 +86,7 @@ export function App() {
       <main id="main-content" className={page === 'inicio' ? 'home-workspace' : 'active-workspace'} tabIndex={-1}>
         <h1 ref={heading} tabIndex={-1}>{page === 'inicio' ? 'O que vamos criar hoje?' : label}</h1>
         {page === 'inicio' && <>
-          <ProductionHome choose={startContent} startArticle={startArticle}>
+          <ProductionHome create={() => setCreating(true)} discover={() => startContent('radar')} startArticle={startArticle}>
             <HomeGuidance importContent={() => startContent('import')} />
             <ResumeProject resume={() => startContent('import')} open={projectId => {
               setDesignRequest(null)

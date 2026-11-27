@@ -67,7 +67,7 @@ export const backupSchema = z.object({
 
 export type Preferences = z.infer<typeof preferencesSchema>
 export type Draft = z.infer<typeof draftSchema>
-export type DesignMode = 'radar' | 'express'
+export type DesignMode = 'radar' | 'express' | 'smart'
 export type Briefing = Draft['briefing']
 export type Content = z.infer<typeof contentSchema>
 export type Slide = Content['slides'][number]
@@ -157,6 +157,10 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     'O campo id de cada slide é opcional. Ao revisar uma campanha existente, preserve o id da mesma peça, mesmo ao editar texto ou reordenar; peças novas ou duplicadas devem ter ids distintos.',
     'Sugira uma imagem pertinente e indique a direção de arte de cada peça em imageBrief e layoutType. Escreva uma legenda contextualizada e um CTA coerente com o objetivo.',
     'Pesquise as referências visuais enquanto apura a pauta. Identifique o nome exato do projeto ou campanha, a marca, o estúdio ou agência e o objeto visual de cada slide. Prefira o case do autor, a página oficial do projeto, o kit de imprensa ou uma publicação que identifique as imagens e seus créditos.',
+    'Planeje a narrativa considerando os recursos visuais encontrados. Quando uma imagem não puder ser recebida ou estiver inacessível, pesquise alternativas do mesmo objeto ou cena em outras fontes. Preserve a exigência documental; não substitua por uma foto aleatória.',
+    'Separe direção de arte (imageBrief), descrição do objeto visível (visualIntent), página de origem (sourceUrl), arquivo direto identificado (imageUrl opcional) e alternativas (itens seguintes de visualCandidates). A descrição não é uma imagem entregue. Nunca invente URLs, caminhos de CDN ou nomes de arquivos.',
+    'Registre documentaryRequired: true quando a afirmação depender de uma peça documental específica. Use referenceStatus: found, page_only, video_only ou unavailable conforme a pesquisa. Em videoUrl informe a referência audiovisual; um vídeo não equivale a um frame recebido. Se não houver referência utilizável, indique unavailable, preserve o briefing e explique a limitação no texto editorial.',
+    'Não gere base64 nem exija anexos para este fluxo. Suas declarações de verificado serão conferidas: o aplicativo precisa baixar, decodificar, guardar localmente e aplicar cada arquivo ao slide antes de considerá-lo recebido.',
     'Para cada slide que pede imagem, procure um ativo que mostre exatamente o que o texto afirma. Se o slide trata da tipografia aplicada à embalagem, procure uma imagem em que essa aplicação esteja visível. Se trata de uma campanha publicitária, confirme o trabalho ou a peça específica. A mesma marca pode ter várias campanhas na mesma página.',
     'Quando houver evidência, use campaign.visualContext com subject, entities (nomes completos), campaignName, year (número), mediaType, searchQueries, preferredSources (páginas HTTPS) e excludedSubjects (assuntos, peças ou imagens a evitar). Use slides[].visualContext com visualIntent, searchQueries, preferredSourceUrls e imageType para informações específicas da peça. Escreva as consultas no idioma original das fontes.',
     'Em slides[].visualContext.visualIntent, descreva os elementos visíveis que identificam a imagem. Use nomes de produtos e do projeto e, se ajudar, os termos encontrados na fonte. Por exemplo, se a fonte em inglês identifica esses objetos, use "yellow Chocoberry label green mug". Reserve a finalidade narrativa e a composição para imageBrief, em português.',
@@ -166,7 +170,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     ...editorialInstructions,
     'Retorne somente JSON v1 válido, com schemaVersion 1. Mantenha os campos obrigatórios, a ordem e a quantidade de peças do modelo. Preencha os textos e liste apenas referências verificáveis. Para sources[].publishedAt, use AAAA-MM-DD quando apenas a data for conhecida (não invente horário), ISO 8601 com fuso quando a hora estiver confirmada, ou null se desconhecida. Preserve o link original.',
     'Em slides[].visualContext.visualCandidates, inclua de preferência uma referência principal e até duas alternativas que mostrem o mesmo objeto, em ordem de preferência. Cada item da lista é um objeto com três campos:',
-    '- imageUrl — URL HTTPS direta do arquivo de imagem que você conseguiu abrir e inspecionar.',
+    '- imageUrl — opcional: URL HTTPS direta do arquivo de imagem que você conseguiu abrir e inspecionar. Omita quando só conhecer a página.',
     '- sourceUrl — URL HTTPS da página que você abriu e na qual encontrou aquele arquivo.',
     '- description — até 240 caracteres descrevendo o que aparece na imagem e qual detalhe a liga ao slide. Priorize elementos observáveis e informações identificadas pela fonte.',
     'O primeiro slide do modelo mostra onde fica a lista opcional. Use a mesma estrutura nos demais slides com candidatos verificados.',

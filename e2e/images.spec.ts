@@ -16,8 +16,10 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await page.locator('.news-story').getByRole('button', { name: 'Criar carrossel', exact: true }).first().click()
   await page.getByRole('button', { name: 'Editar briefing', exact: true }).click()
   await page.getByLabel('Quantidade de slides').selectOption('2')
+  await expect(page.getByLabel('Quantidade de slides')).toHaveValue('2')
   await page.getByRole('button', { name: 'Gerar prompt para IA', exact: true }).click()
   await expect(page.getByLabel('Prompt editorial')).toHaveValue(/Separe fatos verificáveis/)
+  await expect(page.getByLabel('Prompt editorial')).toHaveValue(/peças: 2\b/)
   await page.getByLabel('Conteúdo em JSON ou Markdown').fill(JSON.stringify({
     schemaVersion: 1, campaign: { title: 'Acervo de teste', objective: 'Educar', audience: 'Designers', tone: 'Profissional', format: 'carousel', caption: 'Legenda original da campanha.', cta: '' },
     slides: [{ order: 1, role: 'cover', title: 'Pátios urbanos', body: 'A luz organiza o espaço.', imageBrief: '', layoutType: 'text' },
@@ -31,7 +33,7 @@ test('notícia vira carrossel com headline, Openverse, Auditoria, ZIP e backup',
   await page.getByRole('button', { name: 'Salvar e abrir no Studio' }).click()
   await expect(page.getByLabel('Projeto', { exact: true })).toHaveValue('Acervo de teste')
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
-  await page.getByRole('button', { name: /^2 ·/ }).click()
+  await page.locator('.studio-tools button[data-semantic="title"]').click()
   await page.getByLabel('Texto do elemento').fill('Fachadas e pátios')
   await page.getByText('Propriedades avançadas', { exact: true }).click()
   await page.getByLabel('Largura', { exact: true }).fill('700')

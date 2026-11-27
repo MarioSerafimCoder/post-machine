@@ -32,7 +32,7 @@ test('compara, aplica, preserva a arte e reabre headlines', async ({ page }) => 
   await expect(page.getByLabel('Título', { exact: true })).toHaveValue(title)
   await page.getByRole('button', { name: 'Salvar e abrir no Studio' }).click()
   await page.getByRole('button', { name: 'Camadas', exact: true }).click()
-  const layer = page.getByRole('button', { name: /^2 ·/ })
+  const layer = page.locator('.studio-tools button[data-semantic="title"]')
   await layer.click()
   const text = page.getByLabel('Texto do elemento')
   const size = page.getByLabel('Tamanho da fonte')

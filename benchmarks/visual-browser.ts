@@ -4,18 +4,22 @@ import { campaignContext, type VisualCopy } from '../src/features/images/visualC
 import { investigateVisuals } from '../src/features/images/searchOrchestrator'
 import '../src/features/studio/objects'
 
-type Pauta = { id: string; title: string; url: string; imageBrief: string; detail?: string }
-type Version = 'old' | 'a' | 'next'
-const historical = (version: 'old' | 'a', module: string) =>
+type Pauta = { id: string; title: string; url: string; imageBrief: string; detail?: string; slides?: VisualCopy[]; language?: 'en' | 'pt' }
+type Version = 'old' | 'a' | 'evolution14-reference' | 'evolution142-reference' | 'evolution14-local' | 'closure-next' | 'next'
+type Selection = { slide: number; url?: string; source?: string; classification?: string; fingerprint?: string }
+const historical = (version: Exclude<Version, 'next'>, module: string) =>
   import(/* @vite-ignore */ `/benchmarks/.baseline/${version}/src/features/images/${module}.ts`)
 
 export async function replay(version: Version, item: Pauta) {
-  const copy: VisualCopy[] = [{ title: item.title, imageBrief: item.imageBrief, role: 'cover' }]
-  if (item.detail) copy.push({ title: item.detail, imageBrief: item.detail, role: 'content' })
+  const copy: VisualCopy[] = item.slides ?? [{ title: item.title, imageBrief: item.imageBrief, role: 'cover' }]
+  if (!item.slides && item.detail) copy.push({ title: item.detail, imageBrief: item.detail, role: 'content' })
   const project = version + '-' + item.id
-  const campaign = campaignContext({ title: item.title, sources: [{ title: item.title, url: item.url }], slides: copy })
+  const contextInput = { title: item.title, sources: [{ title: item.title, url: item.url }], slides: copy,
+    visual: item.language ? { language: item.language } : undefined }
   const used = new Set<string>()
-  const output = []
+  const output: Selection[] = []
+  const status: Record<string, string> = {}
+  const traces: { stage: string; slide?: string; reason?: string; url?: string }[] = []
   const ctx = performance as Performance & { memory?: { usedJSHeapSize: number } }
   const start = performance.now()
   let firstMs: number | null = null
@@ -32,21 +36,33 @@ export async function replay(version: Version, item: Pauta) {
         classification: image.match.strategy })
     }
   } else {
-    const requests = copy.map((slide, index) => requestFor(project + '/' + index, slide, campaign, .8, 0, copy.filter(other => other !== slide))!)
-    const investigate: typeof investigateVisuals = version === 'a' ? (await historical('a', 'searchOrchestrator')).investigateVisuals : investigateVisuals
+    const reference = version === 'evolution14-reference' || version === 'evolution142-reference' || version === 'evolution14-local' || version === 'closure-next'
+    const buildContext: typeof campaignContext = reference ? (await historical(version, 'visualContext')).campaignContext : campaignContext
+    const buildRequest: typeof requestFor = reference ? (await historical(version, 'automaticSearch')).requestFor : requestFor
+    const campaign = buildContext(contextInput)
+    const requests = copy.flatMap((slide, index) => {
+      const request = buildRequest(project + '/' + index, slide, campaign, .8, 0, copy.slice(Math.max(0, index - 1), index + 2).filter(other => other !== slide))
+      return request ? [request] : []
+    })
+    const investigate: typeof investigateVisuals = version !== 'next' ? (await historical(version, 'searchOrchestrator')).investigateVisuals : investigateVisuals
     await investigate(requests, {
       used: () => used,
       image: (request: VisualRequest, image) => {
         firstMs ??= performance.now() - start
         image.keys.forEach(key => used.add(key))
         const credit = image.object.imageCredit as { originalUrl?: string; sourcePage?: string } | undefined
-        output.push({ slide: Number(request.slideId), url: credit?.originalUrl, source: credit?.sourcePage,
-          classification: image.match.classification, fingerprint: image.fingerprint })
+        const slide = Number(request.slideId)
+        const existing = output.findIndex(entry => entry.slide === slide)
+        const selected = { slide, url: credit?.originalUrl, source: credit?.sourcePage,
+          classification: image.match.classification, fingerprint: image.fingerprint }
+        if (existing < 0) output.push(selected)
+        else output[existing] = selected
       },
-      finish: () => undefined,
+      finish: (request, state) => { status[request.slideId] = state },
+      trace: event => { if (traces.length < 500) traces.push(event) },
     }, signal)
   }
-  return { firstMs, totalMs: performance.now() - start, heap: ctx.memory?.usedJSHeapSize, output }
+  return { firstMs, totalMs: performance.now() - start, heap: ctx.memory?.usedJSHeapSize, output, status, traces }
 }
 
 export async function oldQueries(item: Pauta) {

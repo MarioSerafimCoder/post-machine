@@ -22,6 +22,45 @@ const film: DocumentaryAsset = {
 }
 
 describe('inteligência visual documental', () => {
+  it('separa material recomendado e retratos de contexto da peça documental da pauta', () => {
+    const title = 'Could these brands change for the next film starring Alex Example?'
+    const url = 'https://www.example.com/brand-placement/'
+    const cover = { title, role: 'cover' }
+    const campaign = campaignContext({ title, sources: [{ title, url }], slides: [cover] })
+    const target = requestFor('project/cover', cover, campaign, .8)!
+    const portrait = { ...film, page: url, provider: 'original' as const, evidence: 'structured' as const,
+      title, url: 'https://www.example.com/alex-example.jpg', caption: 'Alex Example' }
+    expect(evaluateCandidate(portrait, target)).toMatchObject({ match: { classification: 'support' } })
+    const podcast = { ...portrait, evidence: 'body' as const, caption: 'Podcast on a different subject', section: 'Recommended programme' }
+    expect(evaluateCandidate(podcast, target)).toMatchObject({ rejected: true, reason: 'unrelated_media_in_article' })
+  })
+  it('exige que a imagem represente a inserção de produto pedida no detalhe', () => {
+    const detail = { title: 'Um exemplo de product placement', imageBrief: 'O product placement no filme', role: 'content' }
+    const target = requestFor('project/detail', detail, context, 1)!
+    expect(evaluateCandidate(film, target)).toMatchObject({ rejected: true, reason: 'specific_object_not_shown' })
+    expect(evaluateCandidate({ ...film, caption: film.caption + ' — product placement' }, target)).toMatchObject({ match: { classification: 'confirmed' } })
+  })
+  it('usa as entidades e incompatibilidades declaradas em cada slide', () => {
+    const detail = { title: 'O cenário da oficina', role: 'content',
+      visualContext: { subject: 'Oficina de marionetes', entities: ['Screen Novelties'], excludedSubjects: ['Macy’s'], year: 2026 } }
+    const target = requestFor('project/detail', detail, context, 1)!
+    expect(evaluateCandidate({ ...film, caption: 'How 15 Percent Saved Christmas at Macy’s' }, target))
+      .toMatchObject({ rejected: true, reason: 'excluded_subject' })
+    expect(evaluateCandidate(film, target)).toMatchObject({ rejected: true, reason: 'slide_subject_not_established' })
+    expect(evaluateCandidate({ ...film, caption: 'How 15 Percent Saved Christmas — oficina de marionetes na Screen Novelties' }, target))
+      .toMatchObject({ match: { classification: 'confirmed' } })
+  })
+  it('não confirma a nova identidade visual apenas pelo título de uma foto estruturada', () => {
+    const title = 'McLaren evolves its identity with a new wordmark'
+    const url = 'https://www.creativeboom.com/news/mclaren-identity/'
+    const identity = campaignContext({ title, sources: [{ title, url }], slides: [{ title, role: 'cover' }] })
+    const cover = requestFor('project/identity', { title, role: 'cover' }, identity, 1.2)!
+    const structured: DocumentaryAsset = { page: url, provider: 'original', evidence: 'structured',
+      title, url: 'https://media.creativeboom.com/images/hero.webp', width: 1280, height: 809, ticket: '' }
+    expect(evaluateCandidate(structured, cover)).toMatchObject({ match: { classification: 'related' } })
+    expect(evaluateCandidate({ ...structured, caption: 'The new McLaren wordmark applied to the car' }, cover))
+      .toMatchObject({ match: { classification: 'confirmed' } })
+  })
   it('leva o nome completo da campanha à busca mesmo quando a headline o omite', () => {
     expect(context.query).toBe('GEICO How 15% Saved Christmas stop-motion holiday film 2026')
     expect(context.names).toContain('Screen Novelties')

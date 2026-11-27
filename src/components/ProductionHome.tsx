@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { snapshotSchema, type Article, type Opportunity } from '../features/radar/contract'
-import { Icon, type IconName } from './Icon'
-import { productionOrigins, type ContentOrigin } from './productionOrigins'
+import { Icon } from './Icon'
 
-export function ProductionHome({ choose, startArticle, children }: {
-  choose: (origin: ContentOrigin) => void
+export function ProductionHome({ create, discover, startArticle, children }: {
+  create: () => void
+  discover: () => void
   startArticle: (article: Article) => Promise<void>
   children: ReactNode
 }) {
@@ -33,8 +33,13 @@ export function ProductionHome({ choose, startArticle, children }: {
   }
   return <>
     <div className="production-grid" aria-label="Origens do carrossel" role="group">
-      {productionOrigins.map(({ id, label, description }) => <button key={id} className="production-origin" data-origin={id} onClick={() => choose(id)}>
-        <span className="origin-symbol"><Icon name={({ import: 'news', radar: 'radar', blank: 'plus' } as Record<string, IconName>)[id]} /><Icon name="arrow" /></span><strong>{label}</strong><span>{description}</span>
+      {([
+        { id: 'import', label: 'Criar conteúdo', description: 'Cole uma resposta, importe um arquivo ou comece manualmente.', icon: 'plus', run: create },
+        { id: 'radar', label: 'Descobrir pautas', description: 'Use notícias e oportunidades do Radar para criar.', icon: 'radar', run: discover },
+        { id: 'resume', label: 'Continuar projeto', description: 'Retome um projeto ou uma preparação deste navegador.', icon: 'folder',
+          run: () => document.getElementById('resume-heading')?.focus() },
+      ] as const).map(({ id, label, description, icon, run }) => <button key={id} className="production-origin" data-origin={id} onClick={run}>
+        <span className="origin-symbol"><Icon name={icon} /><Icon name="arrow" /></span><strong>{label}</strong><span>{description}</span>
       </button>)}
     </div>
     {children}

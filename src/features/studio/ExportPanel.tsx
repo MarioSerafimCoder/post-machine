@@ -8,6 +8,7 @@ import { StudioDialog } from './StudioDialog'
 import { Thumbnail } from './Slides'
 import { exportFingerprint, useDeliveryStatus } from './delivery'
 import { dimensions, formatNames, type Project } from './model'
+import { visualDeliveryIssues } from './editorialAlternative'
 
 type Props = {
   project: Project; current: number; active: boolean
@@ -31,6 +32,9 @@ export function ExportPanel({ project, current, active, getCurrent, flush, revie
   const [includeCaption, setIncludeCaption] = useState(false)
   const [pending, setPending] = useState<Awaited<ReturnType<typeof exportProject>>>()
   const credits = useMemo(() => projectCredits(project), [project])
+  const visualIssues = visualDeliveryIssues(project)
+  const blocksExport = (finding: Finding) => finding.ruleId === 'VISUAL_DELIVERY' ||
+    ['IMAGE_MISSING', 'IMAGE_CORRUPT'].includes(finding.ruleId) && finding.severity === 'error' && finding.confidence === 'measured'
   const stale = !!pending && pending.source !== project
   const findings = pending?.findings.filter(finding => finding.severity !== 'info') ?? []
   const showing = [...findings].sort((a,b) => Number(b.severity === 'error') - Number(a.severity === 'error')).slice(0,8)
@@ -139,7 +143,7 @@ export function ExportPanel({ project, current, active, getCurrent, flush, revie
     <div className="export-filmstrip" aria-label="Prévia do carrossel">{project.slides.map((slide, index) => <figure key={slide.id}><Thumbnail scene={slide.scene} format={project.format} /><figcaption>Slide {String(index + 1).padStart(2, '0')}</figcaption></figure>)}</div>
     <div className="studio-export-files">
       <div className="studio-export-review"><span className="eyebrow">Revisão e entrega</span><p className="delivery-status">{!project.delivery && validReview ? 'Revisado · exportação pendente' : deliveryStatus}</p>
-        {validReview && <div className="review-totals">{[['Impedem exportação', validReview.findings.filter(f => ['IMAGE_MISSING', 'IMAGE_CORRUPT'].includes(f.ruleId) && f.severity === 'error' && f.confidence === 'measured').length], ['Recomendações', validReview.findings.filter(f => f.severity !== 'info' && !(['IMAGE_MISSING', 'IMAGE_CORRUPT'].includes(f.ruleId) && f.severity === 'error' && f.confidence === 'measured')).length], ['Sugestões', validReview.findings.filter(f => f.severity === 'info').length]].map(([label, count]) => <span key={label}><b>{count}</b>{label}</span>)}</div>}
+        {validReview && <div className="review-totals">{[['Impedem exportação', validReview.findings.filter(blocksExport).length], ['Recomendações', validReview.findings.filter(f => f.severity !== 'info' && !blocksExport(f)).length], ['Sugestões', validReview.findings.filter(f => f.severity === 'info').length]].map(([label, count]) => <span key={label}><b>{count}</b>{label}</span>)}</div>}
         {validReview && <p>{validReview.totalSlides} slides revisados · {validReview.findings.filter(f => f.autoFixAvailable).length} correções disponíveis</p>}
         <p>{reviewSummary ? <><strong>Revisão atual</strong> · {reviewSummary.errors} erros · {reviewSummary.warnings} avisos</> :
           review ? 'A revisão está desatualizada.' : 'Revisão do carrossel pendente.'}</p>
@@ -150,6 +154,7 @@ export function ExportPanel({ project, current, active, getCurrent, flush, revie
         </details>}
       </div>
       <div className="studio-actions">
+        {!!visualIssues.length && <div role="alert"><strong>Finalização visual pendente</strong><ul>{visualIssues.map(issue => <li key={issue}>{issue}</li>)}</ul></div>}
         <button className="export-primary" disabled={!!progress} onClick={() => void prepare(true)}>Exportar ZIP</button>
         <button disabled={!!progress} onClick={() => void prepare(false)}>Exportar PNG</button>
         <button disabled={!!progress} onClick={() => void prepare(true, true)}>Todos os PNGs</button>

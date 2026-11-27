@@ -4,6 +4,7 @@ import { automaticOriginal, fetchOriginal, searchImages, SearchLimit, thumbnailU
 import { creditText } from './credits'
 import type { AutomaticImage, VisualMatch, VisualRequest } from './automaticSearch'
 import { importVisualUrl, rememberManualVisual, visualAlternatives } from './searchOrchestrator'
+import { BraveAttribution } from './BraveBudgetStatus'
 import './images.css'
 
 export type InsertImage = (file: File, credit?: ImageCredit, signal?: AbortSignal, match?: VisualMatch) => Promise<void>
@@ -45,10 +46,11 @@ export function StudioImageSearch({ initialTerm, request, used, insert }: {
     search.current = controller
     setSearching(true); setSearchNotice(''); setFound([])
     try {
-      const { results, searched } = await visualAlternatives(request, used, controller.signal, query)
+      const { results, searched, state } = await visualAlternatives(request, used, controller.signal, query)
       if (controller.signal.aborted) return
       setFound(results)
-      setSearchNotice(!searched ? 'A busca contextual está indisponível. Você pode usar o Openverse ou importar uma imagem.'
+      setSearchNotice(state === 'limited' ? 'Limite de pesquisa Brave atingido. Use o Openverse ou importe uma imagem.'
+        : !searched ? 'A busca contextual está indisponível. Você pode usar o Openverse ou importar uma imagem.'
         : results.length === 0 ? 'A busca não encontrou imagens adequadas para este slide.' : '')
     } catch {
       if (!controller.signal.aborted) setSearchNotice('A busca contextual falhou. Tente novamente.')
@@ -90,16 +92,20 @@ export function StudioImageSearch({ initialTerm, request, used, insert }: {
     .sort((left, right) => Number(right.match.classification === 'confirmed') - Number(left.match.classification === 'confirmed'))
     .slice(0, 8)
   return <section className="image-workspace studio-image-search" aria-label="Pesquisa de imagens do slide">
+    <BraveAttribution />
     {!!results.length && <div className="image-gallery" aria-label="Alternativas para este slide">
       {results.map(image => {
         const credit = image.object.imageCredit as ImageCredit
         return <article key={image.id} className="image-card">
           <img src={String(image.object.src)} alt={credit.title || 'Imagem da fonte'} loading="lazy" />
           <strong>{credit.title || credit.source || 'Imagem da fonte'}</strong>
-          <small>{image.match.classification === 'confirmed' ? 'Material documental' : 'Confira a relação com a pauta'}</small>
+          <small>{image.match.classification === 'confirmed' ? 'Material documental' :
+            image.match.classification === 'support' ? 'Apoio editorial' : 'Confira a relação com a pauta'}</small>
           <small>{credit.license ? licenseName(credit.license) : 'Licença não informada'} · {String(image.object.width)} × {String(image.object.height)} px</small>
           {credit.sourcePage && <a href={credit.sourcePage} target="_blank" rel="noreferrer">Conferir fonte</a>}
-          <button type="button" disabled={inserting} onClick={() => void apply(image)}>Aplicar ao slide</button>
+          <button type="button" disabled={inserting} onClick={() => void apply(image)}>
+            {image.match.classification === 'support' ? 'Usar fotografia de apoio' : 'Aplicar ao slide'}
+          </button>
         </article>
       })}
     </div>}

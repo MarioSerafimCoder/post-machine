@@ -8,6 +8,21 @@ const pendingPhotographs = new Map<string, PendingPhotographs>()
 let blockedUntil = 0
 const maxBytes = 20_000_000
 const types = ['image/png', 'image/jpeg', 'image/webp']
+const preference = 'post-machine:openverse-paused'
+
+export function openverseEnabled() {
+  try { return localStorage.getItem(preference) !== '1' } catch { return true }
+}
+
+export function setOpenverseEnabled(enabled: boolean) {
+  if (enabled) localStorage.removeItem(preference)
+  else {
+    localStorage.setItem(preference, '1')
+    for (const pending of pendingPhotographs.values()) pending.controller.abort()
+    pendingPhotographs.clear()
+    cache.clear()
+  }
+}
 
 function retryDelay(header: string | null, now: number) {
   if (header === null) return 60_000
@@ -20,6 +35,7 @@ export class SearchLimit extends Error {
   constructor(readonly until: number) { super('Limite de buscas do Openverse atingido. Tente novamente depois.'); this.name = 'SearchLimit' }
 }
 export async function searchImages(search: Search, signal: AbortSignal) {
+  if (!openverseEnabled()) throw Error('A pesquisa Openverse foi pausada neste navegador.')
   if (!search.photographs && !search.illustrations) return fetchResults(search, signal)
   signal.throwIfAborted()
   const key = JSON.stringify(search)

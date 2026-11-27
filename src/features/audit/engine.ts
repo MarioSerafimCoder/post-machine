@@ -4,6 +4,7 @@ import { loadFonts } from '../studio/fonts'
 import { verifySceneLoaded } from '../studio/sceneIntegrity'
 import { defaultSettings, rules, type AuditReport, type AuditTarget, type Finding } from './contract'
 import { inspectCanvas } from './rules'
+import { visualDeliveryIssues } from '../studio/editorialAlternative'
 
 async function diagnoseUnreadableImages(slide: VisualSlide, slideNumber: number, signal?: AbortSignal) {
   const findings: Finding[] = []
@@ -38,6 +39,11 @@ export async function auditProject({project,slideIndex,settings=project.auditSet
  for(const [done,index] of indices.entries()){
   if(signal?.aborted)throw new DOMException('Auditoria cancelada','AbortError')
   const slide=project.slides[index];if(!slide)throw Error('Slide não encontrado.')
+  for (const issue of visualDeliveryIssues(project, index)) findings.push({ id: `${slide.id}:VISUAL_DELIVERY`,
+    ruleId: 'VISUAL_DELIVERY', severity: 'error', category: 'image', slideId: slide.id, slideNumber: index + 1,
+    objectId: null, message: 'Recepção visual pendente', details: issue,
+    suggestion: 'Confira a fonte, importe um arquivo ou confirme uma alternativa editorial pertinente no painel Imagens.',
+    autoFixAvailable: false, confidence: 'unverifiable' })
   const canvas=new StaticCanvas(document.createElement('canvas'),{width:dimensions[project.format][0],height:dimensions[project.format][1],enableRetinaScaling:false})
   try {
     try { await canvas.loadFromJSON(slide.scene, undefined, { signal }); verifySceneLoaded(canvas, slide.scene) }

@@ -141,7 +141,7 @@ export function Campaigns({ request, active, onBack, onDesign }: {
         setEditorRevision(current => current + 1)
       }
       setStatus('Campanha salva.')
-      if (destination !== 'save' && saved.content) onDesign(saved, destination === 'express' ? 'express' : undefined)
+      if (destination !== 'save' && saved.content) onDesign(saved, destination === 'express' ? 'express' : 'smart')
     } catch (failure) {
       if (failure instanceof CampaignConflict) {
         setError('A campanha mudou em outra aba. Exporte um backup antes de recarregar; o Studio não foi aberto.')
@@ -368,11 +368,17 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
     } catch { /* A etapa continua disponível nesta sessão. */ }
   }
   const { article, briefing } = draft
+  const pendingBriefing = useRef<{ base: Briefing; value: Briefing }>(undefined)
+  const latestBriefing = () => pendingBriefing.current?.base === briefing ? pendingBriefing.current.value : briefing
   const deferred = useDeferredValue(draft)
   const { history } = useEditorialMemory()
   const recommendations = useMemo(() => active ? recommend(deferred, preference => preferenceFor(history, campaignScope(deferred), preference)) : [], [active, deferred, history])
   const findings = useMemo(() => active ? reviewEditorial(deferred) : [], [active, deferred])
-  const editBriefing = (changes: Partial<Briefing>) => update({ ...draft, briefing: { ...briefing, ...changes } })
+  const editBriefing = (changes: Partial<Briefing>) => {
+    const value = { ...latestBriefing(), ...changes }
+    pendingBriefing.current = { base: briefing, value }
+    update({ ...draft, briefing: value })
+  }
   const editContent = (content: Content) => update({ ...draft, content })
   const changeRaw = (value: string) => {
     setRaw(value)
@@ -382,7 +388,8 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
   }
 
   function generate() {
-    update({ ...draft, prompt: createPrompt(draft, briefingInstructions(draft, recommend(draft))), promptBriefing: briefing })
+    const current = { ...draft, briefing: latestBriefing() }
+    update({ ...current, prompt: createPrompt(current, briefingInstructions(current, recommend(current))), promptBriefing: current.briefing })
     setCopyStatus('')
   }
 
@@ -410,8 +417,9 @@ function Editor({ draft, active, update, onPreferences, onRawChange, externalErr
 
   function importResponse() {
     try {
-      const content = importContent(raw, draft)
-      editContent(content)
+      const current = { ...draft, briefing: latestBriefing() }
+      const content = importContent(raw, current)
+      update({ ...current, content })
       rememberReply(false)
       changeRaw('')
       setCopyStatus('')
