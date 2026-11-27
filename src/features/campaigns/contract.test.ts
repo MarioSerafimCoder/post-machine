@@ -41,10 +41,15 @@ describe('contrato editorial', () => {
       expect(sample).toContain('para imageBrief, em português')
       const model = JSON.parse(sample.slice(sample.lastIndexOf('\n\n') + 2))
       expect(model.slides).toHaveLength(count)
-      expect(model.slides[0].visualContext).toEqual({ visualCandidates: [] })
+      expect(model.campaign.visualContext.preferredSources).toContain(article.url)
+      expect(model.slides.every((slide: { visualContext?: object }) => !!slide.visualContext)).toBe(true)
+      expect(model.slides.every((slide: { visualContext?: { searchQueries?: string[]; preferredSourceUrls?: string[]; visualCandidates?: unknown[] } }) =>
+        slide.visualContext?.searchQueries?.length === 0 && slide.visualContext.preferredSourceUrls?.length === 0 &&
+        slide.visualContext.visualCandidates?.length === 0)).toBe(true)
       const filled = { ...model, campaign: { ...model.campaign, title: 'Campanha' },
         slides: model.slides.map((slide: object) => ({ ...slide, title: 'Peça' })) }
-      expect(importContent(JSON.stringify(filled)).slides[0].visualContext).toEqual({ visualCandidates: [] })
+      expect(importContent(JSON.stringify(filled)).campaign.visualContext?.subject).toBe(article.title)
+      expect(importContent(JSON.stringify(filled)).slides[0].visualContext?.visualCandidates).toEqual([])
     }
   })
 

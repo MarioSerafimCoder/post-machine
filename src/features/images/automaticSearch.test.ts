@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { evaluateCandidate, evaluateCatalog, prioritizedImageQueries, requestFor, similarImage } from './automaticSearch'
+import { relevance } from './searchOrchestrator'
 import type { DocumentaryAsset } from './documentaryContract'
 import { campaignContext, needsImage, researchUrl } from './visualContext'
 import { narrativeAssignment } from './visualAllocation'
@@ -156,5 +157,35 @@ describe('inteligência visual documental', () => {
     const otherCampaign = { ...film, url: 'https://www.geico.com/weekend.jpg', caption: 'Weekend Escape — bonecos na oficina' }
     expect(evaluateCandidate(otherCampaign, target, { cited: true, requireIntent: true }))
       .toMatchObject({ rejected: true, reason: 'campaign_not_established_on_asset' })
+  })
+  it('oferece para revisão imagens da matéria quando a URL direta indicada não existe', () => {
+    const denverPage = 'https://www.creativebloq.com/news/denver-design-districts-rebrand-is-the-ultimate-love-letter-to-creativity'
+    const denverTitle = 'Denver Design District’s rebrand is the ultimate love letter to creativity'
+    const slide = { title: 'Uma identidade com movimento', body: 'O símbolo conecta o distrito à comunidade.',
+      role: 'content', imageBrief: 'Detalhe do símbolo com três letras D', visualContext: {
+        visualIntent: 'Open by Design mark with three D shapes', visualCandidates: [{
+          imageUrl: 'https://cdn.mos.cms.futurecdn.net/missing-image.jpg', sourceUrl: denverPage,
+          description: 'Símbolo formado por três letras D.',
+        }],
+      } }
+    const campaign = campaignContext({ title: denverTitle, sources: [{ title: denverTitle, url: denverPage }], visual: {
+      subject: denverTitle, campaignName: 'Open by Design', entities: ['Denver Design District', 'Wunder Werkz'],
+    }, slides: [slide] })
+    const target = requestFor('project/denver-slide', slide, campaign, 1)!
+    const asset: DocumentaryAsset = { page: denverPage, provider: 'original', evidence: 'figure',
+      url: 'https://cdn.mos.cms.futurecdn.net/brand-image.jpg', title: denverTitle,
+      description: 'Wunder Werkz mixes architectural heritage with playful design.',
+      caption: 'Denver Design District rebrand', width: 1920, height: 1080, ticket: '',
+    }
+    const candidate = { credit: { schemaVersion: 1 as const, provider: 'original' as const, sourceId: 'denver-image',
+      retrievedAt: '2026-11-27T12:00:00Z', originalUrl: asset.url, sourcePage: denverPage }, document: asset,
+      download: async () => new File([], 'denver.jpg', { type: 'image/jpeg' }) }
+
+    expect(relevance(candidate, target)).toMatchObject({ match: { classification: 'related', referenceReview: true } })
+    let rejectedReason = ''
+    const incompatible = relevance({ ...candidate, document: { ...asset, caption: 'Campaign: "Another District Design"' } }, target,
+      false, reason => { rejectedReason = reason })
+    expect(rejectedReason).toBe('different_campaign')
+    expect(incompatible).toBeUndefined()
   })
 })

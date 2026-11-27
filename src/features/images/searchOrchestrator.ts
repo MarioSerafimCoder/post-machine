@@ -274,7 +274,7 @@ function catalog(request: VisualRequest, pool: Pool, signal: AbortSignal, query:
   })
 }
 
-function relevance(candidate: Candidate, request: VisualRequest, manual = false, onReject?: (reason: string, classification: DocumentaryClass) => void, onReferenceFailure?: (reason: VisualFailure) => void) {
+export function relevance(candidate: Candidate, request: VisualRequest, manual = false, onReject?: (reason: string, classification: DocumentaryClass) => void, onReferenceFailure?: (reason: VisualFailure) => void) {
   if (!candidate.document) {
     const metadata = candidate.metadata ?? ''
     const fit = evaluateCatalog(candidate.credit, metadata, request, !!candidate.illustrated)
@@ -286,6 +286,12 @@ function relevance(candidate: Candidate, request: VisualRequest, manual = false,
     return object.length >= 2 && object.every(term => asset.includes(' ' + term + ' ')) ? fit : undefined
   }
   const asset = candidate.document
+  const primarySource = request.campaign.sources[0]
+  const primaryArticleImage = !!(primarySource && ['original', 'official'].includes(asset.provider) &&
+    researchUrl(primarySource.url)?.href === researchUrl(asset.page)?.href &&
+    phraseKey(asset.title ?? '') === phraseKey(primarySource.title) &&
+    (['figure', 'structured', 'body', 'poster'].includes(asset.evidence) || asset.evidence === 'social' && asset.leadImage))
+  const reviewablePrimaryImage = primaryArticleImage
   const isCited = (hint: CampaignContext['visualCandidates'][number]) => {
     const page = researchUrl(hint.sourceUrl)?.href
     const url = hint.imageUrl
@@ -301,6 +307,10 @@ function relevance(candidate: Candidate, request: VisualRequest, manual = false,
     const contradiction = ['excluded_subject', 'different_campaign', 'different_year', 'synthetic_media_disclosed',
       'unrelated_media_in_article', 'generic_or_conceptual'].includes(fit.reason)
     onReject?.(fit.reason, contradiction ? 'incompatible' : 'insufficient')
+    if (reviewablePrimaryImage && slideRank < 0 && !contradiction && fit.reason !== 'resolution_below_480') return {
+      score: 72, match: { strategy: 'documental-expandida' as const, classification: 'related' as const, referenceReview: true as const,
+        reason: 'Imagem extraída da matéria de origem; confira se corresponde exatamente ao objeto deste slide.' },
+    }
     if (slideRank < 0 || contradiction || fit.reason === 'resolution_below_480') {
       if (slideRank >= 0) onReferenceFailure?.(fit.reason === 'resolution_below_480' ? 'incompatible' : 'contradiction')
       return
@@ -312,6 +322,11 @@ function relevance(candidate: Candidate, request: VisualRequest, manual = false,
   if (fit.match.classification === 'support' && request.copy.visualContext?.allowEditorialSupport === false) {
     onReject?.('editorial_support_not_permitted', 'support')
     return
+  }
+  if (fit.match.classification === 'related' && reviewablePrimaryImage && slideRank < 0) return {
+    ...fit, score: fit.score + 17,
+    match: { ...fit.match, referenceReview: true as const,
+      reason: 'Imagem da matéria de origem recebida; confira se ela mostra o objeto pedido pelo slide.' },
   }
   return { ...fit, score: fit.score + (slideRank >= 0 && fit.match.classification === 'confirmed' ? 64 * (6 - slideRank) : cited ? 6 : 0) }
 }

@@ -116,17 +116,23 @@ export function draftFromReference(reference: Reference, preferences: Preference
 
 export function createPrompt({ article, briefing, title, creativeOrigin, opportunity, content }: Draft, editorialInstructions: readonly string[] = []) {
   const count = slideCount(briefing)
+  const visualSubject = article?.title ?? opportunity?.articles[0]?.title ?? title
+  const visualSources = opportunity?.articles.map(source => source.url) ?? (article ? [article.url] : [])
   const example: Content = {
     schemaVersion: 1,
     campaign: {
       title: '', objective: briefing.objective, audience: briefing.audience.trim(), tone: briefing.tone,
       format: briefing.format, caption: '', cta: '',
+      visualContext: {
+        subject: visualSubject.slice(0, 240), entities: [], searchQueries: [],
+        preferredSources: visualSources, excludedSubjects: [], visualCandidates: [],
+      },
     },
     sources: opportunity ? opportunity.articles.map(originalSource) : article ? [originalSource(article)] : creativeOrigin ? [creativeSource(creativeOrigin)] : [],
     slides: Array.from({ length: count }, (_, index) => ({
       id: content?.slides[index]?.id ?? crypto.randomUUID(), order: index + 1, role: index === 0 ? (count === 1 ? 'content' : 'cover') : index === count - 1 ? 'cta' : 'content',
       title: '', body: '', imageBrief: '', layoutType: 'editorial',
-      ...(index === 0 ? { visualContext: { visualCandidates: [] } } : {}),
+      visualContext: { searchQueries: [], preferredSourceUrls: [], visualCandidates: [] },
     })),
   }
   const context = article ? {
@@ -162,7 +168,7 @@ export function createPrompt({ article, briefing, title, creativeOrigin, opportu
     'Registre documentaryRequired: true quando a afirmação depender de uma peça documental específica. Use referenceStatus: found, page_only, video_only ou unavailable conforme a pesquisa. Em videoUrl informe a referência audiovisual; um vídeo não equivale a um frame recebido. Se não houver referência utilizável, indique unavailable, preserve o briefing e explique a limitação no texto editorial.',
     'Não gere base64 nem exija anexos para este fluxo. Suas declarações de verificado serão conferidas: o aplicativo precisa baixar, decodificar, guardar localmente e aplicar cada arquivo ao slide antes de considerá-lo recebido.',
     'Para cada slide que pede imagem, procure um ativo que mostre exatamente o que o texto afirma. Se o slide trata da tipografia aplicada à embalagem, procure uma imagem em que essa aplicação esteja visível. Se trata de uma campanha publicitária, confirme o trabalho ou a peça específica. A mesma marca pode ter várias campanhas na mesma página.',
-    'Quando houver evidência, use campaign.visualContext com subject, entities (nomes completos), campaignName, year (número), mediaType, searchQueries, preferredSources (páginas HTTPS) e excludedSubjects (assuntos, peças ou imagens a evitar). Use slides[].visualContext com visualIntent, searchQueries, preferredSourceUrls e imageType para informações específicas da peça. Escreva as consultas no idioma original das fontes.',
+    'Preencha campaign.visualContext e slides[].visualContext no próprio JSON de exemplo: cada slide que pedir imagem deve ter visualIntent, imageType, consultas no idioma da fonte e preferredSourceUrls de páginas verificadas que mostrem o objeto. Em campaign.visualContext, use subject, entities (nomes completos), campaignName, year, mediaType, searchQueries, preferredSources e excludedSubjects quando houver evidência. Não invente campos nem referências.',
     'Em slides[].visualContext.visualIntent, descreva os elementos visíveis que identificam a imagem. Use nomes de produtos e do projeto e, se ajudar, os termos encontrados na fonte. Por exemplo, se a fonte em inglês identifica esses objetos, use "yellow Chocoberry label green mug". Reserve a finalidade narrativa e a composição para imageBrief, em português.',
     'Se a página estiver verificada, mas você não conseguir abrir ou identificar o arquivo direto, inclua apenas a página em preferredSourceUrls. Se estiver sem navegação, se a fonte estiver bloqueada ou se as evidências forem insuficientes, preserve o imageBrief e omita os candidatos não verificados. Não invente endereços de CDN, não reconstrua nomes de arquivos e não use links de resultados de busca como origem.',
     'Reserve campaign.visualContext.visualCandidates para referências gerais do trabalho. Prefira imagens distintas ao longo do carrossel e reserve uma foto exclusiva de detalhe para o slide que depende dela. Para um slide deliberadamente tipográfico, use imageBrief: "Somente texto". Se uma imagem solicitada estiver indisponível, mantenha o pedido original no briefing.',

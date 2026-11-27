@@ -180,10 +180,6 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
   if (asset.section && sectionNames.length && !count(sectionNames, local) &&
       /\b(?:roundup|round up|apanhado|giro|retrospectiva)\b/.test(phraseKey(asset.description)))
     return rejected('slide_subject_not_established')
-  const detailNames = campaign.names.filter(name => words(name).length >= 2 && contains(phraseKey(brief), phraseKey(name)))
-  if (copy.role !== 'cover' && detailNames.length && !count(detailNames, local) &&
-      !count(words(brief).filter(term => term.length > 3), assetLabel))
-    return rejected('slide_subject_not_established')
   if (/\b(?:collage|montage|montagem|colagem)\b/.test(assetLabel) &&
       !/\b(?:collage|montage|montagem|colagem)\b/.test(phraseKey(brief)))
     return rejected('generic_or_conceptual')
@@ -212,6 +208,10 @@ export function evaluateCandidate(asset: DocumentaryAsset, request: VisualReques
   const otherTitle = /\b(?:campaign|campanha|film|filme|trailer|commercial|comercial)\s*[:–—-]?\s*["“«‘']([^"”»’']{4,120})["”»’']/giu
   if (explicitCampaign && !contains(documentaryPhrase(caption), documentaryPhrase(explicitCampaign)) &&
       [...caption.matchAll(otherTitle)].some(match => !contains(documentaryPhrase(match[1]), documentaryPhrase(explicitCampaign)))) return rejected('different_campaign')
+  const detailNames = campaign.names.filter(name => words(name).length >= 2 && contains(phraseKey(brief), phraseKey(name)))
+  if (copy.role !== 'cover' && detailNames.length && !count(detailNames, local) &&
+      !count(words(brief).filter(term => term.length > 3), assetLabel))
+    return rejected('slide_subject_not_established')
   const named = count(campaign.names, text)
   const subject = count(campaign.primary, text)
   const year = copy.visualContext?.year ?? (typeof campaign.year === 'number' ? campaign.year : undefined)

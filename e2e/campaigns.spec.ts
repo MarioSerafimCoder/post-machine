@@ -36,7 +36,8 @@ test('notícia real vira briefing, prompt e campanha editável com backup', asyn
   expect(pastedPrompt).toContain('yellow Chocoberry label green mug')
   const copiedModel = JSON.parse(pastedPrompt.replace(/\r\n/g, '\n').trim().split('\n\n').at(-1)!)
   expect(copiedModel.slides.map((slide: { order: number }) => slide.order)).toEqual([1, 2])
-  expect(copiedModel.slides[0].visualContext).toEqual({ visualCandidates: [] })
+  expect(copiedModel.campaign.visualContext.preferredSources).toContain(url)
+  expect(copiedModel.slides[0].visualContext).toMatchObject({ searchQueries: [], preferredSourceUrls: [], visualCandidates: [] })
   await page.getByRole('button', { name: 'Colar resposta desta campanha' }).press('Enter')
   await expect(page.getByLabel('Conteúdo em JSON ou Markdown')).toBeFocused()
   await page.reload()
@@ -123,7 +124,8 @@ test('importa a resposta do GPT de um post único com datas parciais e abre o St
   const prompt = await page.evaluate(() => navigator.clipboard.readText())
   const model = JSON.parse(prompt.replace(/\r\n/g, '\n').trim().split('\n\n').at(-1)!)
   expect(model.slides).toHaveLength(1)
-  expect(model.slides[0].visualContext).toEqual({ visualCandidates: [] })
+  expect(model.campaign.visualContext).toBeDefined()
+  expect(model.slides[0].visualContext).toMatchObject({ searchQueries: [], preferredSourceUrls: [], visualCandidates: [] })
   await page.getByRole('button', { name: 'Colar resposta desta campanha' }).click()
 
   const sources = [
